@@ -5,20 +5,26 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
-        // Texto del mensaje
-        const texto = args.join(" ") || "📢 Mensaje para todos:";
+        // Texto que envía el admin
+        const texto = args.join(" ").trim() || "Mensaje para todos:";
 
-        // Obtener todos los participantes
-        const participantes = ctx.groupMetadata.participants.map(p => p.id);
+        // Lista de participantes del grupo
+        const participantes = ctx.groupMetadata.participants.map(u => u.id);
 
-        // Convertir a formato @tag por línea
-        const tagsLista = participantes
-            .map(j => "@" + j.split("@")[0])
+        // Crear lista @tag por línea
+        const listaTags = participantes
+            .map(id => "@" + id.split("@")[0])
             .join("\n");
 
-        await sock.sendMessage(jid, {
-            text: `👥 *Mención a todos*\n\n${texto}\n\n${tagsLista}`,
-            mentions: participantes
-        }, { quoted: msg });
+        const mensaje = `${texto}\n\n${listaTags}`;
+
+        await sock.sendMessage(
+            jid,
+            {
+                text: mensaje,
+                mentions: participantes
+            },
+            { quoted: msg }
+        );
     }
 };
