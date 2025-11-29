@@ -7,31 +7,26 @@ export default {
         try {
             const jid = msg.key.remoteJid;
 
-            // Si responde a un mensaje
-            let q = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+            // Mensaje citado
+            const quoted = msg.quoted;
 
-            let mime = null;
-            let buffer = null;
-
-            // Detectar imagen citada
-            if (q?.imageMessage) {
-                mime = q.imageMessage.mimetype;
-                buffer = await msg.quoted.download();
+            if (!quoted || !quoted.message || !quoted.message.imageMessage) {
+                return sock.sendMessage(jid, { text: "📸 Responde a una *imagen* para convertir a URL." });
             }
 
-            // Detectar imagen enviada directamente
-            else if (msg.message?.imageMessage) {
-                mime = msg.message.imageMessage.mimetype;
-                buffer = await sock.downloadMediaMessage(msg);
-            }
+            // ↓↓↓ ESTA FUNCIÓN SÍ EXISTE EN TU BASE ↓↓↓
+            const buffer = await quoted.download();
 
             if (!buffer) {
-                return sock.sendMessage(jid, { text: "📸 Envía o responde a una *imagen*." });
+                return sock.sendMessage(jid, { text: "❌ No pude descargar la imagen." });
             }
 
-            sock.sendMessage(jid, { text: "⏳ Subiendo imagen..." });
+            sock.sendMessage(jid, { text: "⏳ Subiendo a ImgBB..." });
 
             const apiKey = "6d3b9f27859e88c0c7f387672d2dd4c9";
+
+            // ImgBB requiere la imagen en BASE64
+            let base64 = buffer.toString("base64");
 
             let res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
                 method: "POST",
@@ -39,21 +34,23 @@ export default {
                     "Content-Type": "application/x-www-form-urlencoded"
                 },
                 body: new URLSearchParams({
-                    image: buffer.toString("base64")
+                    image: base64
                 })
             });
 
             let json = await res.json();
 
             if (!json.success) {
-                return sock.sendMessage(jid, { text: "❌ Error subiendo imagen." });
+                return sock.sendMessage(jid, { text: "❌ Error subiendo la imagen a ImgBB." });
             }
 
-            sock.sendMessage(jid, { text: `✅ URL generada:\n${json.data.url}` });
+            let url = json.data.url;
+
+            return sock.sendMessage(jid, { text: `✅ *URL generada:*\n${url}` });
 
         } catch (e) {
             console.log("ERROR TOUR:", e);
-            sock.sendMessage(msg.key.remoteJid, { text: "❌ Error procesando la imagen." });
+            return sock.sendMessage(msg.key.remoteJid, { text: "❌ Error procesando la imagen." });
         }
     }
 };
