@@ -6,13 +6,8 @@ import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
 
-import { handleMessage } from "./handler.js";
-
-// __dirname FIX (ES MODULES)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { handleMessage, loadPlugins } from "./handler.js";
 
 const {
     default: makeWASocket,
@@ -24,7 +19,9 @@ async function startBot() {
 
     console.log("🚀 Iniciando ADRIBOT...");
 
+    // =====================
     // SESIONES
+    // =====================
     const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
     const sock = makeWASocket({
@@ -36,10 +33,10 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    // ----------------------------------
-    // CONEXIÓN
-    // ----------------------------------
-    sock.ev.on("connection.update", update => {
+    // =====================
+    // ESTADO DE CONEXIÓN
+    // =====================
+    sock.ev.on("connection.update", async update => {
         const { connection, lastDisconnect } = update;
 
         if (connection === "open") {
@@ -53,43 +50,24 @@ async function startBot() {
                 console.log("♻️ Reconectando...");
                 startBot();
             } else {
-                console.log("❌ Sesión cerrada. Borra la carpeta /sessions/");
+                console.log("❌ Sesión cerrada. Borra /sessions/");
             }
         }
     });
 
-    // ----------------------------------
+    // =====================
     // CARGA DE PLUGINS
-    // ----------------------------------
-    global.plugins = [];
-    const pluginsDir = path.join(__dirname, "plugins");
-
+    // =====================
     console.log("📦 Cargando plugins...");
+    await loadPlugins();   // ← MUY IMPORTANTE
+    console.log("✅ Plugins cargados correctamente");
 
-    const files = fs.readdirSync(pluginsDir);
-
-    for (const file of files) {
-        if (file.endsWith(".js")) {
-            const pluginPath = path.resolve(pluginsDir, file);
-
-            try {
-                const plugin = await import(`file://${pluginPath}`);
-                global.plugins.push(plugin.default);
-
-                console.log(`🔥 Plugin cargado: ${file}`);
-            } catch (err) {
-                console.log(`❌ Error cargando plugin ${file}:`, err);
-            }
-        }
-    }
-
-    // ----------------------------------
-    // MANEJO DE MENSAJES
-    // ----------------------------------
+    // =====================
+    // RECEPCIÓN DE MENSAJES
+    // =====================
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const msg = messages[0];
         if (!msg.message) return;
-
         await handleMessage(sock, msg);
     });
 }
