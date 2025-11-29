@@ -1,6 +1,6 @@
 export default {
     commands: ["n"],
-    admin: true,
+    admin: true,  // ← IMPORTANTE
 
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
