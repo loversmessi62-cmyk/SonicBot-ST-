@@ -23,7 +23,7 @@ export const loadPlugins = async () => {
 
 
 // =====================================================
-//         ⚡ HANDLER PRINCIPAL (FIX ADMIN LID)
+//        ⚡ HANDLER PRINCIPAL (FIX ADMIN LID)
 // =====================================================
 
 export const handleMessage = async (sock, msg) => {
@@ -31,23 +31,33 @@ export const handleMessage = async (sock, msg) => {
         const jid = msg.key.remoteJid;
         const isGroup = jid.endsWith("@g.us");
 
-        // ⚡ CAPTURAR SENDER EXACTO (LID/JID SIN CAMBIAR)
+        // JID ORIGINAL DEL SENDER
         const sender = msg.key.participant || msg.key.remoteJid;
 
         let metadata = null;
         let admins = [];
         let isAdmin = false;
 
+        // LID REAL DEL SENDER
+        let realSender = sender;
+
         if (isGroup) {
 
             metadata = await sock.groupMetadata(jid);
 
-            // ⚡ GUARDAR ADMINS SIN MODIFICAR ID
+            // Buscar el participante para obtener el LID correcto
+            const found = metadata.participants.find(p =>
+                p.jid === sender || p.id === sender
+            );
+
+            if (found) realSender = found.id;
+
+            // LISTA DE ADMINS (LID)
             admins = metadata.participants
                 .filter(p => p.admin)
-                .map(p => p.id); // <--- AQUÍ EL FIX (NO NORMALIZE)
+                .map(p => p.id);
 
-            isAdmin = admins.includes(sender);
+            isAdmin = admins.includes(realSender);
 
             console.log(`
 =======================
@@ -58,11 +68,11 @@ export const handleMessage = async (sock, msg) => {
 🟦 PARTICIPANTES RAW:
 ${JSON.stringify(metadata.participants, null, 2)}
 
-🟩 ADMINS DETECTADOS:
+🟩 ADMINS DETECTADOS (LID):
 ${JSON.stringify(admins, null, 2)}
 
 🟥 ERES ADMIN: ${isAdmin}
-🟦 TU ID: ${sender}
+🟦 TU ID REAL (LID): ${realSender}
 =======================
 `);
         }
@@ -86,7 +96,7 @@ ${JSON.stringify(admins, null, 2)}
         const plugin = plugins[command];
 
         // --------------------------------------
-        //      PROTECCIÓN SOLO ADMIN (FIJA)
+        //     PROTECCIÓN SOLO ADMIN (ARREGLADO)
         // --------------------------------------
         if (plugin.admin && !isAdmin) {
             return sock.sendMessage(jid, {
@@ -95,7 +105,7 @@ ${JSON.stringify(admins, null, 2)}
         }
 
         const ctx = {
-            sender,
+            sender: realSender,
             isAdmin,
             isGroup,
             groupMetadata: metadata
