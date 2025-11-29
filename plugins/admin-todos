@@ -3,26 +3,26 @@ import config from "../config.js";
 export default {
     commands: ["todos", "tagall", "invocar"],
 
-    run: async (sock, m, args, { isGroup, isAdmin, metadata }) => {
+    run: async (sock, msg, args, { isGroup }) => {
 
         if (!isGroup)
-            return sock.sendMessage(m.key.remoteJid, { text: config.messages.group }, { quoted: m });
+            return sock.sendMessage(msg.key.remoteJid, { text: config.messages.group });
 
-        if (!isAdmin)
-            return sock.sendMessage(m.key.remoteJid, { text: config.messages.admin }, { quoted: m });
+        const jid = msg.key.remoteJid;
 
+        const metadata = await sock.groupMetadata(jid);
         const participantes = metadata.participants;
-        const menciones = participantes.map(u => u.id);
 
         let texto = args.join(" ") || "📢 *Atención a todos!*";
-        let lista = "";
 
-        for (let p of participantes)
-            lista += `@${p.id.split("@")[0]}\n`;
+        let mensaje = `${texto}\n\n`;
+        let menciones = [];
 
-        await sock.sendMessage(m.key.remoteJid, {
-            text: `${texto}\n\n${lista}`,
-            mentions: menciones
-        });
+        for (let user of participantes) {
+            mensaje += `➤ @${user.id.split("@")[0]}\n`;
+            menciones.push(user.id);
+        }
+
+        await sock.sendMessage(jid, { text: mensaje, mentions: menciones });
     }
 };
