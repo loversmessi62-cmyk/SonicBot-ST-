@@ -1,15 +1,6 @@
 import fs from "fs";
 import path from "path";
 
-// ===============================
-//      NORMALIZAR JID
-// ===============================
-const normalize = (jid = "") => jid.split("@")[0].replace(/\D/g, "");
-
-// =================================
-//      SISTEMA DE PLUGINS
-// =================================
-
 export const plugins = {};
 
 export const loadPlugins = async () => {
@@ -30,31 +21,31 @@ export const loadPlugins = async () => {
     }
 };
 
-// =================================
-//        HANDLER PRINCIPAL
-// =================================
+
+// =====================================================
+//         ⚡ HANDLER PRINCIPAL (FIX ADMIN LID)
+// =====================================================
 
 export const handleMessage = async (sock, msg) => {
     try {
         const jid = msg.key.remoteJid;
         const isGroup = jid.endsWith("@g.us");
 
-        const senderJID = msg.key.participant || msg.key.remoteJid;
-        const sender = normalize(senderJID);
+        // ⚡ CAPTURAR SENDER EXACTO (LID/JID SIN CAMBIAR)
+        const sender = msg.key.participant || msg.key.remoteJid;
 
         let metadata = null;
         let admins = [];
         let isAdmin = false;
 
-        // ===============================
-        //        OBTENER ADMINS
-        // ===============================
         if (isGroup) {
+
             metadata = await sock.groupMetadata(jid);
 
+            // ⚡ GUARDAR ADMINS SIN MODIFICAR ID
             admins = metadata.participants
-                .filter(p => p.admin === "admin" || p.admin === "superadmin")
-                .map(p => normalize(p.id));
+                .filter(p => p.admin)
+                .map(p => p.id); // <--- AQUÍ EL FIX (NO NORMALIZE)
 
             isAdmin = admins.includes(sender);
 
@@ -76,9 +67,9 @@ ${JSON.stringify(admins, null, 2)}
 `);
         }
 
-        // ===============================
-        //     EXTRAER TEXTO / COMMAND
-        // ===============================
+        // -----------------------
+        //   TEXTO & COMANDO
+        // -----------------------
         const text =
             msg.message?.conversation ||
             msg.message?.extendedTextMessage?.text ||
@@ -90,24 +81,23 @@ ${JSON.stringify(admins, null, 2)}
         const args = text.slice(1).trim().split(/\s+/);
         const command = args.shift().toLowerCase();
 
-        if (!plugins[command]) {
-            console.log("❌ Comando no existe:", command);
-            return;
-        }
+        if (!plugins[command]) return;
 
         const plugin = plugins[command];
 
-        // ===============================
-        //      PROTECCIÓN DE ADMIN
-        // ===============================
+        // --------------------------------------
+        //      PROTECCIÓN SOLO ADMIN (FIJA)
+        // --------------------------------------
         if (plugin.admin && !isAdmin) {
-            return sock.sendMessage(jid, { text: "❌ *Solo los admins pueden usar este comando.*" });
+            return sock.sendMessage(jid, {
+                text: "❌ *Solo los administradores pueden usar este comando.*"
+            });
         }
 
         const ctx = {
             sender,
-            isGroup,
             isAdmin,
+            isGroup,
             groupMetadata: metadata
         };
 
