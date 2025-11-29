@@ -1,194 +1,119 @@
-// =========================
-//      HANDLER GLOBAL
-// =========================
+import fs from "fs";
+import path from "path";
 
-sock.ev.on("messages.upsert", async (chatUpdate) => {
+// ===============================
+//      NORMALIZAR JID
+// ===============================
+const normalize = (jid = "") => jid.split("@")[0].replace(/\D/g, "");
+
+// =================================
+//      SISTEMA DE PLUGINS
+// =================================
+
+export const plugins = {};
+
+export const loadPlugins = async () => {
     try {
-        const m = chatUpdate.messages[0];
-        if (!m.message) return;
+        const dir = "./plugins";
+        const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"));
 
-        // Tipo de mensaje y contexto
-        const from = m.key.remoteJid;
-        const isGroup = from.endsWith("@g.us");
-        const senderJid = m.key.participant || m.key.remoteJid;
-        
-        // Normalizar JID (usa solo números)
-        const normalizarID = (jid) => jid.split("@")[0].replace(/\D/g, "");
+        for (let file of files) {
+            const module = await import("file://" + path.resolve(`./plugins/${file}`));
+            const cmds = module.default.commands;
 
-        const sender = normalizarID(senderJid);
+            cmds.forEach(cmd => plugins[cmd] = module.default);
 
-        let groupMetadata = {};
-        let participants = [];
+            console.log(`🔥 Plugin cargado: ${file}`);
+        }
+    } catch (e) {
+        console.error("❌ Error cargando plugins:", e);
+    }
+};
+
+// =================================
+//        HANDLER PRINCIPAL
+// =================================
+
+export const handleMessage = async (sock, msg) => {
+    try {
+        const jid = msg.key.remoteJid;
+        const isGroup = jid.endsWith("@g.us");
+
+        const senderJID = msg.key.participant || msg.key.remoteJid;
+        const sender = normalize(senderJID);
+
+        let metadata = null;
         let admins = [];
         let isAdmin = false;
 
-        // =========================
-        //   INFO DE GRUPO / ADMINS
-        // =========================
+        // ===============================
+        //        OBTENER ADMINS
+        // ===============================
         if (isGroup) {
-            groupMetadata = await sock.groupMetadata(from);
-            participants = groupMetadata.participants || [];
+            metadata = await sock.groupMetadata(jid);
 
-            // Obtener admins reales
-            admins = participants
+            admins = metadata.participants
                 .filter(p => p.admin === "admin" || p.admin === "superadmin")
-                .map(p => p.id.split("@")[0]);
+                .map(p => normalize(p.id));
 
             isAdmin = admins.includes(sender);
-        }
 
-        // =========================
-        //   EXTRAER COMMAND
-        // =========================
-
-        const body = 
-            m.message?.conversation ||
-            m.message?.extendedTextMessage?.text ||
-            m.message?.imageMessage?.caption ||
-            m.message?.videoMessage?.caption ||
-            "";
-
-        const prefix = ".";
-        const isCmd = body.startsWith(prefix);
-        const command = isCmd ? body.slice(prefix.length).trim().split(" ")[0].toLowerCase() : "";
-        const args = body.trim().split(/ +/).slice(1);
-
-        // =========================
-        //   LOG IMPORTANTE
-        // =========================
-        console.log(`
+            console.log(`
 =======================
-📌 INFO DEL MENSAJE
+📌 INFO DEL GRUPO
 =======================
-👤 Sender JID: ${senderJid}
-🔢 Sender Normalizado: ${sender}
-🏷️ Grupo: ${isGroup ? groupMetadata.subject : "Privado"}
+👥 Participantes: ${metadata.participants.length}
 
-👥 Participantes RAW:
-${JSON.stringify(participants, null, 2)}
+🟦 PARTICIPANTES RAW:
+${JSON.stringify(metadata.participants, null, 2)}
 
-👑 ADMINS:
+🟩 ADMINS DETECTADOS:
 ${JSON.stringify(admins, null, 2)}
 
-🛡️ ¿ERES ADMIN?: ${isAdmin}
+🟥 ERES ADMIN: ${isAdmin}
+🟦 TU ID: ${sender}
 =======================
-        `);
-
-        // =========================
-        //   SISTEMA DE COMANDOS
-        // =========================
-
-        // Ejemplo de comando normal
-        if (command === "hola") {
-            return sock.sendMessage(from, { text: "¡Hola bro! 😎" });
+`);
         }
 
-        // Ejemplo de comando SOLO admins
-        if (command === "ban") {
-            if (!isGroup) return sock.sendMessage(from, { text: "❌ Este comando solo funciona en grupos." });
-            if (!isAdmin) return sock.sendMessage(from, { text: "❌ Solo los *admins* pueden usar este comando." });
-
-            return sock.sendMessage(from, { text: "✔ Usuario sido baneado (ejemplo)" });
-        }
-
-    } catch (e) {
-        console.error("❌ ERROR EN EL HANDLER:", e);
-    }
-});
-// =========================
-//      HANDLER GLOBAL
-// =========================
-
-sock.ev.on("messages.upsert", async (chatUpdate) => {
-    try {
-        const m = chatUpdate.messages[0];
-        if (!m.message) return;
-
-        // Tipo de mensaje y contexto
-        const from = m.key.remoteJid;
-        const isGroup = from.endsWith("@g.us");
-        const senderJid = m.key.participant || m.key.remoteJid;
-        
-        // Normalizar JID (usa solo números)
-        const normalizarID = (jid) => jid.split("@")[0].replace(/\D/g, "");
-
-        const sender = normalizarID(senderJid);
-
-        let groupMetadata = {};
-        let participants = [];
-        let admins = [];
-        let isAdmin = false;
-
-        // =========================
-        //   INFO DE GRUPO / ADMINS
-        // =========================
-        if (isGroup) {
-            groupMetadata = await sock.groupMetadata(from);
-            participants = groupMetadata.participants || [];
-
-            // Obtener admins reales
-            admins = participants
-                .filter(p => p.admin === "admin" || p.admin === "superadmin")
-                .map(p => p.id.split("@")[0]);
-
-            isAdmin = admins.includes(sender);
-        }
-
-        // =========================
-        //   EXTRAER COMMAND
-        // =========================
-
-        const body = 
-            m.message?.conversation ||
-            m.message?.extendedTextMessage?.text ||
-            m.message?.imageMessage?.caption ||
-            m.message?.videoMessage?.caption ||
+        // ===============================
+        //     EXTRAER TEXTO / COMMAND
+        // ===============================
+        const text =
+            msg.message?.conversation ||
+            msg.message?.extendedTextMessage?.text ||
+            msg.message?.imageMessage?.caption ||
             "";
 
-        const prefix = ".";
-        const isCmd = body.startsWith(prefix);
-        const command = isCmd ? body.slice(prefix.length).trim().split(" ")[0].toLowerCase() : "";
-        const args = body.trim().split(/ +/).slice(1);
+        if (!text.startsWith(".")) return;
 
-        // =========================
-        //   LOG IMPORTANTE
-        // =========================
-        console.log(`
-=======================
-📌 INFO DEL MENSAJE
-=======================
-👤 Sender JID: ${senderJid}
-🔢 Sender Normalizado: ${sender}
-🏷️ Grupo: ${isGroup ? groupMetadata.subject : "Privado"}
+        const args = text.slice(1).trim().split(/\s+/);
+        const command = args.shift().toLowerCase();
 
-👥 Participantes RAW:
-${JSON.stringify(participants, null, 2)}
-
-👑 ADMINS:
-${JSON.stringify(admins, null, 2)}
-
-🛡️ ¿ERES ADMIN?: ${isAdmin}
-=======================
-        `);
-
-        // =========================
-        //   SISTEMA DE COMANDOS
-        // =========================
-
-        // Ejemplo de comando normal
-        if (command === "hola") {
-            return sock.sendMessage(from, { text: "¡Hola bro! 😎" });
+        if (!plugins[command]) {
+            console.log("❌ Comando no existe:", command);
+            return;
         }
 
-        // Ejemplo de comando SOLO admins
-        if (command === "ban") {
-            if (!isGroup) return sock.sendMessage(from, { text: "❌ Este comando solo funciona en grupos." });
-            if (!isAdmin) return sock.sendMessage(from, { text: "❌ Solo los *admins* pueden usar este comando." });
+        const plugin = plugins[command];
 
-            return sock.sendMessage(from, { text: "✔ Usuario sido baneado (ejemplo)" });
+        // ===============================
+        //      PROTECCIÓN DE ADMIN
+        // ===============================
+        if (plugin.admin && !isAdmin) {
+            return sock.sendMessage(jid, { text: "❌ *Solo los admins pueden usar este comando.*" });
         }
+
+        const ctx = {
+            sender,
+            isGroup,
+            isAdmin,
+            groupMetadata: metadata
+        };
+
+        await plugin.run(sock, msg, args, ctx);
 
     } catch (e) {
-        console.error("❌ ERROR EN EL HANDLER:", e);
+        console.error("❌ ERROR EN HANDLER:", e);
     }
-});
+};
