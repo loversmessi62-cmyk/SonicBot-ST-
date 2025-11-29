@@ -6,10 +6,10 @@ import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
 import path from "path";
 import fs from "fs";
-import config from "./config.js";
-import { handler } from "./handler.js";
 
-const { 
+import { handleMessage } from "./handler.js";
+
+const {
     default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason
@@ -17,6 +17,9 @@ const {
 
 async function startBot() {
 
+    console.log("🚀 Iniciando ADRIBOT...");
+
+    // SESIONES
     const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
     const sock = makeWASocket({
@@ -29,50 +32,54 @@ async function startBot() {
     sock.ev.on("creds.update", saveCreds);
 
     // --------------------
-    // Cargar Plugins
+    // LOG de Bot conectado
     // --------------------
-    global.plugins = []; // Muy importante
+    sock.ev.on("connection.update", async update => {
+        const { connection, lastDisconnect } = update;
 
-    const pluginsPath = "./plugins";
-    const pluginsFiles = fs
-        .readdirSync(pluginsPath)
-        .filter(f => f.endsWith(".js"));
-
-    for (let file of pluginsFiles) {
-        const pluginPath = path.resolve(pluginsPath, file);
-        const plugin = await import(pluginPath);
-
-        global.plugins.push(plugin.default);
-        console.log(`🔥 Plugin cargado: ${file}`);
-    }
-
-    // --------------------
-    // Manejo de mensajes → Redirigir al handler
-    // --------------------
-    sock.ev.on("messages.upsert", async ({ messages }) => {
-        const msg = messages[0];
-        await handler(sock, msg); // <<<<<<<<<<<<<< SOLO ESTO
-    });
-
-    // --------------------
-    // Reconexión automática
-    // --------------------
-    sock.ev.on("connection.update", ({ connection, lastDisconnect }) => {
+        if (connection === "open") {
+            console.log("✅ ADRIBOT CONECTADO");
+        }
 
         if (connection === "close") {
-            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+            const code = lastDisconnect?.error?.output?.statusCode;
+
+            if (code !== DisconnectReason.loggedOut) {
                 console.log("♻️ Reconectando...");
                 startBot();
             } else {
-                console.log("❌ Sesión cerrada. Borra la carpeta /sessions.");
+                console.log("❌ Sesión cerrada. Borra /sessions/");
             }
-        }
-
-        if (connection === "open") {
-            console.log("✅ ADRIBOT conectado!");
         }
     });
 
+    // --------------------
+    // Cargar Plugins
+    // --------------------
+    global.plugins = [];
+    const pluginsPath = "./plugins";
+
+    console.log("📦 Cargando plugins...");
+
+    fs.readdirSync(pluginsPath).forEach(async file => {
+        if (file.endsWith(".js")) {
+            const pluginPath = path.resolve(pluginsPath, file);
+            const plugin = await import(pluginPath);
+
+            global.plugins.push(plugin.default);
+            console.log(`🔥 Plugin cargado: ${file}`);
+        }
+    });
+
+    // --------------------
+    // Manejo de Mensajes
+    // --------------------
+    sock.ev.on("messages.upsert", async ({ messages }) => {
+        const msg = messages[0];
+        if (!msg.message) return;
+
+        await handleMessage(sock, msg);
+    });
 }
 
 startBot();
