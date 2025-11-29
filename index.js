@@ -19,7 +19,9 @@ async function startBot() {
 
     console.log("🚀 Iniciando ADRIBOT...");
 
+    // --------------------
     // SESIONES
+    // --------------------
     const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
     const sock = makeWASocket({
@@ -58,7 +60,7 @@ async function startBot() {
     });
 
     // =====================================================
-    //        🔥 MANEJO DE MENSAJES (ANTI-DUPLICADO)
+    //       🔥 MANEJO DE MENSAJES (ANTI-DUPLICADO)
     // =====================================================
 
     const cache = new Set(); // evita duplicados
@@ -81,6 +83,15 @@ async function startBot() {
             // ❌ evitar procesar dos veces el mismo mensaje
             if (cache.has(msg.key.id)) return;
             cache.add(msg.key.id);
+
+            // LOG del mensaje
+            const texto =
+                msg.message.conversation ||
+                msg.message.extendedTextMessage?.text ||
+                msg.message.imageMessage?.caption ||
+                "";
+
+            console.log(`[MSJ] ${msg.key.remoteJid} -> ${texto}`);
 
             // ejecutar handler
             await handleMessage(sock, msg);
