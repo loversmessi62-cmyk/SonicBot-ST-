@@ -11,18 +11,19 @@ export default {
         if (!isAdmin)
             return sock.sendMessage(m.key.remoteJid, { text: config.messages.admin }, { quoted: m });
 
-        let texto = args.join(" ");
-        if (!texto) {
-            texto = m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation;
-            if (!texto)
-                return sock.sendMessage(m.key.remoteJid, { text: "❌ Escribe algo o responde un mensaje." });
+        let text = args.join(" ");
+
+        if (!text) {
+            text = m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation;
+            if (!text)
+                return sock.sendMessage(m.key.remoteJid, { text: "❌ Escribe algo.\nEjemplo: `.n hola`" });
         }
 
-        const participants = metadata.participants.map(p => p.id);
+        const mentions = metadata.participants.map(p => p.id);
 
         await sock.sendMessage(m.key.remoteJid, {
-            text: `📢 *AVISO ADMIN:*\n${texto}`,
-            mentions: participants
+            text: `📢 *AVISO ADMIN:*\n${text}`,
+            mentions
         });
     }
 };
