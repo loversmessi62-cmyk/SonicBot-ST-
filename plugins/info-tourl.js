@@ -1,39 +1,72 @@
-import fetch from "node-fetch"
+import fetch from "node-fetch";
+import FormData from "form-data";
 
-let handler = async (m, { conn }) => {
-  let q = m.quoted ? m.quoted : m
-  let mime = q.mimetype || q.mediaType || ""
+export default {
+  commands: ["tourl"],   // 👈 TU BASE SOLO ACEPTA ESTO
+  admin: false,          // opcional
 
-  if (!mime || !mime.startsWith("image"))
-    return m.reply("📷 *Responde a una imagen para convertirla a URL.*")
+  run: async (sock, msg, args, ctx) => {
+    try {
+      let quoted = msg.message?.imageMessage
+        ? msg
+        : msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-  let media = await q.download()
-  let apiKey = "6d3b9f27859e88c0c7f387672d2dd4c9"
+      if (!quoted)
+        return sock.sendMessage(msg.key.remoteJid, {
+          text: "📷 *Responde a una imagen para convertirla a URL.*",
+        });
 
-  m.reply("⏳ Subiendo imagen a *imgbb*...")
+      let mime =
+        quoted.imageMessage?.mimetype ||
+        quoted.stickerMessage?.mimetype ||
+        "";
 
-  let form = new FormData()
-  form.append("key", apiKey)
-  form.append("image", media.toString("base64"))
+      if (!mime.startsWith("image/"))
+        return sock.sendMessage(msg.key.remoteJid, {
+          text: "❌ *Eso no es una imagen.*",
+        });
 
-  let res = await fetch(`https://api.imgbb.com/1/upload`, {
-    method: "POST",
-    body: form
-  })
+      let buffer = await sock.downloadMediaMessage({
+        message: quoted,
+      });
 
-  let json = await res.json()
+      if (!buffer) return sock.sendMessage(msg.key.remoteJid, {
+        text: "❌ No pude descargar la imagen.",
+      });
 
-  if (!json.success) {
-    return m.reply("❌ Error subiendo la imagen:\n" + JSON.stringify(json, null, 2))
-  }
+      let apiKey = "6d3b9f27859e88c0c7f387672d2dd4c9";
 
-  let url = json.data.url
+      await sock.sendMessage(msg.key.remoteJid, {
+        text: "⏳ Subiendo imagen a imgbb...",
+      });
 
-  m.reply(`✅ *URL Lista:*\n${url}`)
-}
+      let form = new FormData();
+      form.append("key", apiKey);
+      form.append("image", buffer.toString("base64"));
 
-handler.help = ["tourl"]
-handler.tags = ["tools"]
-handler.command = ["tourl"]
+      let res = await fetch("https://api.imgbb.com/1/upload", {
+        method: "POST",
+        body: form,
+      });
 
-export default handler
+      let json = await res.json();
+
+      if (!json.success) {
+        return sock.sendMessage(msg.key.remoteJid, {
+          text: "❌ Error:\n" + JSON.stringify(json, null, 2),
+        });
+      }
+
+      let url = json.data.url;
+
+      await sock.sendMessage(msg.key.remoteJid, {
+        text: `✅ *URL lista:*\n${url}`,
+      });
+    } catch (err) {
+      console.log(err);
+      sock.sendMessage(msg.key.remoteJid, {
+        text: "❌ Ocurrió un error subiendo la imagen.",
+      });
+    }
+  },
+};
