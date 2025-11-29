@@ -3,27 +3,19 @@ import config from "../config.js";
 export default {
     commands: ["menu", "help"],
 
-    run: async (sock, m) => {
-        const jid = m.key.remoteJid;
+    run: async (sock, msg) => {
+        const jid = msg.key.remoteJid;
 
         const menu = `
-╭─⬣ *${config.botName}*
+╭─⬣  *${config.botName}*
 │ Prefijo: *${config.prefix}*
 │
-├─ ⚙️ *Básicos*
-│ .menu
-│ .ping
+├─ 📜 *Menú*
+│  .menu
+│  .todos
+│  .n
 │
-├─ 👑 *Admin*
-│ .todos
-│ .n
-│ .kick
-│ .promote
-│ .demote
-│ .grupo abrir/cerrar
-│
-└─ 🎶 Música
-   .play
+└─ ✔️ Bot funcionando correctamente
         `;
 
         await sock.sendMessage(jid, { text: menu });
