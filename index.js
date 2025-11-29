@@ -44,14 +44,28 @@ async function startBot() {
     }
 
     // ====================
+    // Funciones Admin
+    // ====================
+    function isUserAdmin(participants, user) {
+        const p = participants.find(x => x.id === user);
+        return p?.admin === "admin" || p?.admin === "superadmin";
+    }
+
+    function isBotAdmin(participants, botNumber) {
+        const p = participants.find(x => x.id === botNumber);
+        return p?.admin === "admin" || p?.admin === "superadmin";
+    }
+
+    // ====================
     // Manejo de mensajes
     // ====================
     sock.ev.on("messages.upsert", async ({ messages }) => {
         let msg = messages[0];
         if (!msg.message) return;
 
-        const from = msg.key.remoteJid;
-        const isGroup = from.endsWith("@g.us");
+        const jid = msg.key.remoteJid;
+        const isGroup = jid.endsWith("@g.us");
+        const sender = msg.key.participant || msg.key.remoteJid;
 
         const text =
             msg.message.conversation ||
@@ -67,7 +81,25 @@ async function startBot() {
             .trim()
             .split(/\s+/);
 
+        // ====================
+        // Datos del grupo
+        // ====================
+        let groupMetadata = null;
+        let participants = [];
+        let isAdmin = false;
+        let isBotAdminFlag = false;
+
+        if (isGroup) {
+            groupMetadata = await sock.groupMetadata(jid);
+            participants = groupMetadata.participants;
+
+            isAdmin = isUserAdmin(participants, sender);
+            isBotAdminFlag = isBotAdmin(participants, sock.user.id);
+        }
+
+        // ====================
         // Ejecutar plugin
+        // ====================
         for (let plugin of Object.values(plugins)) {
             if (!plugin.commands) continue;
 
@@ -75,6 +107,9 @@ async function startBot() {
                 try {
                     await plugin.run(sock, msg, args, {
                         isGroup,
+                        isAdmin,
+                        isBotAdmin: isBotAdminFlag,
+                        groupMetadata,
                         prefix
                     });
                 } catch (e) {
