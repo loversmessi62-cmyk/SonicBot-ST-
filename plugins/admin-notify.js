@@ -3,26 +3,31 @@ import config from "../config.js";
 export default {
     commands: ["n", "notify"],
 
-    run: async (sock, m, args, { isGroup, isAdmin, metadata }) => {
+    run: async (sock, msg, args, { isGroup }) => {
 
         if (!isGroup)
-            return sock.sendMessage(m.key.remoteJid, { text: config.messages.group }, { quoted: m });
+            return sock.sendMessage(msg.key.remoteJid, { text: config.messages.group });
 
-        if (!isAdmin)
-            return sock.sendMessage(m.key.remoteJid, { text: config.messages.admin }, { quoted: m });
+        const jid = msg.key.remoteJid;
 
-        let text = args.join(" ");
+        let texto = args.join(" ");
 
-        if (!text) {
-            text = m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation;
-            if (!text)
-                return sock.sendMessage(m.key.remoteJid, { text: "❌ Escribe algo.\nEjemplo: `.n hola`" });
+        // Si no envía texto, intentar usar el mensaje citado
+        if (!texto) {
+            const quotedText =
+                msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.conversation;
+
+            if (!quotedText)
+                return sock.sendMessage(jid, { text: "📌 Usa: .n mensaje o responde .n a un mensaje." });
+
+            texto = quotedText;
         }
 
+        const metadata = await sock.groupMetadata(jid);
         const mentions = metadata.participants.map(p => p.id);
 
-        await sock.sendMessage(m.key.remoteJid, {
-            text: `📢 *AVISO ADMIN:*\n${text}`,
+        await sock.sendMessage(jid, {
+            text: `📢 *AVISO ADMIN:*\n${texto}`,
             mentions
         });
     }
