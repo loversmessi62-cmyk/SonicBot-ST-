@@ -47,11 +47,30 @@ export const handleMessage = async (sock, msg) => {
         if (isGroup) {
             metadata = await sock.groupMetadata(jid);
 
+            // ==========================
+            // 🔥 DEBUG COMPLETO DE ADMINS
+            // ==========================
+            console.log("\n=======================");
+            console.log("📌 INFO DEL GRUPO");
+            console.log("=======================");
+            console.log("🟦 Grupo:", metadata.subject);
+            console.log("👥 Participantes:", metadata.participants.length);
+
+            console.log("\n🟩 PARTICIPANTES RAW:");
+            console.log(metadata.participants);
+
+            console.log("\n🟨 ADMINS DETECTADOS (p.admin != null):");
             admins = metadata.participants
                 .filter(p => p.admin !== null)
                 .map(p => normalize(p.id));
 
+            console.log(admins);
+
             isAdmin = admins.includes(sender);
+
+            console.log("\n🟥 ¿ERES ADMIN?:", isAdmin);
+            console.log("🟦 TU JID NORMALIZADO:", sender);
+            console.log("=======================\n");
         }
 
         const text =
