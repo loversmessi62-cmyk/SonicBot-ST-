@@ -1,34 +1,28 @@
+import config from "../config.js";
+
 export default {
-    comando: ["n", "notify"],
-    descripcion: "Envía un aviso a todos los miembros del grupo",
-    categoria: "admin",
+    commands: ["n", "notify"],
 
-    ejecutar: async (sock, m, args, { isAdmin }) => {
+    run: async (sock, m, args, { isGroup, isAdmin, metadata }) => {
 
-        if (!m.isGroup)
-            return m.reply("❌ Este comando solo funciona en grupos.");
+        if (!isGroup)
+            return sock.sendMessage(m.key.remoteJid, { text: config.messages.group }, { quoted: m });
 
         if (!isAdmin)
-            return m.reply("❌ Solo los administradores pueden usar este comando.");
+            return sock.sendMessage(m.key.remoteJid, { text: config.messages.admin }, { quoted: m });
 
         let texto = args.join(" ");
-
-        // Si no hay texto, intenta usar el mensaje citado
         if (!texto) {
-            const quoted = m.quoted?.text || m.quoted?.message?.conversation;
-            if (!quoted)
-                return m.reply("📌 Escribe un mensaje o responde a uno.\nEjemplo:\n.n hola");
-            texto = quoted;
+            texto = m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation;
+            if (!texto)
+                return sock.sendMessage(m.key.remoteJid, { text: "❌ Escribe algo o responde un mensaje." });
         }
 
-        // Obtener participantes para mencionarlos
-        const metadata = await sock.groupMetadata(m.chat);
-        const mentions = metadata.participants.map(p => p.id);
+        const participants = metadata.participants.map(p => p.id);
 
-        await sock.sendMessage(m.chat, {
+        await sock.sendMessage(m.key.remoteJid, {
             text: `📢 *AVISO ADMIN:*\n${texto}`,
-            mentions
+            mentions: participants
         });
-
     }
 };
