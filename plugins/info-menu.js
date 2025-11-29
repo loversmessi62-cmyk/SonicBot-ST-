@@ -2,28 +2,28 @@ import config from "../config.js";
 
 export default {
     commands: ["menu", "help"],
-    
-    run: async (sock, msg) => {
-        const jid = msg.key.remoteJid;
+
+    run: async (sock, m) => {
+        const jid = m.key.remoteJid;
 
         const menu = `
-╭─⬣  *${config.botName}*
-│  Prefijo: *${config.prefix}*
+╭─⬣ *${config.botName}*
+│ Prefijo: *${config.prefix}*
 │
-├─ ⚙️ *Comandos*
-│  .menu
-│  .ping
+├─ ⚙️ *Básicos*
+│ .menu
+│ .ping
 │
 ├─ 👑 *Admin*
-│  .kick
-│  .promote
-│  .demote
+│ .todos
+│ .n
+│ .kick
+│ .promote
+│ .demote
+│ .grupo abrir/cerrar
 │
-└─ 🎭 *Diversión*
-   .manco
-   .camara
-   .asustar
-   .amigo
+└─ 🎶 Música
+   .play
         `;
 
         await sock.sendMessage(jid, { text: menu });
