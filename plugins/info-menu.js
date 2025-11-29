@@ -1,59 +1,53 @@
 export default {
     commands: ["menu", "help", "ayuda"],
-    category: "info",
+    category: "general",
+    description: "Muestra el menú del bot.",
 
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
-        const plugins = ctx.plugins; // 👈 viene del handler
-        const isAdmin = ctx.isAdmin;
+        const plugins = ctx.plugins; // <- VIENE DEL HANDLER
 
-        // -----------------------------
-        // AGRUPAR COMANDOS POR CATEGORÍA
-        // -----------------------------
+        if (!plugins || typeof plugins !== "object") {
+            return sock.sendMessage(jid, { text: "❌ Error: plugins no cargados." });
+        }
+
+        // Agrupar por categorías
         const categorias = {};
 
         for (const name in plugins) {
-            const plg = plugins[name];
+            const plugin = plugins[name];
 
-            // saltar plugins sin comandos
-            if (!plg.commands) continue;
+            if (!plugin) continue; // seguridad
+            if (!plugin.commands) continue; // seguridad
 
-            // categoría
-            const cat = plg.category || "otros";
+            // Si no tiene categoría, lo mandamos a "otros"
+            const categoria = plugin.category || "otros";
 
-            if (!categorias[cat]) categorias[cat] = [];
+            if (!categorias[categoria]) categorias[categoria] = [];
 
-            // mostrar solo comandos que NO sean solo admin
-            if (!plg.admin || isAdmin) {
-                categorias[cat].push(...plg.commands);
+            // Acepta comandos array o string
+            const cmds = Array.isArray(plugin.commands)
+                ? plugin.commands.join(", ")
+                : plugin.commands;
+
+            categorias[categoria].push({
+                name: cmds,
+                desc: plugin.description || "Sin descripción"
+            });
+        }
+
+        // Generar el texto bonito
+        let texto = `🤖 *MENÚ DEL BOT*\n`;
+
+        for (const cat in categorias) {
+            texto += `\n📂 *${cat.toUpperCase()}*\n`;
+
+            for (const cmd of categorias[cat]) {
+                texto += `🔹 *${cmd.name}* — ${cmd.desc}\n`;
             }
         }
 
-        // -----------------------------
-        // CONSTRUIR TEXTO DEL MENÚ
-        // -----------------------------
-        let texto = `🔥 *ADRI-BOT MENU*\n`;
-        texto += `👤 Admin: *${isAdmin ? "Sí" : "No"}*\n`;
-        texto += `🔧 Plugins cargados: ${Object.keys(plugins).length}\n`;
-        texto += `===========================\n\n`;
-
-        for (const cat in categorias) {
-            texto += `💠 *${cat.toUpperCase()}*\n`;
-
-            categorias[cat].forEach(cmd => {
-                texto += `   • .${cmd}\n`;
-            });
-
-            texto += `\n`;
-        }
-
-        texto += `===========================\n`;
-        texto += `✨ Bot by Adri`;
-
-        // -----------------------------
-        // ENVIAR MENU
-        // -----------------------------
-        await sock.sendMessage(jid, { text: texto });
+        await sock.sendMessage(jid, { text: texto }, { quoted: msg });
     }
 };
