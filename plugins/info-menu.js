@@ -1,24 +1,14 @@
 export default {
-    commands: ["menu", "help"],
+    commands: ["menu"],
 
-    run: async (sock, msg, args, ctx) => {
+    async run(sock, msg) {
         const jid = msg.key.remoteJid;
 
-        const menu = `
-🌟 *ADRIBOT – MENÚ PRINCIPAL* 🌟
-
-┌───────────────
-│ 💬 *UTILIDAD*
-│ • .menu
-│ • .todos
-│ • .n (solo admins)
-└───────────────
-
-⚡ Bot profesional cargado con plugins
-        `.trim();
-
         await sock.sendMessage(jid, {
-            text: menu
-        });
+            text: `📌 *MENÚ PROFESIONAL*\n
+• .menu  – Mostrar menú
+• .n <texto>  – Aviso del admin
+• .todos <texto> – Mencionar a todos`
+        }, { quoted: msg });
     }
 };
