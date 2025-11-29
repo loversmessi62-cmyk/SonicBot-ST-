@@ -88,26 +88,26 @@ export const handleMessage = async (sock, msg) => {
                 text: "❌ *Solo los administradores pueden usar este comando.*"
             });
         }
-// =====================================================
+// =========================================================
 // 🔥 FUNCIÓN GLOBAL DE DESCARGA
-// =====================================================
+// =========================================================
 const download = async (sock, quotedMsg) => {
     const msg = quotedMsg.message;
 
     const type =
-        msg?.imageMessage
-            ? "image"
-            : msg?.videoMessage
-            ? "video"
-            : msg?.stickerMessage
-            ? "sticker"
-            : null;
+        msg?.imageMessage ? "image" :
+        msg?.videoMessage ? "video" :
+        msg?.stickerMessage ? "sticker" :
+        null;
 
     if (!type) return null;
 
     const stream = await sock.downloadMediaMessage(quotedMsg);
     return stream;
 };
+
+export { download };
+
 
 module.exports = {
     download
