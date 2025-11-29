@@ -88,6 +88,22 @@ export const handleMessage = async (sock, msg) => {
                 text: "❌ *Solo los administradores pueden usar este comando.*"
             });
         }
+// =====================================================
+// 🔥 FUNCIÓN GLOBAL DE DESCARGA
+// =====================================================
+export const download = async (sock, quotedMsg) => {
+    try {
+        if (!quotedMsg?.message) return null;
+
+        const buffer = await sock.downloadMediaMessage(quotedMsg);
+        return buffer;
+
+    } catch (e) {
+        console.error("❌ Error descargando media:", e);
+        return null;
+    }
+};
+
 
         const ctx = {
     sender: realSender,
