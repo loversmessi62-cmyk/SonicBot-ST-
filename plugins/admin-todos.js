@@ -1,22 +1,24 @@
 export default {
     commands: ["todos"],
-    admin: true, // Solo admins
+    admin: true,
 
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
-        const texto = args.join(" ") || "Mensaje para todos 👇";
+        // Texto del mensaje
+        const texto = args.join(" ") || "📢 Mensaje para todos:";
 
-        // Lista REAL de participantes @lid
-        const menciones = ctx.groupMetadata.participants.map(p => p.id);
+        // Obtener todos los participantes
+        const participantes = ctx.groupMetadata.participants.map(p => p.id);
 
-        await sock.sendMessage(
-            jid,
-            {
-                text: `📣 *MENSAJE DEL ADMIN*\n\n${texto}`,
-                mentions: menciones
-            },
-            { quoted: msg }
-        );
+        // Convertir a formato @tag por línea
+        const tagsLista = participantes
+            .map(j => "@" + j.split("@")[0])
+            .join("\n");
+
+        await sock.sendMessage(jid, {
+            text: `👥 *Mención a todos*\n\n${texto}\n\n${tagsLista}`,
+            mentions: participantes
+        }, { quoted: msg });
     }
 };
