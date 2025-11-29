@@ -89,7 +89,7 @@ export const handleMessage = async (sock, msg) => {
             });
         }
 
-export { download };
+
 
 
 module.exports = {
