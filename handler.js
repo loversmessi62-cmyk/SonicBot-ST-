@@ -59,22 +59,7 @@ export const handleMessage = async (sock, msg) => {
 
             isAdmin = admins.includes(realSender);
 
-            console.log(`
-=======================
-📌 INFO DEL GRUPO
-=======================
-👥 Participantes: ${metadata.participants.length}
-
-🟦 PARTICIPANTES RAW:
-${JSON.stringify(metadata.participants, null, 2)}
-
-🟩 ADMINS DETECTADOS (LID):
-${JSON.stringify(admins, null, 2)}
-
-🟥 ERES ADMIN: ${isAdmin}
-🟦 TU ID REAL (LID): ${realSender}
-=======================
-`);
+            
         }
 
         // -----------------------
