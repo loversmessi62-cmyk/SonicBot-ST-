@@ -1,77 +1,91 @@
 import fs from "fs";
 import path from "path";
 
-// Normalizar JIDs para que funcione con @lid y @s.whatsapp.net
+// Normalizar JIDs
 const normalize = (jid = "") => jid.split("@")[0];
 
-// Cargar plugins automáticamente
-const plugins = {};
-const pluginsDir = "./plugins";
+// OBJETO DONDE SE GUARDAN LOS COMANDOS
+export const plugins = {};
 
-fs.readdirSync(pluginsDir).forEach(file => {
-    if (file.endsWith(".js")) {
-        const plugin = await import(path.resolve(`${pluginsDir}/${file}`));
-        const cmds = plugin.default.commands;
+// FUNCIÓN PARA CARGAR PLUGINS (NO EN TOP-LEVEL)
+export const loadPlugins = async () => {
+    try {
+        const dir = "./plugins";
+        const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"));
 
-        cmds.forEach(cmd => {
-            plugins[cmd] = plugin.default;
-        });
+        for (let file of files) {
+            const pluginPath = "file://" + path.resolve(`./plugins/${file}`);
+            const module = await import(pluginPath);
+
+            const cmds = module.default.commands;
+
+            cmds.forEach(cmd => {
+                plugins[cmd] = module.default;
+            });
+
+            console.log(`🔥 Plugin cargado: ${file}`);
+        }
+
+    } catch (e) {
+        console.error("❌ Error cargando plugins:", e);
     }
-});
+};
 
+
+// ==================================================
+//                  HANDLER
+// ==================================================
 export const handleMessage = async (sock, msg) => {
     try {
         const jid = msg.key.remoteJid;
         const isGroup = jid.endsWith("@g.us");
 
-        // IDENTIFICAR SENDER
+        // DETECTAR SENDER
         const senderJID = msg.key.participant || msg.key.remoteJid;
         const sender = normalize(senderJID);
 
-        // IDENTIFICAR BOT
+        // DETECTAR BOT
         const botNumber = normalize(sock.user.id);
 
-        let groupMetadata = null;
+        let metadata = null;
         let admins = [];
         let isAdmin = false;
 
         if (isGroup) {
-            groupMetadata = await sock.groupMetadata(jid);
+            metadata = await sock.groupMetadata(jid);
 
-            admins = groupMetadata.participants
+            admins = metadata.participants
                 .filter(p => p.admin !== null)
                 .map(p => normalize(p.id));
 
             isAdmin = admins.includes(sender);
         }
 
-        // LOGS ÚTILES
-        console.log("\n📩 NUEVO MENSAJE");
-        console.log("SENDER NORMALIZADO:", sender);
-        console.log("BOT NORMALIZADO:", botNumber);
-        console.log("ADMINS:", admins);
-        console.log("isAdmin:", isAdmin);
-
-        // TEXT
-        const text = msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text || "";
+        // TEXTO
+        const text =
+            msg.message?.conversation ||
+            msg.message?.extendedTextMessage?.text ||
+            msg.message?.imageMessage?.caption ||
+            "";
 
         if (!text.startsWith(".")) return;
 
         const args = text.slice(1).trim().split(/\s+/);
         const command = args.shift().toLowerCase();
 
+        // ¿Existe comando?
         if (!plugins[command]) {
             console.log("❌ Comando no encontrado:", command);
             return;
         }
 
+        // CONTEXTO PARA PLUGINS
         const ctx = {
             sender,
             botNumber,
             isGroup,
             isAdmin,
-            groupMetadata
+            groupMetadata: metadata
         };
 
         await plugins[command].run(sock, msg, args, ctx);
