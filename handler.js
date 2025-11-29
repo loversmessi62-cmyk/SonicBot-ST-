@@ -90,11 +90,12 @@ export const handleMessage = async (sock, msg) => {
         }
 
         const ctx = {
-            sender: realSender,
-            isAdmin,
-            isGroup,
-            groupMetadata: metadata
-        };
+    sender: realSender,
+    isAdmin,
+    isGroup,
+    groupMetadata: metadata,
+    plugins
+};
 
         await plugin.run(sock, msg, args, ctx);
 
