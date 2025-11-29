@@ -3,32 +3,41 @@ import config from "../config.js";
 export default {
     commands: ["n", "notify"],
 
-    run: async (sock, msg, args, { isGroup }) => {
-
-        if (!isGroup)
-            return sock.sendMessage(msg.key.remoteJid, { text: config.messages.group });
+    run: async (sock, msg, args, { isGroup, isAdmin, groupMetadata }) => {
 
         const jid = msg.key.remoteJid;
 
+        if (!isGroup)
+            return sock.sendMessage(jid, { text: config.messages.group });
+
+        if (!isAdmin)
+            return sock.sendMessage(jid, { text: config.messages.admin });
+
+        // Texto del comando
         let texto = args.join(" ");
 
-        // Si no envía texto, intentar usar el mensaje citado
+        // Si NO escribió texto → revisar mensaje citado
         if (!texto) {
-            const quotedText =
-                msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.conversation;
-
-            if (!quotedText)
-                return sock.sendMessage(jid, { text: "📌 Usa: .n mensaje o responde .n a un mensaje." });
-
-            texto = quotedText;
+            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+            texto =
+                quoted?.conversation ||
+                quoted?.extendedTextMessage?.text ||
+                quoted?.imageMessage?.caption ||
+                null;
         }
 
-        const metadata = await sock.groupMetadata(jid);
-        const mentions = metadata.participants.map(p => p.id);
+        if (!texto)
+            return sock.sendMessage(jid, {
+                text: "📌 Debes escribir algo o responder un mensaje.\n\nEjemplo:\n.n Hola grupo"
+            });
+
+        // Mencionar a todos
+        const menciones = groupMetadata.participants.map(p => p.id);
 
         await sock.sendMessage(jid, {
             text: `📢 *AVISO ADMIN:*\n${texto}`,
-            mentions
+            mentions: menciones
         });
+
     }
 };
