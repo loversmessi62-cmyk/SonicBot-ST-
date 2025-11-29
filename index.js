@@ -32,12 +32,6 @@ async function startBot() {
     sock.ev.on("creds.update", saveCreds);
 
     // --------------------
-    // Cargar Plugins (OBLIGATORIO)
-    // --------------------
-    console.log("📦 Cargando plugins...");
-    await loadPlugins();
-
-    // --------------------
     // LOG de Bot conectado
     // --------------------
     sock.ev.on("connection.update", async update => {
@@ -45,6 +39,10 @@ async function startBot() {
 
         if (connection === "open") {
             console.log("✅ ADRIBOT CONECTADO");
+
+            // 👉 Cargar plugins AQUÍ
+            await loadPlugins();
+            console.log("🔥 Plugins cargados correctamente.");
         }
 
         if (connection === "close") {
