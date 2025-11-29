@@ -1,14 +1,63 @@
-    // ====================
+// =====================
+// ADRI-BOT (Baileys GataNina-Li)
+// =====================
+
+import baileys from "@whiskeysockets/baileys";
+import pino from "pino";
+import path from "path";
+import fs from "fs";
+import config from "./config.js";
+
+const { 
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason
+} = baileys;
+
+async function startBot() {
+
+    // --------------------
+    // Autenticación
+    // --------------------
+    const { state, saveCreds } = await useMultiFileAuthState("./sessions");
+
+    const sock = makeWASocket({
+        logger: pino({ level: "silent" }),
+        printQRInTerminal: true,
+        auth: state,
+        browser: ["ADRIBOT", "Chrome", "6.0"]
+    });
+
+    sock.ev.on("creds.update", saveCreds);
+
+    // --------------------
+    // Cargar Plugins
+    // --------------------
+    const pluginsPath = "./plugins";
+    const pluginsFiles = fs
+        .readdirSync(pluginsPath)
+        .filter(f => f.endsWith(".js"));
+
+    const plugins = {};
+
+    for (let file of pluginsFiles) {
+        const fullPath = path.resolve(pluginsPath, file);
+        const plugin = await import(fullPath);
+        plugins[file] = plugin.default;
+        console.log(`🔥 Plugin cargado: ${file}`);
+    }
+
+    // --------------------
     // Manejo de mensajes
-    // ====================
+    // --------------------
     sock.ev.on("messages.upsert", async ({ messages }) => {
+
         let msg = messages[0];
         if (!msg.message) return;
 
         const from = msg.key.remoteJid;
-        const isGroup = from.endsWith("@g.us");
-
         const sender = msg.key.participant || msg.key.remoteJid;
+        const isGroup = from.endsWith("@g.us");
 
         const text =
             msg.message.conversation ||
@@ -24,7 +73,7 @@
             .trim()
             .split(/\s+/);
 
-        // === EXTRA: Obtener metadata del grupo ===
+        // ----- Extra: metadata del grupo -----
         let groupMetadata = null;
         let isAdmin = false;
         let isBotAdmin = false;
@@ -40,7 +89,9 @@
             isBotAdmin = admins.includes(sock.user.id);
         }
 
+        // --------------------
         // Ejecutar plugin
+        // --------------------
         for (let plugin of Object.values(plugins)) {
             if (!plugin.commands) continue;
 
@@ -58,4 +109,29 @@
                 }
             }
         }
+
     });
+
+    // --------------------
+    // Reconexión
+    // --------------------
+    sock.ev.on("connection.update", upd => {
+        const { connection, lastDisconnect } = upd;
+
+        if (connection === "close") {
+            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+                console.log("♻️ Reconectando...");
+                startBot();
+            } else {
+                console.log("❌ Sesión cerrada. Borra /sessions");
+            }
+        }
+
+        if (connection === "open") {
+            console.log("✅ ADRIBOT conectado!");
+        }
+    });
+
+}
+
+startBot();
