@@ -14,11 +14,23 @@ const {
     DisconnectReason
 } = baileys;
 
+// Función para obtener texto de cualquier tipo de mensaje
+function getMessageText(msg) {
+    return (
+        msg.message?.conversation ||
+        msg.message?.extendedTextMessage?.text ||
+        msg.message?.imageMessage?.caption ||
+        msg.message?.videoMessage?.caption ||
+        msg.message?.documentMessage?.caption ||
+        msg.message?.ephemeralMessage?.message?.extendedTextMessage?.text ||
+        msg.message?.ephemeralMessage?.message?.conversation ||
+        msg.message?.viewOnceMessage?.message?.extendedTextMessage?.text ||
+        null
+    );
+}
+
 async function startBot() {
 
-    // --------------------
-    // Autenticación
-    // --------------------
     const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
     const sock = makeWASocket({
@@ -57,14 +69,20 @@ async function startBot() {
         if (!msg.message) return;
 
         const from = msg.key.remoteJid;
-        const sender = msg.key.participant || msg.key.remoteJid;
         const isGroup = from.endsWith("@g.us");
 
-        // Texto (mensaje normal o extendido)
-        const text =
-            msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text;
+        // CORREGIDO: detección REAL del remitente
+        let sender;
+        if (msg.key.participant) {
+            sender = msg.key.participant;
+        } else if (msg.participant) {
+            sender = msg.participant;
+        } else {
+            sender = msg.key.remoteJid;
+        }
 
+        // CORREGIDO: detección REAL del texto
+        const text = getMessageText(msg);
         if (!text) return;
 
         const prefix = config.prefix;
@@ -85,8 +103,9 @@ async function startBot() {
         if (isGroup) {
             groupMetadata = await sock.groupMetadata(from);
 
+            // CORREGIDO para versiones nuevas de Baileys
             const adminList = groupMetadata.participants
-                .filter(p => p.admin === "admin" || p.admin === "superadmin")
+                .filter(p => p.admin != null)
                 .map(p => p.id);
 
             isAdmin = adminList.includes(sender);
