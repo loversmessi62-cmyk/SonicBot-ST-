@@ -19,9 +19,7 @@ async function startBot() {
 
     console.log("🚀 Iniciando ADRIBOT...");
 
-    // =====================
     // SESIONES
-    // =====================
     const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
     const sock = makeWASocket({
@@ -33,9 +31,15 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    // =====================
-    // ESTADO DE CONEXIÓN
-    // =====================
+    // --------------------
+    // Cargar Plugins (OBLIGATORIO)
+    // --------------------
+    console.log("📦 Cargando plugins...");
+    await loadPlugins();
+
+    // --------------------
+    // LOG de Bot conectado
+    // --------------------
     sock.ev.on("connection.update", async update => {
         const { connection, lastDisconnect } = update;
 
@@ -55,19 +59,13 @@ async function startBot() {
         }
     });
 
-    // =====================
-    // CARGA DE PLUGINS
-    // =====================
-    console.log("📦 Cargando plugins...");
-    await loadPlugins();   // ← MUY IMPORTANTE
-    console.log("✅ Plugins cargados correctamente");
-
-    // =====================
-    // RECEPCIÓN DE MENSAJES
-    // =====================
+    // --------------------
+    // Manejo de Mensajes
+    // --------------------
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const msg = messages[0];
         if (!msg.message) return;
+
         await handleMessage(sock, msg);
     });
 }
