@@ -1,43 +1,60 @@
 import uploadFile from "../lib/uploadFile.js";
 import uploadImage from "../lib/uploadImage.js";
-import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
 export default {
     name: "tourl",
-    alias: ["tourl"],
+    alias: ["upload", "tourl"],
     desc: "Convierte imagen/video en URL",
-    run: async (conn, m, args) => {
+
+    run: async (sock, m, args) => {
         try {
-            let q = m.quoted ? m.quoted : m;
-            let mime = q.mimetype || (q.msg && q.msg.mimetype) || "";
+            let q = m.message?.extendedTextMessage?.contextInfo?.quotedMessage
+                ? m.message.extendedTextMessage.contextInfo
+                : null;
 
-            if (!mime) return m.reply("⚠️ *Responde a una imagen, video o sticker.*");
+            // Si no respondió a nada → usar mensaje directo
+            let quoted = q ? q.quotedMessage : m.message;
 
-            // DESCARGAR BUFFER MANUALMENTE (compatibilidad total)
-            let type = mime.split("/")[0];
+            // Detectar mime
+            let mime =
+                quoted?.imageMessage?.mimetype ||
+                quoted?.videoMessage?.mimetype ||
+                quoted?.stickerMessage?.mimetype ||
+                null;
 
-            let stream = await downloadContentFromMessage(q, type);
-            let buffer = Buffer.from([]);
-
-            for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk]);
+            if (!mime) {
+                return sock.sendMessage(m.key.remoteJid, {
+                    text: "⚠️ *Responde a una imagen, video o sticker para convertirlo a URL.*"
+                });
             }
 
-            if (!buffer) return m.reply("❌ No pude descargar el archivo.");
+            // Descargar media
+            let buffer = await sock.downloadMediaMessage({
+                message: quoted
+            });
+
+            if (!buffer) {
+                return sock.sendMessage(m.key.remoteJid, {
+                    text: "❌ No pude descargar el archivo."
+                });
+            }
 
             let url;
-
             if (/image/.test(mime)) {
                 url = await uploadImage(buffer);
             } else {
                 url = await uploadFile(buffer);
             }
 
-            return m.reply(`✅ *Archivo subido:*\n${url}`);
+            await sock.sendMessage(m.key.remoteJid, {
+                text: `✅ *Archivo subido correctamente*\n📎 URL:\n${url}`
+            });
 
         } catch (e) {
             console.error("ERROR TOUR:", e);
-            return m.reply("❌ Ocurrió un error procesando el archivo.");
+            await sock.sendMessage(m.key.remoteJid, {
+                text: "❌ Error subiendo el archivo."
+            });
         }
     }
-}
+};
