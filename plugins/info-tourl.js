@@ -1,61 +1,59 @@
 export default {
-  commands: ["tourl"],
-  help: ["tourl"],
-  tags: ["tools"],
+    commands: ["tourl"],
+    help: ["tourl"],
+    tags: ["tools"],
 
-  run: async (sock, msg, args, ctx) => {
-    try {
-      let quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    run: async (sock, msg, args, ctx) => {
+        try {
+            const jid = msg.key.remoteJid;
 
-      // Detectar imagen citada
-      let img = null;
+            // Si responde a un mensaje
+            let q = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-      if (quoted && quoted.imageMessage) {
-        img = quoted.imageMessage;
-      } else if (msg.message?.imageMessage) {
-        img = msg.message.imageMessage;
-      }
+            let mime = null;
+            let buffer = null;
 
-      if (!img) {
-        return sock.sendMessage(msg.key.remoteJid, { text: "📷 Responde o envía una *imagen*." });
-      }
+            // Detectar imagen citada
+            if (q?.imageMessage) {
+                mime = q.imageMessage.mimetype;
+                buffer = await msg.quoted.download();
+            }
 
-      // Descargar la imagen
-      const buffer = await sock.downloadMediaMessage({
-        message: { imageMessage: img }
-      });
+            // Detectar imagen enviada directamente
+            else if (msg.message?.imageMessage) {
+                mime = msg.message.imageMessage.mimetype;
+                buffer = await sock.downloadMediaMessage(msg);
+            }
 
-      if (!buffer) {
-        return sock.sendMessage(msg.key.remoteJid, { text: "❌ No se pudo descargar la imagen." });
-      }
+            if (!buffer) {
+                return sock.sendMessage(jid, { text: "📸 Envía o responde a una *imagen*." });
+            }
 
-      sock.sendMessage(msg.key.remoteJid, { text: "⏳ Subiendo a imgbb..." });
+            sock.sendMessage(jid, { text: "⏳ Subiendo imagen..." });
 
-      let apiKey = "6d3b9f27859e88c0c7f387672d2dd4c9";
+            const apiKey = "6d3b9f27859e88c0c7f387672d2dd4c9";
 
-      let form = new FormData();
-      form.append("image", buffer.toString("base64"));
+            let res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: new URLSearchParams({
+                    image: buffer.toString("base64")
+                })
+            });
 
-      let res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
-        method: "POST",
-        body: form
-      });
+            let json = await res.json();
 
-      let json = await res.json();
+            if (!json.success) {
+                return sock.sendMessage(jid, { text: "❌ Error subiendo imagen." });
+            }
 
-      if (!json.success) {
-        return sock.sendMessage(msg.key.remoteJid, { text: "❌ Error subiendo a imgbb." });
-      }
+            sock.sendMessage(jid, { text: `✅ URL generada:\n${json.data.url}` });
 
-      let url = json.data.url;
-
-      sock.sendMessage(msg.key.remoteJid, {
-        text: `✅ *URL Generada:*\n${url}`
-      });
-
-    } catch (e) {
-      console.log("ERROR TOUR", e);
-      sock.sendMessage(msg.key.remoteJid, { text: "❌ Hubo un error procesando la imagen." });
+        } catch (e) {
+            console.log("ERROR TOUR:", e);
+            sock.sendMessage(msg.key.remoteJid, { text: "❌ Error procesando la imagen." });
+        }
     }
-  }
-}
+};
