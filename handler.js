@@ -1,124 +1,82 @@
-import config from "./config.js";
+import fs from "fs";
+import path from "path";
 
-/* ============================================================
-   FIX PARA JID DE BAILEYS GATANINA-LI (convierte @lid → @s.whatsapp.net)
-   ============================================================ */
-function fixLidJid(jid) {
-    if (!jid) return jid;
-    if (!jid.endsWith("@lid")) return jid;
+// Normalizar JIDs para que funcione con @lid y @s.whatsapp.net
+const normalize = (jid = "") => jid.split("@")[0];
 
-    let num = jid.replace("@lid", "");
-    num = num.slice(0, -1); // quitar último dígito extra
+// Cargar plugins automáticamente
+const plugins = {};
+const pluginsDir = "./plugins";
 
-    return num + "@s.whatsapp.net";
-}
+fs.readdirSync(pluginsDir).forEach(file => {
+    if (file.endsWith(".js")) {
+        const plugin = await import(path.resolve(`${pluginsDir}/${file}`));
+        const cmds = plugin.default.commands;
 
-/* ============================================================
-   NORMALIZAR CUALQUIER JID QUE ENTRE AL BOT
-   ============================================================ */
-function normalizeJid(jid) {
-    if (!jid) return null;
-    jid = jid.split(":")[0]; // eliminar device suffix
-    return fixLidJid(jid);
-}
+        cmds.forEach(cmd => {
+            plugins[cmd] = plugin.default;
+        });
+    }
+});
 
-/* ============================================================
-   OBTENER TEXTO REAL DEL MENSAJE
-   ============================================================ */
-function getMessageText(msg) {
-    return (
-        msg.message?.conversation ||
-        msg.message?.extendedTextMessage?.text ||
-        msg.message?.imageMessage?.caption ||
-        msg.message?.videoMessage?.caption ||
-        msg.message?.documentMessage?.caption ||
-        msg.message?.ephemeralMessage?.message?.extendedTextMessage?.text ||
-        msg.message?.ephemeralMessage?.message?.conversation ||
-        msg.message?.viewOnceMessage?.message?.extendedTextMessage?.text ||
-        ""
-    );
-}
-
-/* ============================================================
-   HANDLER PRINCIPAL
-   ============================================================ */
-export async function handler(sock, msg) {
+export const handleMessage = async (sock, msg) => {
     try {
         const jid = msg.key.remoteJid;
-        if (!msg.message) return;
-
         const isGroup = jid.endsWith("@g.us");
 
-        // ================================================
-        // SENDER REAL (normalizado)
-        // ================================================
-        const rawSender =
-            msg.key.participant ||
-            msg.participant ||
-            msg.key.remoteJid;
+        // IDENTIFICAR SENDER
+        const senderJID = msg.key.participant || msg.key.remoteJid;
+        const sender = normalize(senderJID);
 
-        const sender = normalizeJid(rawSender);
+        // IDENTIFICAR BOT
+        const botNumber = normalize(sock.user.id);
 
-        console.log("\n👤 SENDER RAW:", rawSender);
-        console.log("👤 SENDER NORMALIZADO:", sender);
-
-        // ================================================
-        // BOT JID REAL
-        // ================================================
-        const botJid = normalizeJid(sock.user.id);
-
-        console.log("🤖 BOT ID:", botJid);
-
-        // ================================================
-        // TEXTO DEL MENSAJE
-        // ================================================
-        const body = getMessageText(msg);
-        if (!body.startsWith(config.prefix)) return;
-
-        const args = body.slice(config.prefix.length).trim().split(/\s+/);
-        const command = args.shift()?.toLowerCase();
-
-        // ================================================
-        // METADATA Y PERMISOS
-        // ================================================
-        let metadata = {};
+        let groupMetadata = null;
         let admins = [];
         let isAdmin = false;
-        let isBotAdmin = false;
 
         if (isGroup) {
-            metadata = await sock.groupMetadata(jid);
+            groupMetadata = await sock.groupMetadata(jid);
 
-            admins = metadata.participants
-                .filter(p => p.admin !== null) // admin o superadmin
-                .map(p => normalizeJid(p.id));
-
-            console.log("👑 ADMINS NORMALIZADOS:", admins);
+            admins = groupMetadata.participants
+                .filter(p => p.admin !== null)
+                .map(p => normalize(p.id));
 
             isAdmin = admins.includes(sender);
-            isBotAdmin = admins.includes(botJid);
-
-            console.log("🟦 isAdmin:", isAdmin);
-            console.log("🟨 isBotAdmin:", isBotAdmin);
         }
 
-        // ================================================
-        // EJECUTAR PLUGIN
-        // ================================================
-        for (let plugin of global.plugins) {
-            if (!plugin.commands.includes(command)) continue;
+        // LOGS ÚTILES
+        console.log("\n📩 NUEVO MENSAJE");
+        console.log("SENDER NORMALIZADO:", sender);
+        console.log("BOT NORMALIZADO:", botNumber);
+        console.log("ADMINS:", admins);
+        console.log("isAdmin:", isAdmin);
 
-            return plugin.run(sock, msg, args, {
-                isGroup,
-                isAdmin,
-                isBotAdmin,
-                groupMetadata: metadata,
-                sender,
-                botJid
-            });
+        // TEXT
+        const text = msg.message?.conversation ||
+            msg.message?.extendedTextMessage?.text || "";
+
+        if (!text.startsWith(".")) return;
+
+        const args = text.slice(1).trim().split(/\s+/);
+        const command = args.shift().toLowerCase();
+
+        if (!plugins[command]) {
+            console.log("❌ Comando no encontrado:", command);
+            return;
         }
+
+        const ctx = {
+            sender,
+            botNumber,
+            isGroup,
+            isAdmin,
+            groupMetadata
+        };
+
+        await plugins[command].run(sock, msg, args, ctx);
 
     } catch (e) {
-        console.error("❌ Handler error:", e);
+        console.error("❌ ERROR EN HANDLER:", e);
     }
-}
+};
