@@ -3,38 +3,32 @@ import config from "../config.js";
 export default {
     commands: ["todos", "tagall", "invocar"],
 
-    run: async (sock, msg, args, { isGroup, isAdmin, isBotAdmin, groupMetadata }) => {
-
+    run: async (sock, msg, args, ctx) => {
+        const { isGroup, isAdmin, isBotAdmin, groupMetadata } = ctx;
         const jid = msg.key.remoteJid;
 
-        // Solo grupos
         if (!isGroup)
             return sock.sendMessage(jid, { text: config.messages.group });
 
-        // Solo admins
         if (!isAdmin)
             return sock.sendMessage(jid, { text: config.messages.admin });
 
-        // Bot debe ser admin
         if (!isBotAdmin)
-            return sock.sendMessage(jid, { text: config.messages.botAdmin });
+            return sock.sendMessage(jid, { text: "❌ Necesito ser admin para mencionar a todos." });
 
-        // Texto opcional
-        let texto = args.join(" ").trim() || "📢 *Atención a todos!*";
+        const texto = args.join(" ") || "📢 *Atención a todos*";
 
-        // Participantes
-        const participantes = groupMetadata.participants;
-        const menciones = participantes.map(u => u.id);
+        let participantes = groupMetadata.participants;
+        let menciones = participantes.map(u => u.id);
 
-        // Armar mensaje
-        let mensaje = `${texto}\n\n`;
+        // Construir lista de usuarios
+        let lista = "";
         for (let user of participantes) {
-            mensaje += `➤ @${user.id.split("@")[0]}\n`;
+            lista += `➤ @${user.id.split("@")[0]}\n`;
         }
 
-        // Enviar
         await sock.sendMessage(jid, {
-            text: mensaje,
+            text: `${texto}\n\n${lista}`,
             mentions: menciones
         });
     }
