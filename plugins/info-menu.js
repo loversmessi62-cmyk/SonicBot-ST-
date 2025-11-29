@@ -1,23 +1,24 @@
-import config from "../config.js";
-
 export default {
     commands: ["menu", "help"],
 
-    run: async (sock, msg) => {
+    run: async (sock, msg, args, ctx) => {
         const jid = msg.key.remoteJid;
 
         const menu = `
-╭─⬣  *${config.botName}*
-│ Prefijo: *${config.prefix}*
-│
-├─ 📜 *Menú*
-│  .menu
-│  .todos
-│  .n
-│
-└─ ✔️ Bot funcionando correctamente
-        `;
+🌟 *ADRIBOT – MENÚ PRINCIPAL* 🌟
 
-        await sock.sendMessage(jid, { text: menu });
+┌───────────────
+│ 💬 *UTILIDAD*
+│ • .menu
+│ • .todos
+│ • .n (solo admins)
+└───────────────
+
+⚡ Bot profesional cargado con plugins
+        `.trim();
+
+        await sock.sendMessage(jid, {
+            text: menu
+        });
     }
 };
