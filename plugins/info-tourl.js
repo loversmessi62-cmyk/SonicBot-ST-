@@ -1,56 +1,31 @@
-import { downloadContentFromMessage } from "@whiskeysockets/baileys";
-import fetch from "node-fetch";
+import uploadFile from "../lib/uploadFile.js";
+import uploadImage from "../lib/uploadImage.js";
 
 export default {
-    commands: ["tourl"],
-    help: ["tourl"],
-    tags: ["tools"],
-
-    run: async (sock, msg) => {
+    name: "tourl",
+    alias: ["tourl", "upload"],
+    desc: "Convierte una imagen/video en URL",
+    run: async (conn, m, args) => {
         try {
-            const jid = msg.key.remoteJid;
+            let q = m.quoted ? m.quoted : m;
+            let mime = (q.msg || q).mimetype || "";
 
-            // Tomamos el mensaje citado
-            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+            if (!mime) return m.reply("⚠️ *Responde a una imagen, video o sticker.*");
 
-            if (!quoted || !quoted.imageMessage) {
-                return sock.sendMessage(jid, { text: "📸 Responde a una *imagen* para convertirla a URL." });
+            let media = await conn.downloadMediaMessage(q);
+
+            let url;
+            if (/image/.test(mime)) {
+                url = await uploadImage(media);
+            } else {
+                url = await uploadFile(media);
             }
 
-            // Descargar imagen desde el mensaje real
-            const stream = await downloadContentFromMessage(quoted.imageMessage, "image");
-            let buffer = Buffer.from([]);
-
-            for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk]);
-            }
-
-            sock.sendMessage(jid, { text: "⏳ Subiendo a ImgBB..." });
-
-            const base64 = buffer.toString("base64");
-            const apiKey = "6d3b9f27859e88c0c7f387672d2dd4c9";
-
-            const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: new URLSearchParams({ image: base64 })
-            });
-
-            const json = await res.json();
-
-            if (!json.success) {
-                return sock.sendMessage(jid, { text: "❌ Error subiendo la imagen." });
-            }
-
-            return sock.sendMessage(jid, {
-                text: `✅ *URL generada:*\n${json.data.url}`
-            });
+            await m.reply(`✅ *Archivo subido correctamente*\n📎 URL: ${url}`);
 
         } catch (e) {
-            console.log("ERROR TOUR:", e);
-            return sock.sendMessage(msg.key.remoteJid, {
-                text: "❌ No pude procesar la imagen."
-            });
+            console.error("ERROR TOUR:", e);
+            m.reply("❌ Error, no pude subir el archivo.");
         }
     }
-};
+}
