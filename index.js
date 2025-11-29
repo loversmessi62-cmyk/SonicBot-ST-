@@ -7,27 +7,13 @@ import pino from "pino";
 import path from "path";
 import fs from "fs";
 import config from "./config.js";
+import { handler } from "./handler.js";
 
 const { 
     default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason
 } = baileys;
-
-// Función para obtener texto de cualquier tipo de mensaje
-function getMessageText(msg) {
-    return (
-        msg.message?.conversation ||
-        msg.message?.extendedTextMessage?.text ||
-        msg.message?.imageMessage?.caption ||
-        msg.message?.videoMessage?.caption ||
-        msg.message?.documentMessage?.caption ||
-        msg.message?.ephemeralMessage?.message?.extendedTextMessage?.text ||
-        msg.message?.ephemeralMessage?.message?.conversation ||
-        msg.message?.viewOnceMessage?.message?.extendedTextMessage?.text ||
-        null
-    );
-}
 
 async function startBot() {
 
@@ -45,94 +31,27 @@ async function startBot() {
     // --------------------
     // Cargar Plugins
     // --------------------
+    global.plugins = []; // Muy importante
+
     const pluginsPath = "./plugins";
     const pluginsFiles = fs
         .readdirSync(pluginsPath)
         .filter(f => f.endsWith(".js"));
 
-    const plugins = {};
-
     for (let file of pluginsFiles) {
         const pluginPath = path.resolve(pluginsPath, file);
         const plugin = await import(pluginPath);
 
-        plugins[file] = plugin.default;
+        global.plugins.push(plugin.default);
         console.log(`🔥 Plugin cargado: ${file}`);
     }
 
     // --------------------
-    // Manejo de mensajes
+    // Manejo de mensajes → Redirigir al handler
     // --------------------
     sock.ev.on("messages.upsert", async ({ messages }) => {
-
-        let msg = messages[0];
-        if (!msg.message) return;
-
-        const from = msg.key.remoteJid;
-        const isGroup = from.endsWith("@g.us");
-
-        // CORREGIDO: detección REAL del remitente
-        let sender;
-        if (msg.key.participant) {
-            sender = msg.key.participant;
-        } else if (msg.participant) {
-            sender = msg.participant;
-        } else {
-            sender = msg.key.remoteJid;
-        }
-
-        // CORREGIDO: detección REAL del texto
-        const text = getMessageText(msg);
-        if (!text) return;
-
-        const prefix = config.prefix;
-        if (!text.startsWith(prefix)) return;
-
-        const [command, ...args] = text
-            .slice(prefix.length)
-            .trim()
-            .split(/\s+/);
-
-        // --------------------
-        // Obtener metadata, admins y permisos
-        // --------------------
-        let groupMetadata = null;
-        let isAdmin = false;
-        let isBotAdmin = false;
-
-        if (isGroup) {
-            groupMetadata = await sock.groupMetadata(from);
-
-            // CORREGIDO para versiones nuevas de Baileys
-            const adminList = groupMetadata.participants
-                .filter(p => p.admin != null)
-                .map(p => p.id);
-
-            isAdmin = adminList.includes(sender);
-            isBotAdmin = adminList.includes(sock.user.id);
-        }
-
-        // --------------------
-        // Ejecutar plugin
-        // --------------------
-        for (let plugin of Object.values(plugins)) {
-            if (!plugin.commands) continue;
-
-            if (plugin.commands.includes(command)) {
-                try {
-                    await plugin.run(sock, msg, args, {
-                        isGroup,
-                        isAdmin,
-                        isBotAdmin,
-                        groupMetadata,
-                        prefix
-                    });
-                } catch (e) {
-                    console.log("❌ Error en plugin:", e);
-                }
-            }
-        }
-
+        const msg = messages[0];
+        await handler(sock, msg); // <<<<<<<<<<<<<< SOLO ESTO
     });
 
     // --------------------
