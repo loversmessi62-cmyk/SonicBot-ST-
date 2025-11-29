@@ -59,9 +59,12 @@ export const handleMessage = async (sock, msg) => {
             console.log("\n🟩 PARTICIPANTES RAW:");
             console.log(metadata.participants);
 
-            console.log("\n🟨 ADMINS DETECTADOS (p.admin != null):");
+            // ==========================
+            // 🔥 CORRECCIÓN DEFINITIVA
+            // ==========================
+            console.log("\n🟨 ADMINS DETECTADOS CORRECTAMENTE:");
             admins = metadata.participants
-                .filter(p => p.admin !== null)
+                .filter(p => p.admin === "admin" || p.admin === "superadmin")
                 .map(p => normalize(p.id));
 
             console.log(admins);
@@ -91,7 +94,7 @@ export const handleMessage = async (sock, msg) => {
 
         const plugin = plugins[command];
 
-        // 🔥🔥🔥 FORZAR VALIDACIÓN DE ADMIN 🔥🔥🔥
+        // 🔥🔥🔥 VALIDACIÓN DE ADMIN 🔥🔥🔥
         if (plugin.admin && !isAdmin) {
             return sock.sendMessage(jid, { text: "❌ *Este comando solo puede usarlo un ADMIN.*" });
         }
