@@ -91,18 +91,29 @@ export const handleMessage = async (sock, msg) => {
 // =====================================================
 // 🔥 FUNCIÓN GLOBAL DE DESCARGA
 // =====================================================
-export const download = async (sock, quotedMsg) => {
-    try {
-        if (!quotedMsg?.message) return null;
+const download = async (sock, quotedMsg) => {
+    const msg = quotedMsg.message;
 
-        const buffer = await sock.downloadMediaMessage(quotedMsg);
-        return buffer;
+    const type =
+        msg?.imageMessage
+            ? "image"
+            : msg?.videoMessage
+            ? "video"
+            : msg?.stickerMessage
+            ? "sticker"
+            : null;
 
-    } catch (e) {
-        console.error("❌ Error descargando media:", e);
-        return null;
-    }
+    if (!type) return null;
+
+    const stream = await sock.downloadMediaMessage(quotedMsg);
+    return stream;
 };
+
+module.exports = {
+    download
+};
+
+
 
 
         const ctx = {
