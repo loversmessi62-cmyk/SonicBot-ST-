@@ -1,41 +1,82 @@
-import config from "../config.js";
+import fs from "fs";
+import path from "path";
 
-export default {
-    commands: ["n", "notify"],
+// Normalizar JIDs para que funcione con @lid y @s.whatsapp.net
+const normalize = (jid = "") => jid.split("@")[0];
 
-    run: async (sock, msg, args, ctx) => {
-        const { isGroup, isAdmin, groupMetadata } = ctx;
+// Cargar plugins automáticamente
+const plugins = {};
+const pluginsDir = "./plugins";
+
+fs.readdirSync(pluginsDir).forEach(file => {
+    if (file.endsWith(".js")) {
+        const plugin = await import(path.resolve(`${pluginsDir}/${file}`));
+        const cmds = plugin.default.commands;
+
+        cmds.forEach(cmd => {
+            plugins[cmd] = plugin.default;
+        });
+    }
+});
+
+export const handleMessage = async (sock, msg) => {
+    try {
         const jid = msg.key.remoteJid;
+        const isGroup = jid.endsWith("@g.us");
 
-        if (!isGroup)
-            return sock.sendMessage(jid, { text: config.messages.group });
+        // IDENTIFICAR SENDER
+        const senderJID = msg.key.participant || msg.key.remoteJid;
+        const sender = normalize(senderJID);
 
-        if (!isAdmin)
-            return sock.sendMessage(jid, { text: config.messages.admin });
+        // IDENTIFICAR BOT
+        const botNumber = normalize(sock.user.id);
 
-        // Texto del comando
-        let texto = args.join(" ");
+        let groupMetadata = null;
+        let admins = [];
+        let isAdmin = false;
 
-        // Si no escribió texto, revisar mensaje citado
-        if (!texto) {
-            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-            texto =
-                quoted?.conversation ||
-                quoted?.extendedTextMessage?.text ||
-                quoted?.imageMessage?.caption ||
-                null;
+        if (isGroup) {
+            groupMetadata = await sock.groupMetadata(jid);
+
+            admins = groupMetadata.participants
+                .filter(p => p.admin !== null)
+                .map(p => normalize(p.id));
+
+            isAdmin = admins.includes(sender);
         }
 
-        if (!texto)
-            return sock.sendMessage(jid, {
-                text: "📌 Debes escribir algo o responder un mensaje.\n\nEjemplo:\n.n Hola grupo"
-            });
+        // LOGS ÚTILES
+        console.log("\n📩 NUEVO MENSAJE");
+        console.log("SENDER NORMALIZADO:", sender);
+        console.log("BOT NORMALIZADO:", botNumber);
+        console.log("ADMINS:", admins);
+        console.log("isAdmin:", isAdmin);
 
-        const menciones = groupMetadata.participants.map(p => p.id);
+        // TEXT
+        const text = msg.message?.conversation ||
+            msg.message?.extendedTextMessage?.text || "";
 
-        await sock.sendMessage(jid, {
-            text: `📢 *AVISO DEL ADMIN*\n\n${texto}`,
-            mentions: menciones
-        });
+        if (!text.startsWith(".")) return;
+
+        const args = text.slice(1).trim().split(/\s+/);
+        const command = args.shift().toLowerCase();
+
+        if (!plugins[command]) {
+            console.log("❌ Comando no encontrado:", command);
+            return;
+        }
+
+        const ctx = {
+            sender,
+            botNumber,
+            isGroup,
+            isAdmin,
+            groupMetadata
+        };
+
+        await plugins[command].run(sock, msg, args, ctx);
+
+    } catch (e) {
+        console.error("❌ ERROR EN HANDLER:", e);
     }
 };
