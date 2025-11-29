@@ -1,47 +1,53 @@
-import { downloadMediaMessage } from "@whiskeysockets/baileys";
 import axios from "axios";
+import { writeFile } from "fs/promises";
 
-const IMGUR_CLIENT_ID = "TU_CLIENT_ID_AQUI"; // <-- pega aquí tu Client ID
-
-export default {
-    commands: ["tourl"],
-
-    async run(sock, msg, args, ctx) {
-        const jid = msg.key.remoteJid;
-        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-
-        if (!quoted) {
-            return sock.sendMessage(jid, {
-                text: "📌 *Responde a una imagen con:* .tourl"
-            });
-        }
-
-        // Convertir la imagen a buffer
-        const buffer = await downloadMediaMessage(
-            { message: quoted },
-            "buffer",
-            {},
-            { logger: null }
-        );
-
-        // Subir a imgur
-        const res = await axios.post(
-            "https://api.imgur.com/3/image",
-            {
-                image: buffer.toString("base64"),
-                type: "base64"
-            },
-            {
-                headers: {
-                    Authorization: `Client-ID ${IMGUR_CLIENT_ID}`
-                }
-            }
-        );
-
-        const url = res.data.data.link;
-
-        await sock.sendMessage(jid, {
-            text: `🔗 *LINK CORTO (IMGUR)*:\n${url}`
-        });
+const handler = async (m, { conn, args }) => {
+  try {
+    // Si no hay imagen ni URL
+    if (!m.quoted && !args[0]) {
+      return m.reply("📌 *Envía una imagen o responde a una imagen con:*\n.tourl");
     }
+
+    // -------- DESCARGAR ARCHIVO --------
+    let media;
+
+    if (m.quoted) {
+      // Si está respondiendo a una imagen
+      const mime = m.quoted.mimetype || "";
+      if (!mime.includes("image")) return m.reply("⚠️ Responde a una imagen válida.");
+      media = await m.quoted.download();
+    } else if (args[0]) {
+      // Si mandó una URL directa
+      return m.reply(`🔗 *LINK OBTENIDO:*\n${args[0]}`);
+    }
+
+    // Guardar temporalmente
+    const file = `/tmp/${Date.now()}.jpg`;
+    await writeFile(file, media);
+
+    // SUBIR AUTOMÁTICAMENTE A IMGBB (LINK CORTO)
+    const apiKey = "6a3dfe8b07b19e969f4cc9c2dfddc23f"; // API pública de imágenes gratis
+    const upload = await axios.post(
+      "https://api.imgbb.com/1/upload",
+      {
+        key: apiKey,
+        image: media.toString("base64"),
+      }
+    );
+
+    const url = upload.data.data.url;
+
+    // Responder con link corto
+    m.reply(`🔗 *LINK OBTENIDO:*\n${url}`);
+
+  } catch (e) {
+    console.log(e);
+    m.reply("❌ Error al convertir imagen. Intenta con otra o reenvía.");
+  }
 };
+
+handler.help = ["tourl"];
+handler.tags = ["tools"];
+handler.command = ["tourl"];
+
+export default handler;
