@@ -1,17 +1,22 @@
 import { downloadMediaMessage } from "@whiskeysockets/baileys";
+import axios from "axios";
+
+const IMGUR_CLIENT_ID = "TU_CLIENT_ID_AQUI"; // <-- pega aquí tu Client ID
 
 export default {
     commands: ["tourl"],
 
     async run(sock, msg, args, ctx) {
+        const jid = msg.key.remoteJid;
         const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
         if (!quoted) {
-            return sock.sendMessage(msg.key.remoteJid, {
-                text: "📌 *Responde a una imagen, sticker o video con:* .tourl"
+            return sock.sendMessage(jid, {
+                text: "📌 *Responde a una imagen con:* .tourl"
             });
         }
 
+        // Convertir la imagen a buffer
         const buffer = await downloadMediaMessage(
             { message: quoted },
             "buffer",
@@ -19,15 +24,24 @@ export default {
             { logger: null }
         );
 
-        const uploaded = await sock.sendMessage(msg.key.remoteJid, {
-            image: buffer,
-            caption: "📎 *Aquí tienes tu link (WhatsApp CDN se activa al reenviar)*"
-        });
+        // Subir a imgur
+        const res = await axios.post(
+            "https://api.imgur.com/3/image",
+            {
+                image: buffer.toString("base64"),
+                type: "base64"
+            },
+            {
+                headers: {
+                    Authorization: `Client-ID ${IMGUR_CLIENT_ID}`
+                }
+            }
+        );
 
-        const url = uploaded.message.imageMessage?.directPath;
+        const url = res.data.data.link;
 
-        await sock.sendMessage(msg.key.remoteJid, {
-            text: `🔗 *LINK OBTENIDO:*\nhttps://mmg.whatsapp.net${url}`
+        await sock.sendMessage(jid, {
+            text: `🔗 *LINK CORTO (IMGUR)*:\n${url}`
         });
     }
 };
