@@ -14,9 +14,7 @@ export const loadPlugins = async () => {
         const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"));
 
         for (let file of files) {
-            const pluginPath = "file://" + path.resolve(`./plugins/${file}`);
-            const module = await import(pluginPath);
-
+            const module = await import("file://" + path.resolve(`./plugins/${file}`));
             const cmds = module.default.commands;
 
             cmds.forEach(cmd => {
@@ -25,12 +23,10 @@ export const loadPlugins = async () => {
 
             console.log(`🔥 Plugin cargado: ${file}`);
         }
-
     } catch (e) {
         console.error("❌ Error cargando plugins:", e);
     }
 };
-
 
 // ==================================================
 //                  HANDLER
@@ -52,7 +48,7 @@ export const handleMessage = async (sock, msg) => {
             metadata = await sock.groupMetadata(jid);
 
             admins = metadata.participants
-                .filter(p => p.admin != null)
+                .filter(p => p.admin !== null)
                 .map(p => normalize(p.id));
 
             isAdmin = admins.includes(sender);
@@ -76,10 +72,9 @@ export const handleMessage = async (sock, msg) => {
 
         const plugin = plugins[command];
 
-        // 🔥 VALIDACIÓN SOLO ADMINS
+        // 🔥🔥🔥 FORZAR VALIDACIÓN DE ADMIN 🔥🔥🔥
         if (plugin.admin && !isAdmin) {
-            await sock.sendMessage(jid, { text: "❌ *Este comando es solo para administradores.*" });
-            return;
+            return sock.sendMessage(jid, { text: "❌ *Este comando solo puede usarlo un ADMIN.*" });
         }
 
         const ctx = {
