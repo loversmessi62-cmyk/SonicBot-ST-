@@ -8,16 +8,18 @@ export async function handler(sock, msg) {
 
         const isGroup = jid.endsWith("@g.us");
 
-        // DETECCIÓN REAL DEL SENDER
-        const sender =
+        // DETECTAR SENDER REAL NORMALIZADO
+        let rawSender =
             msg.key.participant ||
             msg.participant ||
             msg.key.remoteJid ||
             null;
 
-        console.log("📌 SENDER ORIGINAL:", sender);
+        const sender = jidNormalizedUser(rawSender);
 
-        // OBTENER TEXTO REAL DEL MENSAJE
+        console.log("📌 SENDER NORMALIZADO:", sender);
+
+        // DETECTAR TEXTO
         const body =
             msg.message?.conversation ||
             msg.message?.extendedTextMessage?.text ||
@@ -30,9 +32,7 @@ export async function handler(sock, msg) {
         const args = body.slice(config.prefix.length).trim().split(/\s+/);
         const command = args.shift().toLowerCase();
 
-        // ============  
-        // METADATA  
-        // ============  
+        // ======== METADATA ========
         let metadata = {};
         let isAdmin = false;
         let isBotAdmin = false;
@@ -40,32 +40,25 @@ export async function handler(sock, msg) {
         if (isGroup) {
             metadata = await sock.groupMetadata(jid);
 
-            // Lista de admins REAL
+            // Admins en formato limpio
             const admins = metadata.participants
-                .filter(p => p.admin === "admin" || p.admin === "superadmin")
-                .map(p => p.id);
+                .filter(p => p.admin !== null)
+                .map(p => jidNormalizedUser(p.id));
 
-            console.log("👑 ADMINS DETECTADOS (RAW):", admins);
+            console.log("👑 ADMINS NORMALIZADOS:", admins);
 
-            // NORMALIZAR IDS
-            const cleanAdmins = admins.map(a => jidNormalizedUser(a));
-            const cleanSender = jidNormalizedUser(sender);
-            const cleanBot = jidNormalizedUser(sock.user.id);
+            // SENDER / BOT NORMALIZADOS
+            const bot = jidNormalizedUser(sock.user.id);
 
-            console.log("👑 ADMINS LIMPIOS:", cleanAdmins);
-            console.log("👤 SENDER LIMPIO:", cleanSender);
-            console.log("🤖 BOT LIMPIO:", cleanBot);
+            console.log("👤 SENDER:", sender);
+            console.log("🤖 BOT:", bot);
 
-            // VERDADERA DETECCIÓN DE ADMIN
-            isAdmin = cleanAdmins.includes(cleanSender);
-
-            // DETECCIÓN DE BOT ADMIN
-            isBotAdmin = cleanAdmins.includes(cleanBot);
+            // Validaciones reales
+            isAdmin = admins.includes(sender);
+            isBotAdmin = admins.includes(bot);
         }
 
-        // ============  
-        // EJECUTAR PLUGIN  
-        // ============  
+        // ======== EJECUTAR PLUGIN ========
         for (let plugin of global.plugins) {
             if (!plugin.commands.includes(command)) continue;
 
