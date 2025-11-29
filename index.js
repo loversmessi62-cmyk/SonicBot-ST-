@@ -1,85 +1,103 @@
-import makeWASocket, { useMultiFileAuthState, jidDecode } from "@whiskeysockets/baileys";
+// =====================
+// ADRI-BOT (Baileys GataNina-Li)
+// =====================
+
+import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
-import fs from "fs";
 import path from "path";
-import qrcode from "qrcode-terminal";
+import fs from "fs";
 import config from "./config.js";
 
-async function startBot() {
+const { 
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason
+} = baileys;
 
+async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
     const sock = makeWASocket({
         logger: pino({ level: "silent" }),
         printQRInTerminal: true,
         auth: state,
-        browser: ["ADRIBOT", "Safari", "1.0"]
+        browser: ["ADRIBOT", "Chrome", "6.0"]
     });
 
+    // Guardar sesión
     sock.ev.on("creds.update", saveCreds);
 
-    // ===========================
+    // ====================
     // Cargar plugins
-    // ===========================
-    const plugins = {};
+    // ====================
     const pluginsPath = "./plugins";
+    const pluginsFiles = fs.readdirSync(pluginsPath).filter(p => p.endsWith(".js"));
 
-    const files = fs.readdirSync(pluginsPath).filter(f => f.endsWith(".js"));
-    for (const file of files) {
-        const plugin = await import(path.resolve(`${pluginsPath}/${file}`));
+    const plugins = {};
+
+    for (let file of pluginsFiles) {
+        const fullPath = path.resolve(pluginsPath, file);
+        const plugin = await import(fullPath);
         plugins[file] = plugin.default;
-        console.log("🔥 Plugin cargado:", file);
+
+        console.log(`🔥 Plugin cargado: ${file}`);
     }
 
-    // ===========================
-    // Escuchar mensajes
-    // ===========================
+    // ====================
+    // Manejo de mensajes
+    // ====================
     sock.ev.on("messages.upsert", async ({ messages }) => {
+        let msg = messages[0];
+        if (!msg.message) return;
 
-        const m = messages[0];
-        if (!m.message) return;
+        const from = msg.key.remoteJid;
+        const isGroup = from.endsWith("@g.us");
 
-        const jid = m.key.remoteJid;
-        const text = m.message.conversation || m.message.extendedTextMessage?.text;
+        const text =
+            msg.message.conversation ||
+            msg.message.extendedTextMessage?.text;
+
         if (!text) return;
 
         const prefix = config.prefix;
         if (!text.startsWith(prefix)) return;
 
-        // Separar comando y args
-        const [cmd, ...args] = text.slice(prefix.length).trim().split(/\s+/);
+        const [command, ...args] = text
+            .slice(prefix.length)
+            .trim()
+            .split(/\s+/);
 
-        // Info básica
-        const isGroup = jid.endsWith("@g.us");
-        const sender = m.key.participant || m.key.remoteJid;
-
-        let metadata = {};
-        let isAdmin = false;
-        let isBotAdmin = false;
-
-        if (isGroup) {
-            metadata = await sock.groupMetadata(jid);
-            const admins = metadata.participants.filter(p => p.admin);
-            isAdmin = admins.some(a => a.id === sender);
-            isBotAdmin = admins.some(a => a.id === sock.user.id);
-        }
-
-        // Ejecución de plugins
+        // Ejecutar plugin
         for (let plugin of Object.values(plugins)) {
             if (!plugin.commands) continue;
-            if (plugin.commands.includes(cmd)) {
 
+            if (plugin.commands.includes(command)) {
                 try {
-                    await plugin.run(sock, m, args, {
+                    await plugin.run(sock, msg, args, {
                         isGroup,
-                        isAdmin,
-                        isBotAdmin,
-                        metadata
+                        prefix
                     });
                 } catch (e) {
                     console.log("❌ Error en plugin:", e);
                 }
             }
+        }
+    });
+
+    // ====================
+    // Reconexión automática
+    // ====================
+    sock.ev.on("connection.update", ({ connection, lastDisconnect }) => {
+        if (connection === "close") {
+            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+                console.log("♻️ Reconectando...");
+                startBot();
+            } else {
+                console.log("❌ Sesión cerrada. Borra la carpeta /sessions.");
+            }
+        }
+        if (connection === "open") {
+            console.log("✅ ADRIBOT conectado!");
         }
     });
 }
