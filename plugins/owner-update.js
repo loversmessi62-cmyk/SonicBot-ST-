@@ -1,35 +1,33 @@
-import { execSync } from "child_process";
+import { exec } from "child_process"
 
 let handler = async (m, { conn, isOwner }) => {
-    if (!isOwner) return conn.reply(m.chat, "❌ Este comando es solo para el owner.", m);
+ if (!isOwner) return m.reply("❌ Solo el *OWNER* puede usar este comando.")
 
-    try {
-        await conn.reply(m.chat, "🔄 *Actualizando ADRI-BOT desde GitHub...*\nEspera poquito...", m);
+ m.reply("🔄 Actualizando el bot...\nEsto puede tardar unos segundos.")
 
-        // --- DATOS DEL REPO ---
-        const USERNAME = "AdrianDH7";
-        const TOKEN = "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";
-        const REPO = "ADRI-BOT";
-        const BRANCH = "main";
+ exec("git pull", (err, stdout) => {
 
-        // --- URL PRIVADA ---
-        const GIT_URL = `https://${USERNAME}:${TOKEN}@github.com/${USERNAME}/${REPO}.git`;
+   if (err) {
+     return m.reply("⚠️ Error ejecutando *git pull*:\n\n" + err.message)
+   }
 
-        // --- PROCESO ---
-        execSync(`git fetch ${GIT_URL}`, { stdio: "inherit" });
-        execSync(`git reset --hard origin/${BRANCH}`, { stdio: "inherit" });
-        execSync("npm install", { stdio: "inherit" });
+   if (stdout.includes("Already up to date")) {
+     return m.reply("✅ El bot ya está actualizado.")
+   }
 
-        await conn.reply(m.chat, "✅ *Update completo*\n♻ Reiniciando ADRI-BOT...", m);
+   m.reply("✅ Actualización descargada.\n♻️ Reiniciando...")
 
-        process.exit();
+   // Si usas pm2
+   exec("pm2 restart all")
 
-    } catch (e) {
-        console.error(e);
-        conn.reply(m.chat, "❌ Error al realizar el update:\n" + e.message, m);
-    }
-};
+   // Si NO usas pm2 y lo corres con: node index.js
+   // NO se reinicia solo — tendrás que cerrar y abrir manualmente
+ })
+}
 
-handler.command = /^update$/i;
-handler.rowner = true; // Solo owner real
-export default handler;
+handler.help = ["update"]
+handler.tags = ["owner"]
+handler.command = ["update"]
+handler.owner = true
+
+export default handler
