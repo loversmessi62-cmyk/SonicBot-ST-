@@ -1,0 +1,29 @@
+export default {
+    comando: ["todos", "tagall", "invocar"],
+    descripcion: "Menciona a todos los miembros del grupo",
+    categoria: "admin",
+
+    ejecutar: async (sock, m, args, { isAdmin, isBotAdmin, groupMetadata, prefix }) => {
+
+        if (!m.isGroup)
+            return m.reply("❌ Este comando solo funciona en grupos.");
+
+        if (!isAdmin)
+            return m.reply("❌ Este comando es solo para *administradores*.");
+
+        if (!isBotAdmin)
+            return m.reply("❌ Necesito ser *admin* para mencionar a todos.");
+
+        let texto = args.join(" ") || "📢 *¡Atención a todos!*";
+
+        let participantes = groupMetadata.participants;
+        let menciones = participantes.map(u => u.id);
+
+        let mensaje = `${texto}\n\n`;
+        for (let user of participantes) {
+            mensaje += `➤ @${user.id.split("@")[0]}\n`;
+        }
+
+        await sock.sendMessage(m.chat, { text: mensaje, mentions: menciones });
+    }
+}
