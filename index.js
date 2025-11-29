@@ -52,19 +52,42 @@ async function startBot() {
                 console.log("♻️ Reconectando...");
                 startBot();
             } else {
-                console.log("❌ Sesión cerrada. Borra /sessions/");
+                console.log("❌ Sesión cerrada. Borra la carpeta /sessions/");
             }
         }
     });
 
-    // --------------------
-    // Manejo de Mensajes
-    // --------------------
-    sock.ev.on("messages.upsert", async ({ messages }) => {
-        const msg = messages[0];
-        if (!msg.message) return;
+    // =====================================================
+    //        🔥 MANEJO DE MENSAJES (ANTI-DUPLICADO)
+    // =====================================================
 
-        await handleMessage(sock, msg);
+    const cache = new Set(); // evita duplicados
+
+    sock.ev.on("messages.upsert", async ({ messages }) => {
+        try {
+            const msg = messages[0];
+            if (!msg?.message) return;
+
+            // ❌ ignorar mensajes del propio bot
+            if (msg.key.fromMe) return;
+
+            // ❌ ignorar mensajes de sistema
+            if (msg.message.protocolMessage) return;
+            if (msg.message.senderKeyDistributionMessage) return;
+
+            // ❌ ignorar estados
+            if (msg.key.remoteJid === "status@broadcast") return;
+
+            // ❌ evitar procesar dos veces el mismo mensaje
+            if (cache.has(msg.key.id)) return;
+            cache.add(msg.key.id);
+
+            // ejecutar handler
+            await handleMessage(sock, msg);
+
+        } catch (e) {
+            console.error("❌ Error en messages.upsert:", e);
+        }
     });
 }
 
