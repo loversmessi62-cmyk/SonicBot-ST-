@@ -1,47 +1,57 @@
-import makeWASocket, { useMultiFileAuthState } from "@whiskeysockets/baileys";
+// =====================
+// ADRI-BOT (Baileys GataNina-Li)
+// =====================
+
+import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
-import fs from "fs";
 import path from "path";
-import qrcode from "qrcode-terminal";
+import fs from "fs";
 import config from "./config.js";
 
+const { 
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason
+} = baileys;
+
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('./sessions');
+    const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
     const sock = makeWASocket({
+        logger: pino({ level: "silent" }),
         printQRInTerminal: true,
         auth: state,
-        logger: pino({ level: "silent" }),
         browser: ["ADRIBOT", "Chrome", "6.0"]
     });
 
+    // Guardar sesión
     sock.ev.on("creds.update", saveCreds);
 
-    // Cargar plugins automáticamente
+    // ====================
+    // Cargar plugins
+    // ====================
     const pluginsPath = "./plugins";
-    const pluginsFiles = fs.readdirSync(pluginsPath).filter(f => f.endsWith(".js"));
-    const plugins = [];
+    const pluginsFiles = fs.readdirSync(pluginsPath).filter(p => p.endsWith(".js"));
+
+    const plugins = {};
 
     for (let file of pluginsFiles) {
-        const pluginModule = await import(path.resolve(pluginsPath, file));
-        const plugin = pluginModule.default;
+        const fullPath = path.resolve(pluginsPath, file);
+        const plugin = await import(fullPath);
+        plugins[file] = plugin.default;
 
-        if (!plugin || !plugin.commands) {
-            console.log(`⚠️ Plugin inválido: ${file}`);
-            continue;
-        }
-
-        plugins.push(plugin);
         console.log(`🔥 Plugin cargado: ${file}`);
     }
 
-    // Capturar mensajes
+    // ====================
+    // Manejo de mensajes
+    // ====================
     sock.ev.on("messages.upsert", async ({ messages }) => {
-        const msg = messages[0];
+        let msg = messages[0];
         if (!msg.message) return;
 
-        const jid = msg.key.remoteJid;
-        const isGroup = jid.endsWith("@g.us");
+        const from = msg.key.remoteJid;
+        const isGroup = from.endsWith("@g.us");
 
         const text =
             msg.message.conversation ||
@@ -49,21 +59,45 @@ async function startBot() {
 
         if (!text) return;
 
-        if (!text.startsWith(config.prefix)) return;
+        const prefix = config.prefix;
+        if (!text.startsWith(prefix)) return;
 
         const [command, ...args] = text
-            .slice(config.prefix.length)
+            .slice(prefix.length)
             .trim()
             .split(/\s+/);
 
-        for (let plugin of plugins) {
+        // Ejecutar plugin
+        for (let plugin of Object.values(plugins)) {
+            if (!plugin.commands) continue;
+
             if (plugin.commands.includes(command)) {
                 try {
-                    await plugin.run(sock, msg, args, { isGroup });
-                } catch (err) {
-                    console.log("❌ Error en plugin:", err);
+                    await plugin.run(sock, msg, args, {
+                        isGroup,
+                        prefix
+                    });
+                } catch (e) {
+                    console.log("❌ Error en plugin:", e);
                 }
             }
+        }
+    });
+
+    // ====================
+    // Reconexión automática
+    // ====================
+    sock.ev.on("connection.update", ({ connection, lastDisconnect }) => {
+        if (connection === "close") {
+            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+                console.log("♻️ Reconectando...");
+                startBot();
+            } else {
+                console.log("❌ Sesión cerrada. Borra la carpeta /sessions.");
+            }
+        }
+        if (connection === "open") {
+            console.log("✅ ADRIBOT conectado!");
         }
     });
 }
