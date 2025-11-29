@@ -1,36 +1,39 @@
-import axios from "axios";
+import fetch from "node-fetch"
 
 let handler = async (m, { conn }) => {
-  try {
-    // Verificar si hay imagen
-    if (!m.quoted || !m.quoted.fileSha256) {
-      return m.reply("📸 *Responde a una imagen para subirla a ImgBB.*");
-    }
+  let q = m.quoted ? m.quoted : m
+  let mime = q.mimetype || q.mediaType || ""
 
-    // Descargar imagen
-    let media = await m.quoted.download();
-    let api = "6d3b9f27859e88c0c7f387672d2dd4c9"; // tu API key
+  if (!mime || !mime.startsWith("image"))
+    return m.reply("📷 *Responde a una imagen para convertirla a URL.*")
 
-    // Subir imagen a ImgBB
-    let form = new FormData();
-    form.append("image", media.toString("base64"));
+  let media = await q.download()
+  let apiKey = "6d3b9f27859e88c0c7f387672d2dd4c9"
 
-    let upload = await axios.post(`https://api.imgbb.com/1/upload?key=${api}`, form, {
-      headers: form.getHeaders(),
-    });
+  m.reply("⏳ Subiendo imagen a *imgbb*...")
 
-    let link = upload.data.data.url;
+  let form = new FormData()
+  form.append("key", apiKey)
+  form.append("image", media.toString("base64"))
 
-    await m.reply(`✅ *Imagen subida con éxito*\n🔗 *Link:* ${link}`);
+  let res = await fetch(`https://api.imgbb.com/1/upload`, {
+    method: "POST",
+    body: form
+  })
 
-  } catch (e) {
-    console.log(e);
-    m.reply("❌ Hubo un error subiendo la imagen.");
+  let json = await res.json()
+
+  if (!json.success) {
+    return m.reply("❌ Error subiendo la imagen:\n" + JSON.stringify(json, null, 2))
   }
-};
 
-handler.help = ["tourl"];
-handler.tags = ["tools"];
-handler.command = ["tourl", "imgbb", "uplink"];
+  let url = json.data.url
 
-export default handler;
+  m.reply(`✅ *URL Lista:*\n${url}`)
+}
+
+handler.help = ["tourl"]
+handler.tags = ["tools"]
+handler.command = ["tourl"]
+
+export default handler
