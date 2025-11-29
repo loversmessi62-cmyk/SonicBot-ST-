@@ -1,4 +1,5 @@
 import config from "./config.js";
+import { jidNormalizedUser } from "@whiskeysockets/baileys";
 
 export async function handler(sock, msg) {
     try {
@@ -12,11 +13,9 @@ export async function handler(sock, msg) {
             msg.key.participant ||
             msg.participant ||
             msg.key.remoteJid ||
-            msg.message?.sender ||
-            msg.message?.senderKeyDistributionMessage?.groupId ||
             null;
 
-        console.log("📌 SENDER:", sender);
+        console.log("📌 SENDER ORIGINAL:", sender);
 
         // OBTENER TEXTO REAL DEL MENSAJE
         const body =
@@ -31,9 +30,9 @@ export async function handler(sock, msg) {
         const args = body.slice(config.prefix.length).trim().split(/\s+/);
         const command = args.shift().toLowerCase();
 
-        // ============
-        // METADATA
-        // ============
+        // ============  
+        // METADATA  
+        // ============  
         let metadata = {};
         let isAdmin = false;
         let isBotAdmin = false;
@@ -46,21 +45,27 @@ export async function handler(sock, msg) {
                 .filter(p => p.admin === "admin" || p.admin === "superadmin")
                 .map(p => p.id);
 
-            console.log("👑 ADMINS DETECTADOS:", admins);
+            console.log("👑 ADMINS DETECTADOS (RAW):", admins);
 
-            // Validación exacta
-            isAdmin = admins.includes(sender);
+            // NORMALIZAR IDS
+            const cleanAdmins = admins.map(a => jidNormalizedUser(a));
+            const cleanSender = jidNormalizedUser(sender);
+            const cleanBot = jidNormalizedUser(sock.user.id);
 
-            // JID del bot
-            const botJid = sock.user.id;
-            console.log("🤖 BOT ID:", botJid);
+            console.log("👑 ADMINS LIMPIOS:", cleanAdmins);
+            console.log("👤 SENDER LIMPIO:", cleanSender);
+            console.log("🤖 BOT LIMPIO:", cleanBot);
 
-            isBotAdmin = admins.includes(botJid);
+            // VERDADERA DETECCIÓN DE ADMIN
+            isAdmin = cleanAdmins.includes(cleanSender);
+
+            // DETECCIÓN DE BOT ADMIN
+            isBotAdmin = cleanAdmins.includes(cleanBot);
         }
 
-        // ============
-        // EJECUTAR PLUGIN
-        // ============
+        // ============  
+        // EJECUTAR PLUGIN  
+        // ============  
         for (let plugin of global.plugins) {
             if (!plugin.commands.includes(command)) continue;
 
@@ -68,7 +73,7 @@ export async function handler(sock, msg) {
                 isGroup,
                 isAdmin,
                 isBotAdmin,
-                groupMetadata: metadata
+                metadata
             });
         }
 
