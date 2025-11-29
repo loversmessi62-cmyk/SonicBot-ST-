@@ -1,22 +1,16 @@
-// CONFIGURACIÓN GLOBAL DEL BOT ADRIBOT
-module.exports = {
-    // Dueños del bot (tu número)
-    owners: ["5210000000000"], // ← cambia a tu número sin espacios
+export default {
+    owners: ["5210000000000"],
 
-    // Prefijo (puede modificarse)
     prefix: ".",
 
-    // Nombre del bot
     botName: "ADRIBOT",
 
-    // Mensajes globales
     messages: {
-        admin: "❌ Este comando es solo para *ADMINISTRADORES*.",
-        owner: "❌ Este comando es solo para *MI CREADOR*.",
-        group: "❌ Este comando solo funciona en *GRUPOS*.",
-        private: "❌ Este comando solo funciona en *PRIVADO*.",
-        botAdmin: "⚠️ Necesito ser *ADMIN* para usar este comando.",
+        admin: "❌ Este comando es solo para *administradores*.",
+        owner: "❌ Solo mi creador puede usar esto.",
+        botAdmin: "⚠️ Necesito ser admin para hacerlo.",
+        group: "❌ Este comando solo funciona en grupos.",
         wait: "⏳ Procesando...",
         done: "✔️ Listo!"
     }
-};
+}
