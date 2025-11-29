@@ -1,12 +1,11 @@
 export default {
     commands: ["todos"],
-    admin: true,
-
+    admin: true,   // ← OBLIGATORIO si quieres que sea solo para admins
+    
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
         const texto = args.join(" ") || "Mensaje para todos 👇";
-
         const menciones = ctx.groupMetadata.participants.map(p => p.id);
 
         await sock.sendMessage(jid, {
