@@ -1,15 +1,17 @@
 {
-  "name": "adri-bot",
+  "name": "ADRIBOT",
   "version": "1.0.0",
+  "description": "Bot WhatsApp Multi-Device estilo plugins",
   "main": "index.js",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "github:GataNina-Li/Baileys",
-    "chalk": "^4.1.2",
-    "cfonts": "^2.10.0",
-    "qrcode-terminal": "^0.12.0"
+    "pino": "^8.0.0",
+    "qrcode-terminal": "^0.12.0",
+    "axios": "^1.6.0",
+    "moment-timezone": "^0.5.43"
   }
 }
