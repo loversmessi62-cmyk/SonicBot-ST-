@@ -1,33 +1,33 @@
-import { exec } from "child_process"
+import { exec } from "child_process";
 
-let handler = async (m, { conn, isOwner }) => {
- if (!isOwner) return m.reply("❌ Solo el *OWNER* puede usar este comando.")
+export default {
+  commands: ["update", "upd"],   // 👈 Compatible con tu handler
+  admin: true,                   // Solo admin
 
- m.reply("🔄 Actualizando el bot...\nEsto puede tardar unos segundos.")
+  run: async (sock, msg, args, ctx) => {
+    let jid = msg.key.remoteJid;
 
- exec("git pull", (err, stdout) => {
+    // Mensaje inicial
+    await sock.sendMessage(jid, { text: "⏳ *Actualizando desde GitHub...*\nEspere un momento..." });
 
-   if (err) {
-     return m.reply("⚠️ Error ejecutando *git pull*:\n\n" + err.message)
-   }
+    exec("git pull", async (err, stdout, stderr) => {
+      if (err) {
+        return sock.sendMessage(jid, {
+          text: "❌ *Error ejecutando git pull:*\n" + err.message
+        });
+      }
 
-   if (stdout.includes("Already up to date")) {
-     return m.reply("✅ El bot ya está actualizado.")
-   }
+      if (stderr) {
+        await sock.sendMessage(jid, { text: "⚠️ Advertencias:\n" + stderr });
+      }
 
-   m.reply("✅ Actualización descargada.\n♻️ Reiniciando...")
-
-   // Si usas pm2
-   exec("pm2 restart all")
-
-   // Si NO usas pm2 y lo corres con: node index.js
-   // NO se reinicia solo — tendrás que cerrar y abrir manualmente
- })
-}
-
-handler.help = ["update"]
-handler.tags = ["owner"]
-handler.command = ["update"]
-handler.owner = true
-
-export default handler
+      await sock.sendMessage(jid, {
+        text:
+          "✅ *Actualización completada:*\n```\n" +
+          stdout +
+          "\n```\n" +
+          "🔄 *Reinicia el bot manualmente con:*\n```bash\nnode index.js\n```"
+      });
+    });
+  }
+};
