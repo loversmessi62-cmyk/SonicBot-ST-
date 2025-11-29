@@ -41,8 +41,9 @@ async function startBot() {
     const plugins = {};
 
     for (let file of pluginsFiles) {
-        const fullPath = path.resolve(pluginsPath, file);
-        const plugin = await import(fullPath);
+        const pluginPath = path.resolve(pluginsPath, file);
+        const plugin = await import(pluginPath);
+
         plugins[file] = plugin.default;
         console.log(`🔥 Plugin cargado: ${file}`);
     }
@@ -59,9 +60,10 @@ async function startBot() {
         const sender = msg.key.participant || msg.key.remoteJid;
         const isGroup = from.endsWith("@g.us");
 
+        // Texto (mensaje normal o extendido)
         const text =
-            msg.message.conversation ||
-            msg.message.extendedTextMessage?.text;
+            msg.message?.conversation ||
+            msg.message?.extendedTextMessage?.text;
 
         if (!text) return;
 
@@ -73,7 +75,9 @@ async function startBot() {
             .trim()
             .split(/\s+/);
 
-        // ----- Extra: metadata del grupo -----
+        // --------------------
+        // Obtener metadata, admins y permisos
+        // --------------------
         let groupMetadata = null;
         let isAdmin = false;
         let isBotAdmin = false;
@@ -81,12 +85,12 @@ async function startBot() {
         if (isGroup) {
             groupMetadata = await sock.groupMetadata(from);
 
-            const admins = groupMetadata.participants
+            const adminList = groupMetadata.participants
                 .filter(p => p.admin === "admin" || p.admin === "superadmin")
                 .map(p => p.id);
 
-            isAdmin = admins.includes(sender);
-            isBotAdmin = admins.includes(sock.user.id);
+            isAdmin = adminList.includes(sender);
+            isBotAdmin = adminList.includes(sock.user.id);
         }
 
         // --------------------
@@ -113,17 +117,16 @@ async function startBot() {
     });
 
     // --------------------
-    // Reconexión
+    // Reconexión automática
     // --------------------
-    sock.ev.on("connection.update", upd => {
-        const { connection, lastDisconnect } = upd;
+    sock.ev.on("connection.update", ({ connection, lastDisconnect }) => {
 
         if (connection === "close") {
             if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
                 console.log("♻️ Reconectando...");
                 startBot();
             } else {
-                console.log("❌ Sesión cerrada. Borra /sessions");
+                console.log("❌ Sesión cerrada. Borra la carpeta /sessions.");
             }
         }
 
