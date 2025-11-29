@@ -1,13 +1,15 @@
 import fs from "fs";
 import path from "path";
 
-// Normalizar JIDs
+// Normalizar JIDs (quita @...)
 const normalize = (jid = "") => jid.split("@")[0];
 
 // OBJETO DONDE SE GUARDAN LOS COMANDOS
 export const plugins = {};
 
-// FUNCIÓN PARA CARGAR PLUGINS
+// =========================================
+//        FUNCIÓN PARA CARGAR PLUGINS
+// =========================================
 export const loadPlugins = async () => {
     try {
         const dir = "./plugins";
@@ -15,8 +17,8 @@ export const loadPlugins = async () => {
 
         for (let file of files) {
             const module = await import("file://" + path.resolve(`./plugins/${file}`));
-            const cmds = module.default.commands;
 
+            const cmds = module.default.commands;
             cmds.forEach(cmd => {
                 plugins[cmd] = module.default;
             });
@@ -29,7 +31,7 @@ export const loadPlugins = async () => {
 };
 
 // ==================================================
-//                  HANDLER
+//                  HANDLER PRINCIPAL
 // ==================================================
 export const handleMessage = async (sock, msg) => {
     try {
@@ -37,19 +39,19 @@ export const handleMessage = async (sock, msg) => {
         const isGroup = jid.endsWith("@g.us");
 
         const senderJID = msg.key.participant || msg.key.remoteJid;
-        const sender = normalize(senderJID);
+        const sender = normalize(senderJID);           // normalizado
         const botNumber = normalize(sock.user.id);
 
         let metadata = null;
         let admins = [];
         let isAdmin = false;
 
+        // ==================================================
+        //                 DETECCIÓN REAL DE ADMINS
+        // ==================================================
         if (isGroup) {
             metadata = await sock.groupMetadata(jid);
 
-            // ==========================
-            // 🔥 DEBUG COMPLETO DE ADMINS
-            // ==========================
             console.log("\n=======================");
             console.log("📌 INFO DEL GRUPO");
             console.log("=======================");
@@ -59,23 +61,36 @@ export const handleMessage = async (sock, msg) => {
             console.log("\n🟩 PARTICIPANTES RAW:");
             console.log(metadata.participants);
 
-            // ==========================
-            // 🔥 CORRECCIÓN DEFINITIVA
-            // ==========================
-            console.log("\n🟨 ADMINS DETECTADOS CORRECTAMENTE:");
+            // Lista real de admins
             admins = metadata.participants
-                .filter(p => p.admin === "admin" || p.admin === "superadmin")
+                .filter(p => p.admin !== null)
                 .map(p => normalize(p.id));
 
+            console.log("\n🟨 ADMINS DETECTADOS CORRECTAMENTE:");
             console.log(admins);
 
-            isAdmin = admins.includes(sender);
+            // Variantes del usuario (WhatsApp da diferentes)
+            const senderVariants = [
+                sender,
+                senderJID.split("@")[0],
+                normalize(msg.key.participant || ""),
+                normalize(msg.key.remoteJid || "")
+            ];
 
-            console.log("\n🟥 ¿ERES ADMIN?:", isAdmin);
+            console.log("\n🟧 VARIANTES DEL SENDER:");
+            console.log(senderVariants);
+
+            // Validación final
+            isAdmin = admins.some(admin => senderVariants.includes(admin));
+
+            console.log("\n🟥 ¿ERES ADMIN AHORA?:", isAdmin);
             console.log("🟦 TU JID NORMALIZADO:", sender);
             console.log("=======================\n");
         }
 
+        // ==================================================
+        //                   OBTENER TEXTO
+        // ==================================================
         const text =
             msg.message?.conversation ||
             msg.message?.extendedTextMessage?.text ||
@@ -87,6 +102,7 @@ export const handleMessage = async (sock, msg) => {
         const args = text.slice(1).trim().split(/\s+/);
         const command = args.shift().toLowerCase();
 
+        // No existe comando
         if (!plugins[command]) {
             console.log("❌ Comando no encontrado:", command);
             return;
@@ -94,7 +110,9 @@ export const handleMessage = async (sock, msg) => {
 
         const plugin = plugins[command];
 
-        // 🔥🔥🔥 VALIDACIÓN DE ADMIN 🔥🔥🔥
+        // ==================================================
+        //       SI EL PLUGIN REQUIERE ADMIN -> VALIDAR
+        // ==================================================
         if (plugin.admin && !isAdmin) {
             return sock.sendMessage(jid, { text: "❌ *Este comando solo puede usarlo un ADMIN.*" });
         }
@@ -107,6 +125,7 @@ export const handleMessage = async (sock, msg) => {
             groupMetadata: metadata
         };
 
+        // Ejecutar el comando
         await plugin.run(sock, msg, args, ctx);
 
     } catch (e) {
