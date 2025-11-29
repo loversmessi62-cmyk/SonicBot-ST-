@@ -1,29 +1,28 @@
+import config from "../config.js";
+
 export default {
-    comando: ["todos", "tagall", "invocar"],
-    descripcion: "Menciona a todos los miembros del grupo",
-    categoria: "admin",
+    commands: ["todos", "tagall", "invocar"],
 
-    ejecutar: async (sock, m, args, { isAdmin, isBotAdmin, groupMetadata, prefix }) => {
+    run: async (sock, m, args, { isGroup, isAdmin, metadata }) => {
 
-        if (!m.isGroup)
-            return m.reply("❌ Este comando solo funciona en grupos.");
+        if (!isGroup)
+            return sock.sendMessage(m.key.remoteJid, { text: config.messages.group }, { quoted: m });
 
         if (!isAdmin)
-            return m.reply("❌ Este comando es solo para *administradores*.");
+            return sock.sendMessage(m.key.remoteJid, { text: config.messages.admin }, { quoted: m });
 
-        if (!isBotAdmin)
-            return m.reply("❌ Necesito ser *admin* para mencionar a todos.");
+        const participantes = metadata.participants;
+        const menciones = participantes.map(u => u.id);
 
-        let texto = args.join(" ") || "📢 *¡Atención a todos!*";
+        let texto = args.join(" ") || "📢 *Atención a todos!*";
+        let lista = "";
 
-        let participantes = groupMetadata.participants;
-        let menciones = participantes.map(u => u.id);
+        for (let p of participantes)
+            lista += `@${p.id.split("@")[0]}\n`;
 
-        let mensaje = `${texto}\n\n`;
-        for (let user of participantes) {
-            mensaje += `➤ @${user.id.split("@")[0]}\n`;
-        }
-
-        await sock.sendMessage(m.chat, { text: mensaje, mentions: menciones });
+        await sock.sendMessage(m.key.remoteJid, {
+            text: `${texto}\n\n${lista}`,
+            mentions: menciones
+        });
     }
-}
+};
