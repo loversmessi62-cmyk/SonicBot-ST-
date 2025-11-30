@@ -9,7 +9,10 @@ if (!fs.existsSync(file)) {
 
 export const getState = (cmd) => {
     const data = JSON.parse(fs.readFileSync(file));
-    return data[cmd] ?? false; // IMPORTANTE: por defecto FALSE
+
+    // SI LA CLAVE EXISTE → devolver su valor
+    // SI NO EXISTE → devolver FALSE (desactivado)
+    return data.hasOwnProperty(cmd) ? data[cmd] : false;
 };
 
 export const setState = (cmd, value) => {
