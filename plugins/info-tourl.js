@@ -1,5 +1,6 @@
 import axios from "axios";
 import FormData from "form-data";
+import { downloadMediaMessage } from "@whiskeysockets/baileys";
 
 export default {
     commands: ["tourl", "cachtbox", "cbx"],
@@ -9,11 +10,13 @@ export default {
         const command = args.shift()?.toLowerCase() || ctx.msg.body?.split(" ")[0].replace(".", "");
 
         // ============================
-        //     📌 COMANDO: .tourl
+        //      📌 COMANDO: .tourl
         // ============================
         if (command === "tourl") {
             try {
-                const type = Object.keys(msg.message)[0];
+                const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage || msg.message;
+
+                const type = Object.keys(quoted)[0];
 
                 if (!["imageMessage", "videoMessage", "audioMessage", "stickerMessage"].includes(type)) {
                     return sock.sendMessage(ctx.jid, {
@@ -21,20 +24,29 @@ export default {
                     });
                 }
 
-                // Descargar buffer con tu ctx FIX
-                const buffer = await ctx.download();
+                // DESCARGAR MEDIA CORRECTAMENTE
+                const buffer = await downloadMediaMessage(
+                    { message: quoted },
+                    "buffer"
+                );
 
+                // SUBIR A CACHBOX
                 const form = new FormData();
-                form.append("file", buffer, "media");
-
-                const upload = await axios.post("https://telegra.ph/upload", form, {
-                    headers: form.getHeaders()
+                form.append("file", buffer, {
+                    filename: "media",
+                    contentType: "application/octet-stream"
                 });
 
-                const url = "https://telegra.ph" + upload.data[0].src;
+                const upload = await axios.post(
+                    "https://cachbox.com/api/upload",
+                    form,
+                    { headers: form.getHeaders() }
+                );
+
+                const url = upload.data?.url;
 
                 return sock.sendMessage(ctx.jid, {
-                    text: `✅ *Media subido con éxito:*\n${url}`
+                    text: `✅ *Archivo subido correctamente:*\n${url}`
                 });
 
             } catch (e) {
