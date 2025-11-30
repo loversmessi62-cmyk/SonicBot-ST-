@@ -11,7 +11,12 @@ export const loadPlugins = async () => {
 
         for (let file of files) {
             const module = await import("file://" + path.resolve(`./plugins/${file}`));
-            const cmds = module.default.commands;
+            const cmds = module.default.command;
+
+            if (!cmds) {
+                console.warn(`⚠️ El plugin ${file} no tiene "command"`);
+                continue;
+            }
 
             cmds.forEach(cmd => plugins[cmd] = module.default);
 
@@ -21,6 +26,7 @@ export const loadPlugins = async () => {
         console.error("❌ Error cargando plugins:", e);
     }
 };
+
 
 
 // =====================================================
