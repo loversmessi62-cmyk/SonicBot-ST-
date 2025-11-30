@@ -182,36 +182,26 @@ export const handleMessage = async (sock, msg) => {
         }
 
 
-const ctx = {
-    sender: realSender,
-    isAdmin,
-    isGroup,
-    groupMetadata: metadata,
-    plugins,
+ctx.download = async () => {
+    try {
+        const type = Object.keys(ctx.msg.message)[0];
+        const stream = await downloadContentFromMessage(
+            ctx.msg.message[type],
+            type.replace("Message", "").toLowerCase()
+        );
 
-    download: async () => {
-        try {
-            const msgType = Object.keys(msg.message)[0]; 
-            const content = msg.message[msgType];
-
-            const stream = await downloadContentFromMessage(
-                content,
-                msgType.replace("Message", "")
-            );
-
-            let buffer = Buffer.from([]);
-            for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk]);
-            }
-
-            return buffer;
-
-        } catch (e) {
-            console.log("❌ Error en ctx.download:", e);
-            return null;
+        let buffer = Buffer.from([]);
+        for await (const chunk of stream) {
+            buffer = Buffer.concat([buffer, chunk]);
         }
+        return buffer;
+
+    } catch (e) {
+        console.error("Error en ctx.download:", e);
+        throw e;
     }
 };
+
 
 
 
