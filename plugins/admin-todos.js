@@ -4,14 +4,14 @@ export default {
 
     async run(sock, msg, args, ctx) {
 
-        // Verificar que sea grupo
+        // Verificar grupo
         if (!ctx.isGroup) {
             return sock.sendMessage(ctx.jid, {
                 text: "❌ Este comando solo funciona en grupos."
             });
         }
 
-        // Mensaje del admin
+        // Texto del admin
         const texto = args.join(" ").trim() || "📢 Mensaje para todos:";
 
         // Obtener metadata REAL del grupo
@@ -21,27 +21,28 @@ export default {
         } catch (e) {
             console.error("Error al obtener metadata:", e);
             return sock.sendMessage(ctx.jid, {
-                text: "❌ No pude obtener la lista del grupo."
+                text: "❌ No pude obtener la lista de participantes."
             });
         }
 
+        // Validar metadata
         if (!metadata || !metadata.participants) {
             return sock.sendMessage(ctx.jid, {
-                text: "❌ No pude acceder a los participantes."
+                text: "❌ No pude obtener los participantes del grupo."
             });
         }
 
-        // Lista de IDs
+        // IDs
         const participantes = metadata.participants.map(p => p.id);
 
-        // Crear lista @tag
+        // Construir lista
         const listaTags = participantes
-            .map(id => "@" + id.split("@")[0])
+            .map(id => `@${id.split("@")[0]}`)
             .join("\n");
 
         const mensaje = `${texto}\n\n${listaTags}`;
 
-        // Enviar mensaje etiquetando a todos
+        // Enviar
         await sock.sendMessage(ctx.jid, {
             text: mensaje,
             mentions: participantes
