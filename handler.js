@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { getState } from "./utils/cmdtoggle.js";
+import { getState } from "./utils/cdmtoggle.js";
 
 export const plugins = {};
 
