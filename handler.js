@@ -162,10 +162,8 @@ export const handleMessage = async (sock, msg) => {
 
         const plugin = plugins[command];
 
-        // --------------------------------------
-// CONTEXTO (CTX) UNIVERSAL PARA PLUGINS
-// --------------------------------------
-const ctx = {
+    
+    const ctx = {
     sock,
     msg,
     jid,
@@ -173,6 +171,11 @@ const ctx = {
     isAdmin,
     isGroup,
     args,
+
+    // NUEVO: METADATA COMPLETA PARA GRUPOS
+    groupMetadata: metadata,
+    participants: metadata?.participants || [],
+    groupAdmins: admins,
 
     // Descarga de multimedia FIX
     download: async () => {
@@ -195,6 +198,7 @@ const ctx = {
         }
     }
 };
+
 
 
         // --------------------------------------
