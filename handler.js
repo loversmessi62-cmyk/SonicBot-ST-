@@ -72,7 +72,27 @@ export const handleMessage = async (sock, msg) => {
             msg.message?.imageMessage?.caption ||
             "";
 
-        if (!text.startsWith(".")) return;
+        if (!text.startsWith(".")) {
+
+            // ============================================================
+            //  🔥 AQUI AGREGO onMessage() — SIN CAMBIAR NADA TUYO
+            // ============================================================
+            for (let name in plugins) {
+                const plug = plugins[name];
+                if (plug.onMessage) {
+                    await plug.onMessage(sock, msg, {
+                        sender: realSender,
+                        isAdmin,
+                        isGroup,
+                        groupMetadata: metadata,
+                        plugins
+                    });
+                }
+            }
+            // ============================================================
+
+            return;
+        }
 
         const args = text.slice(1).trim().split(/\s+/);
         const command = args.shift().toLowerCase();
@@ -82,13 +102,13 @@ export const handleMessage = async (sock, msg) => {
         const plugin = plugins[command];
 
         // --------------------------------------
-//    VERIFICAR SI EL COMANDO ESTÁ ON/OFF
-// --------------------------------------
-if (!getState(command)) {
-    return sock.sendMessage(jid, {
-        text: `⚠️ El comando *.${command}* está desactivado.`
-    });
-}
+        //    VERIFICAR SI EL COMANDO ESTÁ ON/OFF
+        // --------------------------------------
+        if (!getState(command)) {
+            return sock.sendMessage(jid, {
+                text: `⚠️ El comando *.${command}* está desactivado.`
+            });
+        }
 
 
         // --------------------------------------
@@ -101,12 +121,12 @@ if (!getState(command)) {
         }
 
         const ctx = {
-    sender: realSender,
-    isAdmin,
-    isGroup,
-    groupMetadata: metadata,
-    plugins
-};
+            sender: realSender,
+            isAdmin,
+            isGroup,
+            groupMetadata: metadata,
+            plugins
+        };
 
         await plugin.run(sock, msg, args, ctx);
 
