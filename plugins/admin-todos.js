@@ -3,28 +3,48 @@ export default {
     admin: true,
 
     async run(sock, msg, args, ctx) {
-        const jid = msg.key.remoteJid;
 
-        // Texto que envía el admin
-        const texto = args.join(" ").trim() || "Mensaje para todos:";
+        // Verificar que sea grupo
+        if (!ctx.isGroup) {
+            return sock.sendMessage(ctx.jid, {
+                text: "❌ Este comando solo funciona en grupos."
+            });
+        }
 
-        // Lista de participantes del grupo
-        const participantes = ctx.groupMetadata.participants.map(u => u.id);
+        // Mensaje del admin
+        const texto = args.join(" ").trim() || "📢 Mensaje para todos:";
 
-        // Crear lista @tag por línea
+        // Obtener metadata REAL del grupo
+        let metadata;
+        try {
+            metadata = await sock.groupMetadata(ctx.jid);
+        } catch (e) {
+            console.error("Error al obtener metadata:", e);
+            return sock.sendMessage(ctx.jid, {
+                text: "❌ No pude obtener la lista del grupo."
+            });
+        }
+
+        if (!metadata || !metadata.participants) {
+            return sock.sendMessage(ctx.jid, {
+                text: "❌ No pude acceder a los participantes."
+            });
+        }
+
+        // Lista de IDs
+        const participantes = metadata.participants.map(p => p.id);
+
+        // Crear lista @tag
         const listaTags = participantes
             .map(id => "@" + id.split("@")[0])
             .join("\n");
 
         const mensaje = `${texto}\n\n${listaTags}`;
 
-        await sock.sendMessage(
-            jid,
-            {
-                text: mensaje,
-                mentions: participantes
-            },
-            { quoted: msg }
-        );
+        // Enviar mensaje etiquetando a todos
+        await sock.sendMessage(ctx.jid, {
+            text: mensaje,
+            mentions: participantes
+        });
     }
 };
