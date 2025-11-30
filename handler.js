@@ -181,29 +181,37 @@ export const handleMessage = async (sock, msg) => {
             });
         }
 
-      const ctx = {
+const ctx = {
     sender: realSender,
     isAdmin,
     isGroup,
     groupMetadata: metadata,
     plugins,
 
-    // 🔥 DESCARGA REAL (compatible con tu versión Baileys)
     download: async () => {
         try {
-            const buffer = await downloadMediaMessage(
-                msg,
-                "buffer",
-                {},
-                { logger: undefined }
+            const msgType = Object.keys(msg.message)[0];
+
+            const stream = await downloadContentFromMessage(
+                msg.message[msgType],
+                msgType.replace("Message", "")
             );
+
+            let buffer = Buffer.from([]);
+
+            for await (const chunk of stream) {
+                buffer = Buffer.concat([buffer, chunk]);
+            }
+
             return buffer;
+
         } catch (e) {
             console.log("❌ Error en ctx.download:", e);
             return null;
         }
     }
 };
+
 
 
         await plugin.run(sock, msg, args, ctx);
