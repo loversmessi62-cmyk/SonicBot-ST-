@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { getState } from "./utils/cmdToggle.js";
 
 export const plugins = {};
 
@@ -79,6 +80,16 @@ export const handleMessage = async (sock, msg) => {
         if (!plugins[command]) return;
 
         const plugin = plugins[command];
+
+        // --------------------------------------
+//    VERIFICAR SI EL COMANDO ESTÁ ON/OFF
+// --------------------------------------
+if (!getState(command)) {
+    return sock.sendMessage(jid, {
+        text: `⚠️ El comando *.${command}* está desactivado.`
+    });
+}
+
 
         // --------------------------------------
         //     PROTECCIÓN SOLO ADMIN (ARREGLADO)
