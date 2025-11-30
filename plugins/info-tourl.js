@@ -12,17 +12,19 @@ export default {
         const media = await ctx.download();
         if (!media) {
             return sock.sendMessage(jid, {
-                text: "❌ No hay ningún archivo para subir."
+                text: "❌ No encontré ningún archivo para subir.\nManda una imagen/video/audio/documento junto al comando."
             });
         }
 
-        // 2️⃣ DETECTAR MIME Y NOMBRE
-        const mime = msg.message?.imageMessage?.mimetype ||
-                     msg.message?.videoMessage?.mimetype ||
-                     msg.message?.audioMessage?.mimetype ||
-                     msg.message?.documentMessage?.mimetype ||
-                     "application/octet-stream";
+        // 2️⃣ DETECTAR MIME
+        const mime =
+            msg.message?.imageMessage?.mimetype ||
+            msg.message?.videoMessage?.mimetype ||
+            msg.message?.audioMessage?.mimetype ||
+            msg.message?.documentMessage?.mimetype ||
+            "application/octet-stream";
 
+        // Extensión por si Catbox la necesita
         const ext = mime.split("/")[1] || "bin";
         const filename = `file.${ext}`;
 
@@ -38,16 +40,17 @@ export default {
                 { headers: form.getHeaders() }
             );
 
-            const url = res.data;
+            const url = res.data.trim();
 
-            await sock.sendMessage(jid, {
-                text: `✅ *Archivo subido correctamente*\n\n🔗 URL directa:\n${url}`
+            return sock.sendMessage(jid, {
+                text: `✅ *Archivo subido con éxito*\n\n🔗 *URL Directa:*\n${url}`
             });
 
         } catch (err) {
-            console.error("Error Catbox:", err);
-            await sock.sendMessage(jid, {
-                text: "❌ Hubo un error al subir el archivo a Catbox."
+            console.error("❌ Error al subir a Catbox:", err);
+
+            return sock.sendMessage(jid, {
+                text: "❌ Ocurrió un error al subir el archivo a Catbox.\nInténtalo de nuevo."
             });
         }
     }
