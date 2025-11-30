@@ -122,13 +122,13 @@ export const handleMessage = async (sock, msg) => {
                 // 2️⃣ Avisar + Expulsar al usuario
                 await sock.sendMessage(jid, {
                     text: `🚫 *Se detectó un link prohibido*\nEliminando a @${realsender.split("@")[0]}…`,
-                    mentions: [realsender]
+                    mentions: [realSender]
                 });
 
                 try {
                     await sock.groupParticipantsUpdate(
                         jid,
-                        [realsender],
+                        [realSender],
                         "remove"
                     );
                 } catch (e) {
@@ -163,6 +163,41 @@ export const handleMessage = async (sock, msg) => {
         const plugin = plugins[command];
 
         // --------------------------------------
+// CONTEXTO (CTX) UNIVERSAL PARA PLUGINS
+// --------------------------------------
+const ctx = {
+    sock,
+    msg,
+    jid,
+    sender: realSender,
+    isAdmin,
+    isGroup,
+    args,
+
+    // Descarga de multimedia FIX
+    download: async () => {
+        try {
+            const type = Object.keys(msg.message)[0];
+            const stream = await downloadContentFromMessage(
+                msg.message[type],
+                type.replace("Message", "").toLowerCase()
+            );
+
+            let buffer = Buffer.from([]);
+            for await (const chunk of stream) {
+                buffer = Buffer.concat([buffer, chunk]);
+            }
+            return buffer;
+
+        } catch (e) {
+            console.error("Error en ctx.download:", e);
+            throw e;
+        }
+    }
+};
+
+
+        // --------------------------------------
         // VERIFICAR SI EL COMANDO ESTÁ ON/OFF
         // --------------------------------------
         if (!getState(command)) {
@@ -180,29 +215,6 @@ export const handleMessage = async (sock, msg) => {
                 text: "❌ *Solo los administradores pueden usar este comando.*"
             });
         }
-
-
-ctx.download = async () => {
-    try {
-        const type = Object.keys(ctx.msg.message)[0];
-        const stream = await downloadContentFromMessage(
-            ctx.msg.message[type],
-            type.replace("Message", "").toLowerCase()
-        );
-
-        let buffer = Buffer.from([]);
-        for await (const chunk of stream) {
-            buffer = Buffer.concat([buffer, chunk]);
-        }
-        return buffer;
-
-    } catch (e) {
-        console.error("Error en ctx.download:", e);
-        throw e;
-    }
-};
-
-
 
 
         await plugin.run(sock, msg, args, ctx);
