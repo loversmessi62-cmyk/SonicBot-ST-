@@ -71,6 +71,57 @@ export const handleMessage = async (sock, msg) => {
             msg.message?.extendedTextMessage?.text ||
             msg.message?.imageMessage?.caption ||
             "";
+// ===================================
+//          SISTEMA ANTILINK
+// ===================================
+if (isGroup && getState("antilink")) {
+
+    const linkRegex = /(https?:\/\/[^\s]+)/gi;
+
+    const textMsg =
+        msg.message?.conversation ||
+        msg.message?.extendedTextMessage?.text ||
+        msg.message?.imageMessage?.caption ||
+        "";
+
+    if (linkRegex.test(textMsg)) {
+
+        // No expulsar admins
+        if (isAdmin) {
+            await sock.sendMessage(jid, {
+                text: "⚠️ *Antilink activo, pero eres admin. No te expulso.*"
+            });
+            return;
+        }
+
+        // 1️⃣ BORRAR el mensaje
+        try {
+            await sock.sendMessage(jid, {
+                delete: msg.key
+            });
+        } catch (e) {
+            console.log("❌ Error al borrar mensaje:", e);
+        }
+
+        // 2️⃣ Avisar + Expulsar al usuario
+        await sock.sendMessage(jid, {
+            text: `🚫 *Se detectó un link prohibido*\nEliminando a @${msg.sender.split("@")[0]}…`,
+            mentions: [msg.sender]
+        });
+
+        try {
+            await sock.groupParticipantsUpdate(
+                jid,
+                [msg.sender],
+                "remove"
+            );
+        } catch (e) {
+            console.log("❌ Error expulsando usuario:", e);
+        }
+
+        return;
+    }
+}
 
         if (!text.startsWith(".")) {
 
