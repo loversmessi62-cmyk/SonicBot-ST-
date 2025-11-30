@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { getState } from "./utils/cdmtoggle.js";
-import { downloadMediaMessage } from "@whiskeysockets/baileys";
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
 
 export const plugins = {};
@@ -181,6 +181,7 @@ export const handleMessage = async (sock, msg) => {
             });
         }
 
+
 const ctx = {
     sender: realSender,
     isAdmin,
@@ -190,15 +191,15 @@ const ctx = {
 
     download: async () => {
         try {
-            const msgType = Object.keys(msg.message)[0];
+            const msgType = Object.keys(msg.message)[0]; 
+            const content = msg.message[msgType];
 
             const stream = await downloadContentFromMessage(
-                msg.message[msgType],
+                content,
                 msgType.replace("Message", "")
             );
 
             let buffer = Buffer.from([]);
-
             for await (const chunk of stream) {
                 buffer = Buffer.concat([buffer, chunk]);
             }
