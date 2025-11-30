@@ -38,7 +38,6 @@ export const loadPlugins = async () => {
 
 
 
-
 // =====================================================
 //        ⚡ HANDLER PRINCIPAL (FIX ADMIN LID)
 // =====================================================
@@ -78,9 +77,6 @@ export const handleMessage = async (sock, msg) => {
 
         }
 
-        // -----------------------
-        //   TEXTO & COMANDO
-        // -----------------------
         const text =
             msg.message?.conversation ||
             msg.message?.extendedTextMessage?.text ||
@@ -121,7 +117,7 @@ export const handleMessage = async (sock, msg) => {
 
                 // 2️⃣ Avisar + Expulsar al usuario
                 await sock.sendMessage(jid, {
-                    text: `🚫 *Se detectó un link prohibido*\nEliminando a @${realsender.split("@")[0]}…`,
+                    text: `🚫 *Se detectó un link prohibido*\nEliminando a @${realSender.split("@")[0]}…`,
                     mentions: [realSender]
                 });
 
@@ -139,18 +135,15 @@ export const handleMessage = async (sock, msg) => {
             }
         }
 
+
         if (!text.startsWith(".")) {
 
-            // ============================================================
-            // 🔥 FIX REAL: Se quita ctx falso que rompía download()
-            // ============================================================
             for (let name in plugins) {
                 const plug = plugins[name];
                 if (plug.onMessage) {
-                    await plug.onMessage(sock, msg);  // ← ← ← FIX
+                    await plug.onMessage(sock, msg);
                 }
             }
-            // ============================================================
 
             return;
         }
@@ -162,43 +155,44 @@ export const handleMessage = async (sock, msg) => {
 
         const plugin = plugins[command];
 
-    
-    const ctx = {
-    sock,
-    msg,
-    jid,
-    sender: realSender,
-    isAdmin,
-    isGroup,
-    args,
+        // --------------------------------------
+        // CONTEXTO UNIVERSAL PARA PLUGINS
+        // --------------------------------------
+        const ctx = {
+            sock,
+            msg,
+            jid,
+            sender: realSender,
+            isAdmin,
+            isGroup,
+            args,
 
-    // NUEVO: METADATA COMPLETA PARA GRUPOS
-    groupMetadata: metadata,
-    participants: metadata?.participants || [],
-    groupAdmins: admins,
+            // ⭐ AÑADIDO PARA QUE FUNCIONE .todos
+            groupMetadata: metadata,
+            participants: metadata?.participants || [],
+            groupAdmins: admins,
 
-    // Descarga de multimedia FIX
-    download: async () => {
-        try {
-            const type = Object.keys(msg.message)[0];
-            const stream = await downloadContentFromMessage(
-                msg.message[type],
-                type.replace("Message", "").toLowerCase()
-            );
+            // Descarga de multimedia FIX
+            download: async () => {
+                try {
+                    const type = Object.keys(msg.message)[0];
+                    const stream = await downloadContentFromMessage(
+                        msg.message[type],
+                        type.replace("Message", "").toLowerCase()
+                    );
 
-            let buffer = Buffer.from([]);
-            for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk]);
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) {
+                        buffer = Buffer.concat([buffer, chunk]);
+                    }
+                    return buffer;
+
+                } catch (e) {
+                    console.error("Error en ctx.download:", e);
+                    throw e;
+                }
             }
-            return buffer;
-
-        } catch (e) {
-            console.error("Error en ctx.download:", e);
-            throw e;
-        }
-    }
-};
-
+        };
 
 
         // --------------------------------------
@@ -212,7 +206,7 @@ export const handleMessage = async (sock, msg) => {
 
 
         // --------------------------------------
-        // PROTECCIÓN SOLO ADMIN (ARREGLADO)
+        // PROTECCIÓN SOLO ADMIN
         // --------------------------------------
         if (plugin.admin && !isAdmin) {
             return sock.sendMessage(jid, {
