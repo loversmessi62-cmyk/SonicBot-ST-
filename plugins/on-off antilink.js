@@ -13,23 +13,16 @@ export default {
 
         const option = (args[0] || "").toLowerCase();
 
-        // ===============================
-        // MENSAJE SIN OPCIÓN
-        // ===============================
         if (!option)
             return sock.sendMessage(jid, { text: "⚠️ Usa:\n\n.antilink on\n.antilink off" });
 
-        // ===============================
-        // OPCIÓN ON
-        // ===============================
+        // ACTIVAR
         if (option === "on") {
             setState("antilink", true);
             return sock.sendMessage(jid, { text: "🛡️ *Antilink ACTIVADO* 🟢" });
         }
 
-        // ===============================
-        // OPCIÓN OFF
-        // ===============================
+        // DESACTIVAR
         if (option === "off") {
             setState("antilink", false);
             return sock.sendMessage(jid, { text: "🛡️ *Antilink DESACTIVADO* 🔴" });
@@ -38,22 +31,21 @@ export default {
         return sock.sendMessage(jid, { text: "❌ Opción inválida. Usa: on / off" });
     },
 
-    // =======================================================
-    // 🔥 DETECCIÓN AUTOMÁTICA DE LINKS Y SANCIÓN
-    // =======================================================
+    // =============================================
+    // 🔥 DETECCIÓN DE LINKS + ELIMINAR + ADVERTIR + KICK
+    // =============================================
     async onMessage(sock, msg, ctx) {
         const jid = msg.key.remoteJid;
 
-        // Solo grupos
         if (!ctx.isGroup) return;
 
-        // Estado actual del antilink
         const active = getState("antilink");
         if (!active) return;
 
-        // Ignorar admins
         const sender = msg.key.participant || msg.participant;
         const isAdmin = ctx.groupAdmins?.includes(sender);
+
+        // Los admins no se expulsan
         if (isAdmin) return;
 
         const body =
@@ -61,28 +53,35 @@ export default {
             msg.message?.extendedTextMessage?.text ||
             "";
 
-        // Buscar links
         const linkRegex = /(https?:\/\/[^\s]+)/gi;
         const found = body.match(linkRegex);
 
         if (!found) return;
 
-        // ===============================
-        // ACCIONES: BORRAR + EXPULSAR
-        // ===============================
+        // ====================================
+        // BORRAR MENSAJE
+        // ====================================
+        try {
+            await sock.sendMessage(jid, { delete: msg.key });
+        } catch (e) {
+            console.log("Error al borrar mensaje:", e);
+        }
 
-        // Borrar mensaje
+        // ====================================
+        // ADVERTENCIA
+        // ====================================
         await sock.sendMessage(jid, {
-            delete: msg.key
-        });
-
-        // Aviso
-        await sock.sendMessage(jid, {
-            text: `🚫 *Se detectó un enlace prohibido*\n@${sender.split("@")[0]} será expulsado.`,
+            text: `🚫 *Regla rota:* Se detectó un enlace prohibido.\n\n@${sender.split("@")[0]}, serás eliminado del grupo.`,
             mentions: [sender]
         });
 
-        // Expulsar
-        await sock.groupParticipantsUpdate(jid, [sender], "remove");
+        // ====================================
+        // KICK
+        // ====================================
+        try {
+            await sock.groupParticipantsUpdate(jid, [sender], "remove");
+        } catch (e) {
+            console.log("Error al expulsar:", e);
+        }
     }
 };
