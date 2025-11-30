@@ -12,12 +12,10 @@ export default {
             return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
 
         const option = (args[0] || "").toLowerCase();
+        const key = `antilink_${jid}`; // ESTADO POR GRUPO
 
         if (!option)
             return sock.sendMessage(jid, { text: "⚠️ Usa:\n\n.antilink on\n.antilink off" });
-
-        // usamos una clave por grupo
-        const key = `antilink_${jid}`;
 
         if (option === "on") {
             setState(key, true);
@@ -34,12 +32,11 @@ export default {
 
     async onMessage(sock, msg, ctx) {
         const jid = msg.key.remoteJid;
-
         if (!ctx.isGroup) return;
 
-        // leemos la misma clave por grupo
         const key = `antilink_${jid}`;
         const active = getState(key);
+
         if (!active) return;
 
         const sender = msg.key.participant || msg.participant;
@@ -52,31 +49,24 @@ export default {
             "";
 
         const linkRegex = /(https?:\/\/[^\s]+)/gi;
-        const found = body.match(linkRegex);
-        if (!found) return;
+        if (!linkRegex.test(body)) return;
 
         // BORRAR MENSAJE
         try {
             await sock.sendMessage(jid, { delete: msg.key });
-        } catch (e) {
-            console.log("Error al borrar mensaje:", e);
-        }
+        } catch {}
 
         // ADVERTENCIA
-        try {
-            await sock.sendMessage(jid, {
-                text: `🚫 *Regla rota:* Se detectó un enlace prohibido.\n\n@${sender.split("@")[0]}, serás expulsado del grupo.`,
-                mentions: [sender]
-            });
-        } catch (e) {
-            console.log("Error al enviar advertencia:", e);
-        }
+        await sock.sendMessage(jid, {
+            text: `🚫 *Regla rota:* Enlace prohibido detectado.\n@${sender.split("@")[0]} será expulsado.`,
+            mentions: [sender]
+        });
 
-        // KICK
+        // EXPULSAR
         try {
             await sock.groupParticipantsUpdate(jid, [sender], "remove");
         } catch (e) {
-            console.log("Error al expulsar:", e);
+            console.log("Error expulsando:", e);
         }
     }
 };
