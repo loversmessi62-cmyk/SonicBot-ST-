@@ -7,7 +7,6 @@ export default {
 
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
-        const sender = msg.key.participant;
 
         if (!ctx.isGroup)
             return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
@@ -15,17 +14,22 @@ export default {
         const option = (args[0] || "").toLowerCase();
 
         // ===============================
-        // ON / OFF
+        // MENSAJE SIN OPCIÓN
         // ===============================
-
         if (!option)
             return sock.sendMessage(jid, { text: "⚠️ Usa:\n\n.antilink on\n.antilink off" });
 
+        // ===============================
+        // OPCIÓN ON
+        // ===============================
         if (option === "on") {
             setState("antilink", true);
             return sock.sendMessage(jid, { text: "🛡️ *Antilink ACTIVADO* 🟢" });
         }
 
+        // ===============================
+        // OPCIÓN OFF
+        // ===============================
         if (option === "off") {
             setState("antilink", false);
             return sock.sendMessage(jid, { text: "🛡️ *Antilink DESACTIVADO* 🔴" });
@@ -43,8 +47,9 @@ export default {
         // Solo grupos
         if (!ctx.isGroup) return;
 
-        // Antilink apagado = no hace nada
-        if (!getState("antilink")) return;
+        // Estado actual del antilink
+        const active = getState("antilink");
+        if (!active) return;
 
         // Ignorar admins
         const sender = msg.key.participant || msg.participant;
@@ -62,9 +67,9 @@ export default {
 
         if (!found) return;
 
-        // ======================================
-        // ACCIONES: BORRAR, ADVERTIR, EXPULSAR
-        // ======================================
+        // ===============================
+        // ACCIONES: BORRAR + EXPULSAR
+        // ===============================
 
         // Borrar mensaje
         await sock.sendMessage(jid, {
@@ -72,13 +77,10 @@ export default {
         });
 
         // Aviso
-        await sock.sendMessage(
-            jid,
-            {
-                text: `🚫 *Se detectó un enlace prohibido*\n@${sender.split("@")[0]} será expulsado.`,
-                mentions: [sender]
-            }
-        );
+        await sock.sendMessage(jid, {
+            text: `🚫 *Se detectó un enlace prohibido*\n@${sender.split("@")[0]} será expulsado.`,
+            mentions: [sender]
+        });
 
         // Expulsar
         await sock.groupParticipantsUpdate(jid, [sender], "remove");
