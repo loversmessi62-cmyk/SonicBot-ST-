@@ -186,13 +186,30 @@ if (isGroup && getState("antilink")) {
             });
         }
 
-        const ctx = {
-            sender: realSender,
-            isAdmin,
-            isGroup,
-            groupMetadata: metadata,
-            plugins
-        };
+        // ===============================
+// FUNCIÓN UNIVERSAL PARA DESCARGAR MEDIA
+// ===============================
+async function downloadMedia(message) {
+    try {
+        const type = Object.keys(message.message)[0];
+        const stream = await sock.downloadMediaMessage(message);
+        return stream; // Buffer
+    } catch (err) {
+        console.log("❌ Error al descargar media:", err);
+        return null;
+    }
+}
+
+const ctx = {
+    sender: realSender,
+    isAdmin,
+    isGroup,
+    groupMetadata: metadata,
+    plugins,
+
+    download: async () => await downloadMedia(msg),
+    downloadMedia: async () => await downloadMedia(msg)
+};
 
         await plugin.run(sock, msg, args, ctx);
 
