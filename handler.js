@@ -120,14 +120,14 @@ if (isGroup && getState("antilink")) {
 
         // 2️⃣ Avisar + Expulsar al usuario
         await sock.sendMessage(jid, {
-            text: `🚫 *Se detectó un link prohibido*\nEliminando a @${msg.sender.split("@")[0]}…`,
-            mentions: [msg.sender]
+        text: `🚫 *Se detectó un link prohibido*\nEliminando a @${realsender.split("@")[0]}…`,
+            mentions: [realsender]
         });
 
         try {
             await sock.groupParticipantsUpdate(
                 jid,
-                [msg.sender],
+                [realsender],
                 "remove"
             );
         } catch (e) {
