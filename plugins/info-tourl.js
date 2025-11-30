@@ -2,56 +2,78 @@ import axios from "axios";
 import FormData from "form-data";
 
 export default {
-    commands: ["tourl", "upload"],
-    admin: false,
+    commands: ["tourl", "cachtbox", "cbx"],
+    description: "Herramientas: convertir media a URL y subir texto a paste.",
 
-    async run(sock, msg, args, ctx) {
-        const jid = msg.key.remoteJid;
+    run: async (sock, msg, args, ctx) => {
+        const command = args.shift()?.toLowerCase() || ctx.msg.body?.split(" ")[0].replace(".", "");
 
-        // 1️⃣ DESCARGAR MEDIA
-        const media = await ctx.download();
-        if (!media) {
-            return sock.sendMessage(jid, {
-                text: "❌ No encontré ningún archivo para subir.\nManda una imagen/video/audio/documento junto al comando."
-            });
+        // ============================
+        //     📌 COMANDO: .tourl
+        // ============================
+        if (command === "tourl") {
+            try {
+                const type = Object.keys(msg.message)[0];
+
+                if (!["imageMessage", "videoMessage", "audioMessage", "stickerMessage"].includes(type)) {
+                    return sock.sendMessage(ctx.jid, {
+                        text: "📌 *Envía o responde a una imagen/video/audio/sticker con:* .tourl"
+                    });
+                }
+
+                // Descargar buffer con tu ctx FIX
+                const buffer = await ctx.download();
+
+                const form = new FormData();
+                form.append("file", buffer, "media");
+
+                const upload = await axios.post("https://telegra.ph/upload", form, {
+                    headers: form.getHeaders()
+                });
+
+                const url = "https://telegra.ph" + upload.data[0].src;
+
+                return sock.sendMessage(ctx.jid, {
+                    text: `✅ *Media subido con éxito:*\n${url}`
+                });
+
+            } catch (e) {
+                console.error("Error en .tourl:", e);
+                return sock.sendMessage(ctx.jid, { text: "❌ Error subiendo el archivo..." });
+            }
         }
 
-        // 2️⃣ DETECTAR MIME
-        const mime =
-            msg.message?.imageMessage?.mimetype ||
-            msg.message?.videoMessage?.mimetype ||
-            msg.message?.audioMessage?.mimetype ||
-            msg.message?.documentMessage?.mimetype ||
-            "application/octet-stream";
+        // ============================
+        //   📌 COMANDO: .cachtbox / .cbx
+        // ============================
+        if (command === "cachtbox" || command === "cbx") {
+            try {
+                const texto =
+                    args.join(" ") ||
+                    msg.message?.extendedTextMessage?.text;
 
-        // Extensión por si Catbox la necesita
-        const ext = mime.split("/")[1] || "bin";
-        const filename = `file.${ext}`;
+                if (!texto) {
+                    return sock.sendMessage(ctx.jid, {
+                        text: "📌 *Ejemplo:* .cachtbox console.log('Hola');"
+                    });
+                }
 
-        // 3️⃣ SUBIR A CATBOX
-        try {
-            const form = new FormData();
-            form.append("reqtype", "fileupload");
-            form.append("fileToUpload", media, filename);
+                const res = await axios.post(
+                    "https://hastebin.com/documents",
+                    texto,
+                    { headers: { "Content-Type": "text/plain" } }
+                );
 
-            const res = await axios.post(
-                "https://catbox.moe/user/api.php",
-                form,
-                { headers: form.getHeaders() }
-            );
+                const url = `https://hastebin.com/${res.data.key}`;
 
-            const url = res.data.trim();
+                return sock.sendMessage(ctx.jid, {
+                    text: `📄 *Texto subido:*\n${url}`
+                });
 
-            return sock.sendMessage(jid, {
-                text: `✅ *Archivo subido con éxito*\n\n🔗 *URL Directa:*\n${url}`
-            });
-
-        } catch (err) {
-            console.error("❌ Error al subir a Catbox:", err);
-
-            return sock.sendMessage(jid, {
-                text: "❌ Ocurrió un error al subir el archivo a Catbox.\nInténtalo de nuevo."
-            });
+            } catch (e) {
+                console.error("Error en cachtbox:", e);
+                return sock.sendMessage(ctx.jid, { text: "❌ Error subiendo el texto." });
+            }
         }
     }
 };
