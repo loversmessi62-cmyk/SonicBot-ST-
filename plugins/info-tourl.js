@@ -10,9 +10,7 @@ export default {
         try {
             const jid = m.key.remoteJid;
 
-            // -----------------------------
-            // 1) OBTENER MENSAJE CITADO O EL PROPIO
-            ------------------------------
+            // 1) Obtener mensaje citado o el propio
             const quoted =
                 m.message?.extendedTextMessage?.contextInfo?.quotedMessage
                     ? { message: m.message.extendedTextMessage.contextInfo.quotedMessage }
@@ -20,9 +18,7 @@ export default {
 
             const msg = quoted.message;
 
-            // -----------------------------
-            // 2) DETECTAR MIME
-            // -----------------------------
+            // 2) Detectar MIME
             const mime =
                 msg?.imageMessage?.mimetype ||
                 msg?.videoMessage?.mimetype ||
@@ -35,9 +31,7 @@ export default {
                 });
             }
 
-            // -----------------------------
-            // 3) DESCARGAR USANDO ctx.download
-            // -----------------------------
+            // 3) Descargar usando ctx.download
             const buffer = await ctx.download(sock, quoted);
 
             if (!buffer) {
@@ -46,9 +40,7 @@ export default {
                 });
             }
 
-            // -----------------------------
-            // 4) SUBIR
-            // -----------------------------
+            // 4) Subir
             let url;
 
             if (/image/.test(mime)) {
@@ -57,12 +49,9 @@ export default {
                 url = await uploadFile(buffer);
             }
 
-            // -----------------------------
-            // 5) RESPUESTA
-            // -----------------------------
+            // 5) Respuesta
             await sock.sendMessage(jid, {
-                text:
-`✅ *Archivo subido correctamente*
+                text: `✅ *Archivo subido correctamente*
 📎 URL:
 ${url}`
             });
