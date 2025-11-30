@@ -1,4 +1,4 @@
-import { getState, toggleState } from "../utils/cmdToggle.js";
+import { getState, toggleState } from "../utils/cdmtoggle.js";
 
 export default {
     commands: ["antilink"],
