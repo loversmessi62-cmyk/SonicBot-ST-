@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 import { getState } from "./utils/cdmtoggle.js";
+import { downloadMediaMessage } from "@whiskeysockets/baileys";
+
 
 export const plugins = {};
 
