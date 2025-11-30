@@ -4,25 +4,36 @@ import { getState } from "./utils/cdmtoggle.js";
 
 export const plugins = {};
 
-for (let file of files) {
+export const loadPlugins = async () => {
     try {
-        console.log(`🔎 Intentando cargar: ${file}`);
-        const module = await import("file://" + path.resolve(`./plugins/${file}`));
+        const dir = "./plugins";
+        const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"));
 
-        const cmds = module.default.command;
+        for (let file of files) {
+            try {
+                console.log(`🔎 Intentando cargar: ${file}`);
 
-        if (!cmds) {
-            console.warn(`⚠️ El plugin ${file} no tiene "command"`);
-            continue;
+                const module = await import("file://" + path.resolve(`./plugins/${file}`));
+
+                const cmds = module.default.commands || module.default.command;
+
+                if (!cmds) {
+                    console.warn(`⚠️ El plugin ${file} no tiene "command" ni "commands"`);
+                    continue;
+                }
+
+                cmds.forEach(cmd => plugins[cmd] = module.default);
+
+                console.log(`🔥 Plugin cargado: ${file}`);
+            } catch (err) {
+                console.error(`❌ ERROR en plugin ${file}:`, err);
+            }
         }
-
-        cmds.forEach(cmd => plugins[cmd] = module.default);
-
-        console.log(`🔥 Plugin cargado: ${file}`);
-    } catch (err) {
-        console.error(`❌ ERROR en plugin ${file}:`, err);
+    } catch (e) {
+        console.error("❌ Error cargando plugins:", e);
     }
-}
+};
+
 
 
 
