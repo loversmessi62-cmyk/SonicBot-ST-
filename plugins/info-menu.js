@@ -5,7 +5,7 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
-        const menuImg = "https://i.ibb.co/JHqgH3W/menu-pro-bot.jpg"; 
+        const menuImg = " https://files.catbox.moe/zni6xn.jpg; 
         // Puedes cambiar esta imagen por la que tú quieras
 
         const texto = `
