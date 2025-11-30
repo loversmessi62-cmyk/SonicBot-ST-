@@ -89,16 +89,6 @@ export const handleMessage = async (sock, msg) => {
             });
         }
 
-
-
-
-module.exports = {
-    download
-};
-
-
-
-
         const ctx = {
     sender: realSender,
     isAdmin,
