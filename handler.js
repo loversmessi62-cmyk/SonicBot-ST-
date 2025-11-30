@@ -37,7 +37,6 @@ export const loadPlugins = async () => {
 
 
 
-
 // =====================================================
 //        ⚡ HANDLER PRINCIPAL (FIX ADMIN LID)
 // =====================================================
@@ -75,7 +74,6 @@ export const handleMessage = async (sock, msg) => {
 
             isAdmin = admins.includes(realSender);
 
-            
         }
 
         // -----------------------
@@ -86,73 +84,68 @@ export const handleMessage = async (sock, msg) => {
             msg.message?.extendedTextMessage?.text ||
             msg.message?.imageMessage?.caption ||
             "";
-// ===================================
-//          SISTEMA ANTILINK
-// ===================================
-if (isGroup && getState("antilink")) {
 
-    const linkRegex = /(https?:\/\/[^\s]+)/gi;
+        // ===================================
+        //          SISTEMA ANTILINK
+        // ===================================
+        if (isGroup && getState("antilink")) {
 
-    const textMsg =
-        msg.message?.conversation ||
-        msg.message?.extendedTextMessage?.text ||
-        msg.message?.imageMessage?.caption ||
-        "";
+            const linkRegex = /(https?:\/\/[^\s]+)/gi;
 
-    if (linkRegex.test(textMsg)) {
+            const textMsg =
+                msg.message?.conversation ||
+                msg.message?.extendedTextMessage?.text ||
+                msg.message?.imageMessage?.caption ||
+                "";
 
-        // No expulsar admins
-        if (isAdmin) {
-            await sock.sendMessage(jid, {
-                text: "⚠️ *Antilink activo, pero eres admin. No te expulso.*"
-            });
-            return;
+            if (linkRegex.test(textMsg)) {
+
+                // No expulsar admins
+                if (isAdmin) {
+                    await sock.sendMessage(jid, {
+                        text: "⚠️ *Antilink activo, pero eres admin. No te expulso.*"
+                    });
+                    return;
+                }
+
+                // 1️⃣ BORRAR el mensaje
+                try {
+                    await sock.sendMessage(jid, {
+                        delete: msg.key
+                    });
+                } catch (e) {
+                    console.log("❌ Error al borrar mensaje:", e);
+                }
+
+                // 2️⃣ Avisar + Expulsar al usuario
+                await sock.sendMessage(jid, {
+                    text: `🚫 *Se detectó un link prohibido*\nEliminando a @${realsender.split("@")[0]}…`,
+                    mentions: [realsender]
+                });
+
+                try {
+                    await sock.groupParticipantsUpdate(
+                        jid,
+                        [realsender],
+                        "remove"
+                    );
+                } catch (e) {
+                    console.log("❌ Error expulsando usuario:", e);
+                }
+
+                return;
+            }
         }
-
-        // 1️⃣ BORRAR el mensaje
-        try {
-            await sock.sendMessage(jid, {
-                delete: msg.key
-            });
-        } catch (e) {
-            console.log("❌ Error al borrar mensaje:", e);
-        }
-
-        // 2️⃣ Avisar + Expulsar al usuario
-        await sock.sendMessage(jid, {
-        text: `🚫 *Se detectó un link prohibido*\nEliminando a @${realsender.split("@")[0]}…`,
-            mentions: [realsender]
-        });
-
-        try {
-            await sock.groupParticipantsUpdate(
-                jid,
-                [realsender],
-                "remove"
-            );
-        } catch (e) {
-            console.log("❌ Error expulsando usuario:", e);
-        }
-
-        return;
-    }
-}
 
         if (!text.startsWith(".")) {
 
             // ============================================================
-            //  🔥 AQUI AGREGO onMessage() — SIN CAMBIAR NADA TUYO
+            // 🔥 FIX REAL: Se quita ctx falso que rompía download()
             // ============================================================
             for (let name in plugins) {
                 const plug = plugins[name];
                 if (plug.onMessage) {
-                    await plug.onMessage(sock, msg, {
-                        sender: realSender,
-                        isAdmin,
-                        isGroup,
-                        groupMetadata: metadata,
-                        plugins
-                    });
+                    await plug.onMessage(sock, msg);  // ← ← ← FIX
                 }
             }
             // ============================================================
@@ -168,7 +161,7 @@ if (isGroup && getState("antilink")) {
         const plugin = plugins[command];
 
         // --------------------------------------
-        //    VERIFICAR SI EL COMANDO ESTÁ ON/OFF
+        // VERIFICAR SI EL COMANDO ESTÁ ON/OFF
         // --------------------------------------
         if (!getState(command)) {
             return sock.sendMessage(jid, {
@@ -178,7 +171,7 @@ if (isGroup && getState("antilink")) {
 
 
         // --------------------------------------
-        //     PROTECCIÓN SOLO ADMIN (ARREGLADO)
+        // PROTECCIÓN SOLO ADMIN (ARREGLADO)
         // --------------------------------------
         if (plugin.admin && !isAdmin) {
             return sock.sendMessage(jid, {
@@ -186,24 +179,24 @@ if (isGroup && getState("antilink")) {
             });
         }
 
-       const ctx = {
-    sender: realSender,
-    isAdmin,
-    isGroup,
-    groupMetadata: metadata,
-    plugins,
+        const ctx = {
+            sender: realSender,
+            isAdmin,
+            isGroup,
+            groupMetadata: metadata,
+            plugins,
 
-    // 🔥 DESCARGA REAL, FUNCIONANDO 100%
-    download: async () => {
-        try {
-            const buffer = await sock.downloadMediaMessage(msg);
-            return buffer;
-        } catch (e) {
-            console.log("❌ Error en ctx.download:", e);
-            return null;
-        }
-    }
-};
+            // 🔥 DESCARGA REAL FUNCIONANDO
+            download: async () => {
+                try {
+                    const buffer = await sock.downloadMediaMessage(msg);
+                    return buffer;
+                } catch (e) {
+                    console.log("❌ Error en ctx.download:", e);
+                    return null;
+                }
+            }
+        };
 
         await plugin.run(sock, msg, args, ctx);
 
