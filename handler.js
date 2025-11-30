@@ -181,24 +181,30 @@ export const handleMessage = async (sock, msg) => {
             });
         }
 
-        const ctx = {
-            sender: realSender,
-            isAdmin,
-            isGroup,
-            groupMetadata: metadata,
-            plugins,
+      const ctx = {
+    sender: realSender,
+    isAdmin,
+    isGroup,
+    groupMetadata: metadata,
+    plugins,
 
-            // 🔥 DESCARGA REAL FUNCIONANDO
-            download: async () => {
-                try {
-                    const buffer = await sock.downloadMediaMessage(msg);
-                    return buffer;
-                } catch (e) {
-                    console.log("❌ Error en ctx.download:", e);
-                    return null;
-                }
-            }
-        };
+    // 🔥 DESCARGA REAL (compatible con tu versión Baileys)
+    download: async () => {
+        try {
+            const buffer = await downloadMediaMessage(
+                msg,
+                "buffer",
+                {},
+                { logger: undefined }
+            );
+            return buffer;
+        } catch (e) {
+            console.log("❌ Error en ctx.download:", e);
+            return null;
+        }
+    }
+};
+
 
         await plugin.run(sock, msg, args, ctx);
 
