@@ -6,20 +6,26 @@ export default {
         try {
             const jid = msg.key.remoteJid;
 
-            // Busca imagen citada o normal
-            const q = msg.message?.imageMessage || msg.quoted?.imageMessage;
-            if (!q) {
-                return sock.sendMessage(jid, { text: "📸 *Envía o responde a una imagen con:* .hd" });
+            // Detectar imagen enviada o citada
+            let imgMsg =
+                msg.message?.imageMessage ||
+                msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
+
+            if (!imgMsg) {
+                await sock.sendMessage(jid, { text: "📸 *Envía o responde a una imagen con:* .hd" });
+                return;
             }
 
             // Descargar imagen
-            const buffer = await sock.downloadMediaMessage(msg.quoted || msg);
+            const buffer = await sock.downloadMediaMessage({
+                message: { imageMessage: imgMsg }
+            });
 
-            // Preparar FormData (undici)
+            // Crear FormData (undici nativo)
             const fd = new FormData();
-            fd.append("image", new Blob([buffer]), "image.jpg");
+            fd.append("image", new Blob([buffer]), "photo.jpg");
 
-            // Llamada al endpoint de DeepAI
+            // Llamada API
             const r = await fetch("https://api.deepai.org/api/torch-srgan", {
                 method: "POST",
                 headers: {
@@ -29,22 +35,24 @@ export default {
             });
 
             const j = await r.json();
+
             if (!j.output_url) {
-                console.log(j);
-                return sock.sendMessage(jid, { text: "❌ No se pudo mejorar la imagen." });
+                return sock.sendMessage(jid, {
+                    text: "❌ No se pudo mejorar la imagen."
+                });
             }
 
             // Descargar imagen HD
-            const imgHD = await fetch(j.output_url).then(res => res.arrayBuffer());
+            const hd = await fetch(j.output_url).then(res => res.arrayBuffer());
 
-            // Enviar
+            // Enviar al chat
             await sock.sendMessage(jid, {
-                image: Buffer.from(imgHD),
+                image: Buffer.from(hd),
                 caption: "✨ Imagen mejorada en HD."
             });
 
         } catch (e) {
-            console.log("Error en HD:", e);
+            console.log("ERROR EN PLUGIN .HD:", e);
             await sock.sendMessage(msg.key.remoteJid, {
                 text: "❌ Error procesando la imagen."
             });
