@@ -10,7 +10,7 @@ export default {
                 auth: "r8_PZQQOKMhEWjVt0dHQBhycl34cPak3WI4SrjAF"
             });
 
-            // DETECCIÓN UNIVERSAL DE IMAGEN
+            // DETECCIÓN DE IMAGEN O IMAGEN CITADA
             let m = msg.message;
             let img;
 
@@ -18,17 +18,19 @@ export default {
                 img = m.imageMessage;
             } else if (m?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage) {
                 img = m.extendedTextMessage.contextInfo.quotedMessage.imageMessage;
-            } else if (m?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message?.imageMessage) {
+            } else if (
+                m?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message?.imageMessage
+            ) {
                 img = m.extendedTextMessage.contextInfo.quotedMessage.viewOnceMessageV2.message.imageMessage;
             }
 
             if (!img) {
                 return sock.sendMessage(msg.key.remoteJid, {
-                    text: "❌ *Debes responder a una imagen.*"
+                    text: "❌ Debes responder a una *imagen*."
                 });
             }
 
-            // DESCARGA DE LA IMAGEN
+            // DESCARGAR IMAGEN
             const stream = await downloadContentFromMessage(img, "image");
             let buffer = Buffer.from([]);
 
@@ -36,24 +38,28 @@ export default {
                 buffer = Buffer.concat([buffer, chunk]);
             }
 
-            // EJECUCIÓN DEL MODELO REAL-ESRGAN
+            // --> MODELO HD QUE SÍ FUNCIONA EN 2025:
             const output = await replicate.run(
-                "lucataco/real-esrgan:5x4xzn6r5fiw3jouh3t7xc7v6u",
+                "xinntao/real-esrgan",
                 {
                     input: {
-                        image: `data:image/png;base64,${buffer.toString("base64")}`
+                        image: `data:image/png;base64,${buffer.toString("base64")}`,
+                        scale: 4,
+                        face_enhance: true
                     }
                 }
             );
 
             await sock.sendMessage(msg.key.remoteJid, {
                 image: { url: output },
-                caption: "✔️ *Imagen mejorada en HD*"
+                caption: "✔️ Imagen mejorada en HD"
             });
 
         } catch (error) {
             console.error("ERROR HD:", error);
-            sock.sendMessage(msg.key.remoteJid, { text: "❌ Error procesando la imagen.\n" + error });
+            sock.sendMessage(msg.key.remoteJid, {
+                text: "❌ Error al procesar la imagen.\n" + error
+            });
         }
     }
 };
