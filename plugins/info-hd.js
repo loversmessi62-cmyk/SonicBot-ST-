@@ -1,3 +1,5 @@
+import fetch from "node-fetch";
+
 export default {
     commands: ["hd", "info-hd"],
     admin: false,
@@ -6,11 +8,11 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // DESCARGA DE IMAGEN
+        // DESCARGAR IMAGEN
         let buffer;
         try {
             buffer = await ctx.download();
-        } catch (e) {
+        } catch (err) {
             return sock.sendMessage(jid, {
                 text: "❌ *Responde a una imagen o envía una imagen directamente.*"
             });
@@ -19,33 +21,26 @@ export default {
         await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen en HD...*" });
 
         try {
-            const response = await fetch(
-                "https://api-inference.huggingface.co/models/TencentARC/Real-ESRGAN",
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/octet-stream" },
-                    body: buffer
-                }
-            );
+            // API GRATIS Y ESTABLE
+            const response = await fetch("https://api.upscale.media/api/v1/upscale", {
+                method: "POST",
+                headers: {
+                    "Accept": "application/json"
+                },
+                body: buffer
+            });
 
-            // SI TARDA MUCHO
-            if (response.status === 503) {
-                return sock.sendMessage(jid, {
-                    text: "⚠️ El modelo se está iniciando. Intenta de nuevo en 5 segundos."
-                });
+            const json = await response.json();
+
+            if (!json || !json.output_url) {
+                return sock.sendMessage(jid, { text: "❌ Error al mejorar la imagen." });
             }
 
-            if (!response.ok) {
-                return sock.sendMessage(jid, {
-                    text: "❌ Error del servidor. Intenta más tarde."
-                });
-            }
-
-            const improvedBuffer = Buffer.from(await response.arrayBuffer());
+            const hdImage = await fetch(json.output_url).then(res => res.arrayBuffer());
 
             await sock.sendMessage(jid, {
-                image: improvedBuffer,
-                caption: "✨ *Imagen mejorada en HD (Real-ESRGAN)*"
+                image: Buffer.from(hdImage),
+                caption: "✨ *Imagen mejorada en HD*"
             });
 
         } catch (err) {
