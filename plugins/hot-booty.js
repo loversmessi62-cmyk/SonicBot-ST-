@@ -21,7 +21,7 @@ export default {
 
         await sock.sendMessage(jid, {
             [isVideo ? "video" : "image"]: { url: random },
-            caption: "🍑 *ASS*"
+            caption: "🍑 *booty*"
         });
     }
 };
