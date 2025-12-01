@@ -3,28 +3,28 @@ export default {
     category: "tools",
 
     async run(sock, msg, args, ctx) {
-        try {
-            const jid = ctx.jid;
+        const send = (txt) =>
+            sock.sendMessage(ctx.jid, { text: txt }, { quoted: msg });
 
+        try {
             const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
             if (!quoted)
-                return ctx.reply("⚠️ *Responde a una imagen o sticker para mejorarla en HD.*");
+                return send("⚠️ *Responde a una imagen o sticker para mejorarla en HD.*");
 
-            // --- DESCARGAR MEDIA (usa tu handler real) ---
+            // --- DESCARGA REAL (compatible con tu handler) ---
             let buffer;
             try {
                 buffer = await ctx.download(quoted);
-            } catch (err) {
-                console.log("⛔ Error en descarga:", err);
-                return ctx.reply("❌ *No se pudo descargar la imagen.* Intenta con otra.");
+            } catch (e) {
+                console.log("❌ Error:", e);
+                return send("❌ *No se pudo descargar la imagen. Intenta con otra.*");
             }
 
-            if (!buffer)
-                return ctx.reply("❌ *No se pudo obtener el archivo.*");
+            if (!buffer) return send("❌ *No pude obtener la imagen.*");
 
-            ctx.reply("⏳ Procesando imagen en HD, espera…");
+            await send("⏳ Mejorando imagen en HD, espera…");
 
-            // ========= API REALES DE UPSCALE =========
+            // ========= API HD =========
             const form = new FormData();
             form.append("image", buffer, "image.jpg");
 
@@ -36,23 +36,23 @@ export default {
                 body: form
             });
 
-            if (!req.ok) return ctx.reply("❌ Error en el servidor de mejora HD.");
+            if (!req.ok)
+                return send("❌ *Error en el servidor de mejora HD.*");
 
             const json = await req.json();
-            const resultUrl = json?.data?.image;
+            const imageURL = json?.data?.image;
 
-            if (!resultUrl)
-                return ctx.reply("⚠️ *No se pudo obtener la imagen mejorada.*");
+            if (!imageURL)
+                return send("⚠️ *La API no devolvió una imagen.*");
 
-            // ENVIAR IMAGEN RESULTANTE
-            await sock.sendMessage(jid, {
-                image: { url: resultUrl },
+            await sock.sendMessage(ctx.jid, {
+                image: { url: imageURL },
                 caption: "✨ *Imagen mejorada en HD*"
-            });
+            }, { quoted: msg });
 
         } catch (err) {
-            console.error("Error en .hd:", err);
-            ctx.reply("❌ *Hubo un error al mejorar la imagen.*");
+            console.error("Error en HD:", err);
+            send("❌ *Ocurrió un error inesperado.*");
         }
     }
 };
