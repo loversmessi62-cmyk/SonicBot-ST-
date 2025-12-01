@@ -13,7 +13,7 @@ export default {
         ];
 
         if (links.length === 0)
-            return sock.sendMessage(jid, { text: "⚠ No hay links en el comando .ass" });
+            return sock.sendMessage(jid, { text: "⚠ No hay links en el comando .booty" });
 
         const random = links[Math.floor(Math.random() * links.length)];
 
