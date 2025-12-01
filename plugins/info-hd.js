@@ -1,6 +1,3 @@
-import fetch from "node-fetch";
-import FormData from "form-data";
-
 export default {
     commands: ["hd", "info-hd"],
     admin: false,
@@ -9,65 +6,64 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // ============================
-        //     DESCARGAR LA IMAGEN
-        // ============================
+        // ======================================
+        //     DESCARGAR IMAGEN CORRECTAMENTE
+        // ======================================
         let buffer;
         try {
-            buffer = await ctx.download(); 
+            buffer = await ctx.download();
         } catch {
             return sock.sendMessage(jid, {
-                text: "❌ *Debes responder a una imagen para mejorarla.*"
+                text: "❌ *Responde a una imagen para mejorarla.*"
             });
         }
 
-        await sock.sendMessage(jid, { text: "⏳ *Procesando imagen en HD...*" });
+        await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen en HD...*" });
 
         try {
-            // ============================
-            //   FORM DATA REAL Y VÁLIDO
-            // ============================
-            const form = new FormData();
-            form.append("image", buffer, {
-                filename: "image.jpg",
-                contentType: "image/jpeg"
-            });
 
-            // ============================
+            // ===============================
+            //  ARMAR FORM DATA SIN LIBRERÍAS
+            // ===============================
+            const form = new FormData();
+            form.append("image", new Blob([buffer]), "input.jpg");
+
+            // ===============================
             //        PETICIÓN A DEEPAI
-            // ============================
-            const resp = await fetch("https://api.deepai.org/api/torch-srgan", {
+            // ===============================
+            const r = await fetch("https://api.deepai.org/api/torch-srgan", {
                 method: "POST",
                 headers: {
-                    "api-key": "f34fd260-0a46-4e06-be83-77c41d7d2e07",
-                    ...form.getHeaders()
+                    "api-key": "f34fd260-0a46-4e06-be83-77c41d7d2e07"
                 },
                 body: form
             });
 
-            const data = await resp.json();
+            const json = await r.json();
 
-            if (!data.output_url) {
-                console.log("DeepAI Response:", data);
+            if (!json.output_url) {
+                console.log("DeepAI Response:", json);
                 return sock.sendMessage(jid, {
-                    text: "❌ *DeepAI no pudo mejorar la imagen.*"
+                    text: "❌ *No se pudo mejorar la imagen.*"
                 });
             }
 
-            // ============================
-            //    DESCARGAR LA IMAGEN HD
-            // ============================
-            const improvedBuffer = await fetch(data.output_url).then(r => r.arrayBuffer());
+            // ===============================
+            //   DESCARGAR LA IMAGEN RESULTADO
+            // ===============================
+            const improvedBuffer = Buffer.from(
+                await fetch(json.output_url).then(res => res.arrayBuffer())
+            );
 
             await sock.sendMessage(jid, {
-                image: Buffer.from(improvedBuffer),
+                image: improvedBuffer,
                 caption: "✨ *Imagen mejorada en HD.*"
             });
 
         } catch (err) {
             console.error("ERROR HD:", err);
             return sock.sendMessage(jid, {
-                text: "❌ *Hubo un error al procesar tu imagen.*"
+                text: "❌ *Error al procesar la imagen.*"
             });
         }
     }
