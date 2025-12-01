@@ -1,45 +1,50 @@
 export default {
     commands: ["todos"],
-    admin: true, // Solo admins; si quieres que cualquiera lo use, pon false
+    category: "info",
 
     async run(sock, msg, args, ctx) {
+        try {
+            const jid = msg.key.remoteJid;
 
-        const { jid, groupMetadata, participants } = ctx;
+            if (!ctx.isGroup) {
+                return await sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+            }
 
-        // Validación de grupo
-        if (!ctx.isGroup) {
-            return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+            // INFO DEL GRUPO
+            const groupMetadata = await sock.groupMetadata(jid);
+            const groupName = groupMetadata.subject;
+            const participantes = groupMetadata.participants?.length || 0;
+
+            // FECHA DEL DÍA
+            const fecha = new Date();
+            const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+            const meses = [
+                "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"
+            ];
+
+            const diaSemana = dias[fecha.getDay()];
+            const dia = fecha.getDate();
+            const mes = meses[fecha.getMonth()];
+            const año = fecha.getFullYear();
+
+            const fechaBonita = `${diaSemana}, ${dia} de ${mes} ${año}`;
+
+            // MENSAJE QUE MANDA EL USUARIO
+            const mensaje = args.length > 0 ? args.join(" ") : "¡Aquí está la info del grupo!";
+
+            // MENSAJE FINAL
+            const texto = `🌐 *INFORMACIÓN DEL GRUPO*\n\n` +
+                `👥 *Grupo:* ${groupName}\n` +
+                `📌 *Participantes:* ${participantes}\n` +
+                `📅 *Fecha:* ${fechaBonita}\n\n` +
+                `💬 *Mensaje:* ${mensaje}`;
+
+            await sock.sendMessage(jid, { text: texto });
+
+        } catch (e) {
+            console.error("Error en .todos:", e);
+            return sock.sendMessage(msg.key.remoteJid, { text: "❌ Error al obtener la información." });
         }
-
-        // Metadata segura
-        const metadata = groupMetadata || await sock.groupMetadata(jid);
-        const members = metadata.participants.map(p => p.id);
-
-        // Día, fecha y hora
-        const fecha = new Date();
-        const opciones = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
-        const fechaCompleta = fecha.toLocaleDateString("es-ES", opciones);
-
-        // Mensaje del usuario o uno por defecto
-        const mensaje = args.length 
-            ? args.join(" ")
-            : "👋 *Llamo a todos los miembros del grupo.*";
-
-        // Texto final formateado
-        const texto = `
-📣 *MENSAJE PARA TODOS*
-📌 *Grupo:* ${metadata.subject}
-👥 *Participantes:* ${members.length}
-📆 *Fecha:* ${fechaCompleta}
-
-💬 *Mensaje:*
-${mensaje}
-        `.trim();
-
-        // Enviar mensaje + menciones
-        await sock.sendMessage(jid, {
-            text: texto,
-            mentions: members
-        });
     }
 };
