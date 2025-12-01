@@ -4,21 +4,20 @@ export default {
     category: "admins",
 
     async run(sock, msg, args, ctx) {
-        const { isGroup, metadata } = ctx;
         const jid = msg.key.remoteJid;
 
-        if (!isGroup)
+        if (!ctx.isGroup)
             return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
 
+        // Obtener metadata correcta sin depender del handler
+        const metadata = await sock.groupMetadata(jid);
         const groupName = metadata.subject || "Este grupo";
 
-        // Obtener todos los participantes
+        // Obtener participantes
         const participants = metadata.participants || [];
-
-        // Formar lista de menciones
         const mentions = participants.map(p => p.id);
 
-        // Crear texto con menciones línea por línea
+        // Texto con menciones uno por uno
         const mentionText = participants
             .map(p => `@${p.id.split("@")[0]}`)
             .join("\n");
