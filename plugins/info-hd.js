@@ -6,9 +6,7 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // ======================================
-        //     DESCARGAR IMAGEN CORRECTAMENTE
-        // ======================================
+        // Descargar la imagen real
         let buffer;
         try {
             buffer = await ctx.download();
@@ -18,46 +16,37 @@ export default {
             });
         }
 
-        await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen en HD...*" });
+        await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen en HD (modo gratis)...*" });
 
         try {
+            // ================================
+            //   ENVIAR A HUGGINGFACE (FREE)
+            // ================================
+            const response = await fetch(
+                "https://api-inference.huggingface.co/models/eugenesiow/biggan-super-resolution",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/octet-stream"
+                    },
+                    body: buffer
+                }
+            );
 
-            // ===============================
-            //  ARMAR FORM DATA SIN LIBRERÍAS
-            // ===============================
-            const form = new FormData();
-            form.append("image", new Blob([buffer]), "input.jpg");
-
-            // ===============================
-            //        PETICIÓN A DEEPAI
-            // ===============================
-            const r = await fetch("https://api.deepai.org/api/torch-srgan", {
-                method: "POST",
-                headers: {
-                    "api-key": "f34fd260-0a46-4e06-be83-77c41d7d2e07"
-                },
-                body: form
-            });
-
-            const json = await r.json();
-
-            if (!json.output_url) {
-                console.log("DeepAI Response:", json);
+            // Si el modelo está cargando
+            if (response.status === 503) {
                 return sock.sendMessage(jid, {
-                    text: "❌ *No se pudo mejorar la imagen.*"
+                    text: "⏳ *El servidor está cargando el modelo, intenta de nuevo en unos segundos.*"
                 });
             }
 
-            // ===============================
-            //   DESCARGAR LA IMAGEN RESULTADO
-            // ===============================
-            const improvedBuffer = Buffer.from(
-                await fetch(json.output_url).then(res => res.arrayBuffer())
-            );
+            const arrayBuffer = await response.arrayBuffer();
+            const improved = Buffer.from(arrayBuffer);
 
+            // Enviar imagen resultante
             await sock.sendMessage(jid, {
-                image: improvedBuffer,
-                caption: "✨ *Imagen mejorada en HD.*"
+                image: improved,
+                caption: "✨ *Imagen mejorada en HD — FREE MODE*"
             });
 
         } catch (err) {
