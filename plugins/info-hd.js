@@ -1,72 +1,43 @@
-import { Blob } from "buffer";
+import fetch from "node-fetch";
 
 export default {
-    commands: ["hd", "enhance"],
-    category: "tools",
-
-    async run(sock, msg, args, ctx) {
-        const send = (t) =>
-            sock.sendMessage(ctx.jid, { text: t }, { quoted: msg });
-
+    command: ["hd", "upscale", "enhance"],
+    description: "Mejora la calidad de una imagen usando DeepAI",
+    
+    async run(sock, msg, args) {
         try {
-            const quoted =
-                msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+            const q = msg.message?.imageMessage || msg.quoted?.imageMessage;
+            if (!q) return sock.sendMessage(msg.key.remoteJid, { text: "📸 *Responde a una imagen con:* .hd" });
 
-            if (!quoted)
-                return send("⚠️ *Responde a una imagen para mejorarla en HD.*");
+            // Descargar imagen original
+            const buffer = await sock.downloadMediaMessage(msg.quoted || msg);
 
-            // ------------------------------------------
-            // DESCARGA REAL→ funciona con tu handler
-            // ------------------------------------------
-            let buffer;
-            try {
-                buffer = await ctx.download();
-            } catch (e) {
-                console.log("❌ error:", e);
-                return send("❌ *No pude leer la imagen.*");
-            }
-
-            if (!buffer) return send("❌ *Imagen inválida.*");
-
-            await send("⏳ Mejorando imagen en HD…");
-
-            // ------------------------------------------
-            // FIX: undici → convertir buffer a Blob
-            // ------------------------------------------
-            const blob = new Blob([buffer], { type: "image/jpeg" });
-            const form = new FormData();
-            form.append("image", blob, "image.jpg");
-
-            // API KEY tuya
-            const apiKey = "f34fd260-0a46-4e06-be83-77c41d7d2e07";
-
-            const req = await fetch("https://api.upscaler.my.id/v1/upscale", {
+            // Enviar a DeepAI
+            const response = await fetch("https://api.deepai.org/api/torch-srgan", {
                 method: "POST",
-                headers: { "x-api-key": apiKey },
-                body: form,
+                headers: {
+                    "Api-Key": "f34fd260-0a46-4e06-be83-77c41d7d2e07"
+                },
+                body: {
+                    image: buffer
+                }
             });
 
-            if (!req.ok) return send("❌ *Error en el servidor HD.*");
+            const result = await response.json();
+            if (!result.output_url) {
+                console.log(result);
+                return sock.sendMessage(msg.key.remoteJid, { text: "❌ Error al mejorar la imagen." });
+            }
 
-            const json = await req.json();
-            const imageUrl = json?.data?.image;
+            // Descargar el resultado
+            const imgHD = await fetch(result.output_url).then(r => r.buffer());
 
-            if (!imageUrl)
-                return send("❌ *La API no devolvió imagen.*");
+            // Enviar HD
+            await sock.sendMessage(msg.key.remoteJid, { image: imgHD, caption: "✨ Imagen mejorada en HD." });
 
-            // ENVIAR FOTO HD
-            await sock.sendMessage(
-                ctx.jid,
-                {
-                    image: { url: imageUrl },
-                    caption: "✨ *Imagen mejorada en HD*",
-                },
-                { quoted: msg }
-            );
-
-        } catch (err) {
-            console.error("Error en HD:", err);
-            send("❌ *Error inesperado.*");
+        } catch (e) {
+            console.log("Error en HD:", e);
+            await sock.sendMessage(msg.key.remoteJid, { text: "❌ Ocurrió un error procesando la imagen." });
         }
-    },
-};
+    }
+}
