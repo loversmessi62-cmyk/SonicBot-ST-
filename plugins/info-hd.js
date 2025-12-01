@@ -1,72 +1,58 @@
-import axios from "axios";
-
 export default {
-    commands: ["hd", "remini"],
+    commands: ["hd", "enhance"],
     category: "tools",
-    description: "Mejora la calidad de una imagen",
 
     async run(sock, msg, args, ctx) {
-        const jid = ctx.jid;
-
-        // Debe citar una imagen
-        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-
-        if (!quoted) {
-            return sock.sendMessage(jid, { text: "📸 *Responde a una imagen para mejorarla.*" });
-        }
-
-        // Detectamos si es imagen o sticker
-        const qType = Object.keys(quoted)[0];
-
-        if (!["imageMessage", "stickerMessage"].includes(qType)) {
-            return sock.sendMessage(jid, { text: "⚠️ *Error: Solo puedo mejorar imágenes o stickers.*" });
-        }
-
-        // Descargar buffer con tu ctx.download FIX
-        let buffer;
         try {
-            buffer = await ctx.download();
-        } catch (e) {
-            console.error("⛔ Error al descargar media:", e);
-            return sock.sendMessage(jid, { text: "❌ No pude leer el archivo. Manda una imagen normal." });
-        }
+            const jid = ctx.jid;
 
-        if (!buffer) {
-            return sock.sendMessage(jid, { text: "❌ *No pude obtener la imagen. Intenta de nuevo.*" });
-        }
+            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+            if (!quoted)
+                return ctx.reply("⚠️ *Responde a una imagen o sticker para mejorarla en HD.*");
 
-        await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen, espera…*" });
-
-        try {
-            // Enviar a DeepAI
-            const response = await axios({
-                method: "post",
-                url: "https://api.deepai.org/api/torch-srgan", 
-                headers: {
-                    "api-key": "f34fd260-0a46-4e06-be83-77c41d7d2e07"
-                },
-                data: {
-                    image: buffer.toString("base64")
-                }
-            });
-
-            const result = response.data?.output_url;
-
-            if (!result) {
-                return sock.sendMessage(jid, { text: "❌ DeepAI no devolvió ninguna imagen HD." });
+            // --- DESCARGAR MEDIA (usa tu handler real) ---
+            let buffer;
+            try {
+                buffer = await ctx.download(quoted);
+            } catch (err) {
+                console.log("⛔ Error en descarga:", err);
+                return ctx.reply("❌ *No se pudo descargar la imagen.* Intenta con otra.");
             }
 
-            // Enviar la imagen mejorada
+            if (!buffer)
+                return ctx.reply("❌ *No se pudo obtener el archivo.*");
+
+            ctx.reply("⏳ Procesando imagen en HD, espera…");
+
+            // ========= API REALES DE UPSCALE =========
+            const form = new FormData();
+            form.append("image", buffer, "image.jpg");
+
+            const apiKey = "f34fd260-0a46-4e06-be83-77c41d7d2e07";
+
+            const req = await fetch("https://api.upscaler.my.id/v1/upscale", {
+                method: "POST",
+                headers: { "x-api-key": apiKey },
+                body: form
+            });
+
+            if (!req.ok) return ctx.reply("❌ Error en el servidor de mejora HD.");
+
+            const json = await req.json();
+            const resultUrl = json?.data?.image;
+
+            if (!resultUrl)
+                return ctx.reply("⚠️ *No se pudo obtener la imagen mejorada.*");
+
+            // ENVIAR IMAGEN RESULTANTE
             await sock.sendMessage(jid, {
-                image: { url: result },
-                caption: "✨ *Imagen mejorada con éxito*"
+                image: { url: resultUrl },
+                caption: "✨ *Imagen mejorada en HD*"
             });
 
         } catch (err) {
-            console.error(err);
-            return sock.sendMessage(jid, {
-                text: "❌ Error procesando la imagen. DeepAI puede estar saturado."
-            });
+            console.error("Error en .hd:", err);
+            ctx.reply("❌ *Hubo un error al mejorar la imagen.*");
         }
     }
 };
