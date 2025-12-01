@@ -7,16 +7,15 @@ export default {
 
         const links = [
             "https://files.catbox.moe/vef24v.jpeg",
-            "https://files.catbox.moe/naom00.jpeg",
+            "https://files.catbox.moe/naom00.jpeg"
         ];
 
         if (links.length === 0)
             return sock.sendMessage(jid, { text: "⚠ No hay links en el comando .booty" });
 
-        // prevenir caché
-        const random = links[Math.floor(Math.random() * links.length)] + "?r=" + Math.random();
+        const random = links[Math.floor(Math.random() * links.length)];
 
-        const isVideo = random.includes(".mp4") || random.includes(".mov");
+        const isVideo = random.endsWith(".mp4") || random.endsWith(".mov");
 
         await sock.sendMessage(jid, {
             [isVideo ? "video" : "image"]: { url: random },
