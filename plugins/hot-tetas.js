@@ -7,8 +7,7 @@ export default {
 
         const links = [
             "https://files.catbox.moe/v7vsn8.bin",
-            "https://yourlink2.png",
-            "https://yourlink3.mp4"
+          
         ];
 
         if (links.length === 0)
