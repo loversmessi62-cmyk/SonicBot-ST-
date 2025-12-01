@@ -1,84 +1,45 @@
-import { getState, setState } from "../utils/cdmtoggle.js";
-
 export default {
-    commands: ["antilink"],
-    admin: true,
-    category: "on/off",
+    commands: ["todos"],
+    admin: true, // Solo admins; si quieres que cualquiera lo use, pon false
 
     async run(sock, msg, args, ctx) {
-        const jid = ctx.jid;
 
-        if (!ctx.isGroup)
+        const { jid, groupMetadata, participants } = ctx;
+
+        // Validación de grupo
+        if (!ctx.isGroup) {
             return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
-
-        const action = (args[0] || "").toLowerCase();
-
-        if (action === "on") {
-            setState("antilink", true);
-            return sock.sendMessage(jid, { text: "🛡️ *Antilink ACTIVADO.*" });
         }
 
-        if (action === "off") {
-            setState("antilink", false);
-            return sock.sendMessage(jid, { text: "🔴 *Antilink DESACTIVADO.*" });
-        }
+        // Metadata segura
+        const metadata = groupMetadata || await sock.groupMetadata(jid);
+        const members = metadata.participants.map(p => p.id);
 
-        return sock.sendMessage(jid, { text: "⚠️ Usa:\n.antilink on\n.antilink off" });
-    },
+        // Día, fecha y hora
+        const fecha = new Date();
+        const opciones = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+        const fechaCompleta = fecha.toLocaleDateString("es-ES", opciones);
 
-    // ESTE ES EL QUE DETECTA LINKS AUTOMÁTICAMENTE
-    async onMessage(sock, msg) {
-        const jid = msg.key.remoteJid;
-        const isGroup = jid.endsWith("@g.us");
+        // Mensaje del usuario o uno por defecto
+        const mensaje = args.length 
+            ? args.join(" ")
+            : "👋 *Llamo a todos los miembros del grupo.*";
 
-        if (!isGroup) return;
+        // Texto final formateado
+        const texto = `
+📣 *MENSAJE PARA TODOS*
+📌 *Grupo:* ${metadata.subject}
+👥 *Participantes:* ${members.length}
+📆 *Fecha:* ${fechaCompleta}
 
-        const text =
-            msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text ||
-            msg.message?.imageMessage?.caption ||
-            "";
+💬 *Mensaje:*
+${mensaje}
+        `.trim();
 
-        // ¿Antilink apagado?
-        if (!getState("antilink")) return;
-
-        // Regex para detectar links
-        const linkRegex = /(https?:\/\/[^\s]+)/gi;
-        if (!linkRegex.test(text)) return;
-
-        // Obtener sender
-        const sender = msg.key.participant || msg.key.remoteJid;
-
-        // Obtener metadata del grupo
-        let metadata;
-        try {
-            metadata = await sock.groupMetadata(jid);
-        } catch (e) {
-            return;
-        }
-
-        const adminList = metadata.participants
-            .filter(p => p.admin)
-            .map(p => p.id);
-
-        const isAdmin = adminList.includes(sender);
-
-        if (isAdmin) return; // No expulsar admins
-
-        // 1️⃣ BORRAR MENSAJE
-        try {
-            await sock.sendMessage(jid, { delete: msg.key });
-        } catch {}
-
-        // 2️⃣ AVISO
+        // Enviar mensaje + menciones
         await sock.sendMessage(jid, {
-            text: `🚫 *Se detectó un link prohibido*\nEliminando a @${sender.split("@")[0]}…`,
-            mentions: [sender]
+            text: texto,
+            mentions: members
         });
-
-        // 3️⃣ EXPULSAR
-        try {
-            await sock.groupParticipantsUpdate(jid, [sender], "remove");
-        } catch {}
     }
 };
