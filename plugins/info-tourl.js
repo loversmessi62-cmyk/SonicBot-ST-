@@ -1,91 +1,55 @@
 import axios from "axios";
-import FormData from "form-data";
-import { downloadMediaMessage } from "@whiskeysockets/baileys";
+import fs from "fs";
+import path from "path";
 
 export default {
-    commands: ["tourl", "cachtbox", "cbx"],
-    description: "Herramientas: convertir media a URL y subir texto a paste.",
+    commands: ["tourl"],
+    category: "utilidad",
 
-    run: async (sock, msg, args, ctx) => {
-        const command = args.shift()?.toLowerCase() || ctx.msg.body?.split(" ")[0].replace(".", "");
+    async run(sock, msg, args, ctx) {
+        const jid = ctx.jid;
 
-        // ============================
-        //      📌 COMANDO: .tourl
-        // ============================
-        if (command === "tourl") {
-            try {
-                const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage || msg.message;
+        // Revisar si el mensaje trae archivo o es respuesta
+        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const mime = ctx.mime;
 
-                const type = Object.keys(quoted)[0];
+        if (!mime && !quoted)
+            return sock.sendMessage(jid, { text: "📌 Responde a una *imagen/video/audio/documento* para convertirlo en link." });
 
-                if (!["imageMessage", "videoMessage", "audioMessage", "stickerMessage"].includes(type)) {
-                    return sock.sendMessage(ctx.jid, {
-                        text: "📌 *Envía o responde a una imagen/video/audio/sticker con:* .tourl"
-                    });
-                }
+        // Obtener el tipo de media
+        const msgType = Object.keys(quoted || msg.message).find(k => k.includes("Message"));
+        const mediaMessage = quoted ? quoted[msgType] : msg.message[msgType];
 
-                // DESCARGAR MEDIA CORRECTAMENTE
-                const buffer = await downloadMediaMessage(
-                    { message: quoted },
-                    "buffer"
-                );
+        // Descargar archivo
+        const buffer = await sock.downloadMediaMessage({ message: { [msgType]: mediaMessage } });
 
-                // SUBIR A CACHBOX
-                const form = new FormData();
-                form.append("file", buffer, {
-                    filename: "media",
-                    contentType: "application/octet-stream"
-                });
+        // Guardar archivo temporal
+        const tempName = Date.now() + ".tmp";
+        const tempPath = path.join("./temp", tempName);
+        if (!fs.existsSync("./temp")) fs.mkdirSync("./temp");
 
-                const upload = await axios.post(
-                    "https://cachbox.com/api/upload",
-                    form,
-                    { headers: form.getHeaders() }
-                );
+        fs.writeFileSync(tempPath, buffer);
 
-                const url = upload.data?.url;
+        // Subir a Catbox
+        const form = new FormData();
+        form.append("reqtype", "fileupload");
+        form.append("fileToUpload", fs.createReadStream(tempPath));
 
-                return sock.sendMessage(ctx.jid, {
-                    text: `✅ *Archivo subido correctamente:*\n${url}`
-                });
-
-            } catch (e) {
-                console.error("Error en .tourl:", e);
-                return sock.sendMessage(ctx.jid, { text: "❌ Error subiendo el archivo..." });
-            }
+        let upload;
+        try {
+            upload = await axios.post("https://catbox.moe/user/api.php", form, {
+                headers: form.getHeaders()
+            });
+        } catch (e) {
+            return sock.sendMessage(jid, { text: "❌ Error subiendo a Catbox." });
         }
 
-        // ============================
-        //   📌 COMANDO: .cachtbox / .cbx
-        // ============================
-        if (command === "cachtbox" || command === "cbx") {
-            try {
-                const texto =
-                    args.join(" ") ||
-                    msg.message?.extendedTextMessage?.text;
+        // Eliminar archivo temporal
+        fs.unlinkSync(tempPath);
 
-                if (!texto) {
-                    return sock.sendMessage(ctx.jid, {
-                        text: "📌 *Ejemplo:* .cachtbox console.log('Hola');"
-                    });
-                }
-
-                const res = await axios.post(
-                    "https://hastebin.com/documents",
-                    texto,
-                    { headers: { "Content-Type": "text/plain" } }
-                );
-
-                const url = `https://hastebin.com/${res.data.key}`;
-
-                return sock.sendMessage(ctx.jid, {
-                    text: `📄 *Texto subido:*\n${url}`
-                });
-
-            } catch (e) {
-                console.error("Error en cachtbox:", e);
-                return sock.sendMessage(ctx.jid, { text: "❌ Error subiendo el texto." });
-            }
-        }
+        // Enviar link final
+        await sock.sendMessage(jid, {
+            text: `✅ Archivo subido:\n${upload.data}`
+        });
     }
 };
