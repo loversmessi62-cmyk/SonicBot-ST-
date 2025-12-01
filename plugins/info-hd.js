@@ -1,61 +1,51 @@
+import fetch from "node-fetch";
+import FormData from "form-data";
+
 export default {
     command: ["hd", "upscale", "enhance"],
     description: "Mejora la calidad de una imagen usando DeepAI",
 
-    async run(sock, msg) {
+    async run(sock, msg, args, ctx) {
+        const jid = msg.key.remoteJid;
+
         try {
-            const jid = msg.key.remoteJid;
-
-            // Detectar imagen enviada o citada
-            let imgMsg =
-                msg.message?.imageMessage ||
-                msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
-
-            if (!imgMsg) {
-                await sock.sendMessage(jid, { text: "📸 *Envía o responde a una imagen con:* .hd" });
-                return;
+            // Detectar si hay imagen o imagen citada
+            if (!ctx.isImage && !ctx.isQuotedImage) {
+                return sock.sendMessage(jid, { text: "📸 Responde a una imagen con: *.hd*" });
             }
 
-            // Descargar imagen
-            const buffer = await sock.downloadMediaMessage({
-                message: { imageMessage: imgMsg }
-            });
+            // Descargar imagen con tu handler
+            const buffer = await ctx.download();
+            if (!buffer) return sock.sendMessage(jid, { text: "❌ No pude descargar la imagen." });
 
-            // Crear FormData (undici nativo)
-            const fd = new FormData();
-            fd.append("image", new Blob([buffer]), "photo.jpg");
+            // Crear form-data
+            const form = new FormData();
+            form.append("image", buffer, "photo.jpg");
 
-            // Llamada API
-            const r = await fetch("https://api.deepai.org/api/torch-srgan", {
+            // Petición a DeepAI
+            const res = await fetch("https://api.deepai.org/api/torch-srgan", {
                 method: "POST",
-                headers: {
-                    "api-key": "f34fd260-0a46-4e06-be83-77c41d7d2e07"
-                },
-                body: fd
+                headers: { "api-key": "f34fd260-0a46-4e06-be83-77c41d7d2e07" },
+                body: form
             });
 
-            const j = await r.json();
-
-            if (!j.output_url) {
-                return sock.sendMessage(jid, {
-                    text: "❌ No se pudo mejorar la imagen."
-                });
+            const json = await res.json();
+            if (!json.output_url) {
+                return sock.sendMessage(jid, { text: "❌ La API no devolvió la imagen HD." });
             }
 
             // Descargar imagen HD
-            const hd = await fetch(j.output_url).then(res => res.arrayBuffer());
+            const hd = await fetch(json.output_url).then(r => r.buffer());
 
-            // Enviar al chat
+            // Enviar imagen resultante
             await sock.sendMessage(jid, {
-                image: Buffer.from(hd),
+                image: hd,
                 caption: "✨ Imagen mejorada en HD."
             });
 
         } catch (e) {
             console.log("ERROR EN PLUGIN .HD:", e);
-            await sock.sendMessage(msg.key.remoteJid, {
-                text: "❌ Error procesando la imagen."
-            });
+            await sock.sendMessage(jid, { text: "❌ Error procesando la imagen." });
         }
     }
 };
