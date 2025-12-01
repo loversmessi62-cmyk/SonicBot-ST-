@@ -6,6 +6,7 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
+        // DESCARGA DE IMAGEN
         let buffer;
         try {
             buffer = await ctx.download();
@@ -19,7 +20,7 @@ export default {
 
         try {
             const response = await fetch(
-                "https://api-inference.huggingface.co/models/caidas/swin2sr-realworld-sr-x4-64-bsrgan-psnr",
+                "https://api-inference.huggingface.co/models/TencentARC/Real-ESRGAN",
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/octet-stream" },
@@ -27,9 +28,16 @@ export default {
                 }
             );
 
+            // SI TARDA MUCHO
+            if (response.status === 503) {
+                return sock.sendMessage(jid, {
+                    text: "⚠️ El modelo se está iniciando. Intenta de nuevo en 5 segundos."
+                });
+            }
+
             if (!response.ok) {
                 return sock.sendMessage(jid, {
-                    text: "⚠️ El servidor tardó en responder. Intenta más tarde."
+                    text: "❌ Error del servidor. Intenta más tarde."
                 });
             }
 
@@ -37,13 +45,13 @@ export default {
 
             await sock.sendMessage(jid, {
                 image: improvedBuffer,
-                caption: "✨ *Imagen mejorada en HD*"
+                caption: "✨ *Imagen mejorada en HD (Real-ESRGAN)*"
             });
 
         } catch (err) {
             console.error("ERROR HD:", err);
             return sock.sendMessage(jid, {
-                text: "❌ Error al procesar la imagen."
+                text: "❌ Ocurrió un error al procesar la imagen."
             });
         }
     }
