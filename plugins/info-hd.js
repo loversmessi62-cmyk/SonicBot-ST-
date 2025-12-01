@@ -6,7 +6,6 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // INTENTAR DESCARGAR IMAGEN
         let buffer;
         try {
             buffer = await ctx.download();
@@ -18,10 +17,9 @@ export default {
 
         await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen en HD...*" });
 
-        // API GRATIS DE HUGGINGFACE (SIN KEYS)
         try {
             const response = await fetch(
-                "https://api-inference.huggingface.co/models/eugenesiow/biggan-super-resolution",
+                "https://api-inference.huggingface.co/models/caidas/swin2sr-realworld-sr-x4-64-bsrgan-psnr",
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/octet-stream" },
@@ -29,9 +27,9 @@ export default {
                 }
             );
 
-            if (response.status === 503) {
+            if (!response.ok) {
                 return sock.sendMessage(jid, {
-                    text: "⚠️ Servidor cargando modelo. Intenta de nuevo en unos segundos."
+                    text: "⚠️ El servidor tardó en responder. Intenta más tarde."
                 });
             }
 
