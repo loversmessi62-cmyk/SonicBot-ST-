@@ -6,26 +6,35 @@ export default {
 
         const jid = ctx.jid;
 
-        // 1. Validar que sea grupo
-        if (!ctx.isGroup) {
+        if (!ctx.isGroup)
             return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+
+        // Metadata segura
+        let metadata = ctx.groupMetadata;
+
+        if (!metadata) {
+            try {
+                metadata = await sock.groupMetadata(jid);
+            } catch (e) {
+                return sock.sendMessage(jid, { text: "❌ No pude obtener metadata del grupo." });
+            }
         }
 
-        // 2. Obtener metadata de manera segura SIEMPRE
-        let metadata;
-        try {
-            metadata = ctx.groupMetadata || await sock.groupMetadata(jid);
-        } catch (e) {
-            return sock.sendMessage(jid, { text: "❌ No pude obtener metadata del grupo." });
-        }
+        // Validaciones blindadas
+        if (!metadata || typeof metadata !== "object")
+            return sock.sendMessage(jid, { text: "❌ Metadata inválida." });
 
-        // 3. Validación REAL que evita tu error
-        if (!metadata || !Array.isArray(metadata.participants)) {
-            return sock.sendMessage(jid, { text: "❌ El grupo no tiene participantes disponibles." });
-        }
+        if (!Array.isArray(metadata.participants))
+            return sock.sendMessage(jid, { text: "❌ No hay participantes cargados." });
 
-        // 4. Construir las menciones
-        const members = metadata.participants.map(p => p.id);
+        // Construcción SEGURA de menciones
+        const members = metadata.participants
+            .filter(p => p && p.id)
+            .map(p => p.id);
+
+        if (!members.length)
+            return sock.sendMessage(jid, { text: "❌ No se pudieron obtener los IDs del grupo." });
+
         const texto = args.length
             ? args.join(" ")
             : "👥 *Etiquetando a todos los miembros del grupo.*";
