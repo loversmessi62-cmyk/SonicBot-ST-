@@ -25,6 +25,7 @@ export default {
         let owner = [];
         let info = [];
         let grupo = [];
+        let multi = [];
         let onoff = [];
         let funny = [];
         let hot = []; // +18
