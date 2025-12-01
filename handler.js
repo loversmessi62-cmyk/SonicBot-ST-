@@ -143,37 +143,61 @@ export const handleMessage = async (sock, msg) => {
         //           DETECCIÓN REAL DE MEDIA (MEGA FIX)
         // -----------------------------------------------------
        function getMediaMessage(m) {
+
     if (!m?.message) return null;
 
     const msg = m.message;
 
-    // IMAGEN NORMAL
-    if (msg.imageMessage) return ["image", msg.imageMessage];
+    // ------------------ DIRECT MEDIA ------------------
+    const direct = msg.imageMessage ||
+                   msg.videoMessage ||
+                   msg.stickerMessage ||
+                   msg.documentMessage ||
+                   msg.audioMessage;
 
-    // VIDEO
-    if (msg.videoMessage) return ["video", msg.videoMessage];
+    if (direct) {
+        return [
+            direct.mimetype?.split("/")[0] || "file",
+            direct
+        ];
+    }
 
-    // DOCUMENTO
-    if (msg.documentMessage) return ["document", msg.documentMessage];
-
-    // STICKER
-    if (msg.stickerMessage) return ["sticker", msg.stickerMessage];
-
-    // AUDIO
-    if (msg.audioMessage) return ["audio", msg.audioMessage];
-
-    // VIEW ONCE
+    // ------------------ VIEW ONCE ------------------
     const vo = msg.viewOnceMessageV2?.message || msg.viewOnceMessage?.message;
-    if (vo?.imageMessage) return ["image", vo.imageMessage];
-    if (vo?.videoMessage) return ["video", vo.videoMessage];
+    if (vo) {
+        const voMedia = vo.imageMessage || vo.videoMessage;
+        if (voMedia) {
+            return [
+                voMedia.mimetype?.split("/")[0] || "file",
+                voMedia
+            ];
+        }
+    }
 
-    // QUOTED (RESPUESTA)
-    const quoted = msg.extendedTextMessage?.contextInfo?.quotedMessage;
+    // ------------------ QUOTED (UNIVERSAL FIX) ------------------
+    const ctx = msg?.extendedTextMessage?.contextInfo ||
+                msg?.imageMessage?.contextInfo ||
+                msg?.videoMessage?.contextInfo ||
+                msg?.documentMessage?.contextInfo ||
+                msg?.stickerMessage?.contextInfo ||
+                msg?.audioMessage?.contextInfo;
+
+    const quoted = ctx?.quotedMessage;
     if (quoted) {
-        if (quoted.imageMessage) return ["image", quoted.imageMessage];
-        if (quoted.videoMessage) return ["video", quoted.videoMessage];
-        if (quoted.stickerMessage) return ["sticker", quoted.stickerMessage];
-        if (quoted.documentMessage) return ["document", quoted.documentMessage];
+
+        const qMedia =
+            quoted.imageMessage ||
+            quoted.videoMessage ||
+            quoted.stickerMessage ||
+            quoted.documentMessage ||
+            quoted.audioMessage;
+
+        if (qMedia) {
+            return [
+                qMedia.mimetype?.split("/")[0] || "file",
+                qMedia
+            ];
+        }
     }
 
     return null;
