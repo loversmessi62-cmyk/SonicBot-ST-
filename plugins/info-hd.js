@@ -6,53 +6,46 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // Descargar la imagen real
+        // INTENTAR DESCARGAR IMAGEN
         let buffer;
         try {
             buffer = await ctx.download();
-        } catch {
+        } catch (e) {
             return sock.sendMessage(jid, {
-                text: "❌ *Responde a una imagen para mejorarla.*"
+                text: "❌ *Responde a una imagen o envía una imagen directamente.*"
             });
         }
 
-        await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen en HD (modo gratis)...*" });
+        await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen en HD...*" });
 
+        // API GRATIS DE HUGGINGFACE (SIN KEYS)
         try {
-            // ================================
-            //   ENVIAR A HUGGINGFACE (FREE)
-            // ================================
             const response = await fetch(
                 "https://api-inference.huggingface.co/models/eugenesiow/biggan-super-resolution",
                 {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/octet-stream"
-                    },
+                    headers: { "Content-Type": "application/octet-stream" },
                     body: buffer
                 }
             );
 
-            // Si el modelo está cargando
             if (response.status === 503) {
                 return sock.sendMessage(jid, {
-                    text: "⏳ *El servidor está cargando el modelo, intenta de nuevo en unos segundos.*"
+                    text: "⚠️ Servidor cargando modelo. Intenta de nuevo en unos segundos."
                 });
             }
 
-            const arrayBuffer = await response.arrayBuffer();
-            const improved = Buffer.from(arrayBuffer);
+            const improvedBuffer = Buffer.from(await response.arrayBuffer());
 
-            // Enviar imagen resultante
             await sock.sendMessage(jid, {
-                image: improved,
-                caption: "✨ *Imagen mejorada en HD — FREE MODE*"
+                image: improvedBuffer,
+                caption: "✨ *Imagen mejorada en HD*"
             });
 
         } catch (err) {
             console.error("ERROR HD:", err);
             return sock.sendMessage(jid, {
-                text: "❌ *Error al procesar la imagen.*"
+                text: "❌ Error al procesar la imagen."
             });
         }
     }
