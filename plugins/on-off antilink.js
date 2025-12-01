@@ -4,84 +4,64 @@ export default {
     commands: ["antilink", "antilinks"],
     admin: true,
     group: true,
-    category: "protección",
+    category: "on/off",
 
     async run(sock, msg, args, ctx) {
 
-        // ====== VALIDACIONES SEGURAS ======
-        if (!ctx || !ctx.isGroup)
-            return sock.sendMessage(msg.key.remoteJid, { text: "❌ Este comando solo funciona en grupos." });
-
         const jid = msg.key.remoteJid;
-        const sender = ctx.sender;
 
-        // ====== ESTADO DEL GRUPO ======
-        const currentState = getState(jid, "antilink") || false;
+        if (!ctx || !ctx.isGroup)
+            return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
 
-        // ====== ACTIVAR / DESACTIVAR ======
-        if (args[0] === "on") {
+        const opt = args[0];
+
+        if (opt === "on") {
             setState(jid, "antilink", true);
-            return sock.sendMessage(jid, { text: "🛡️ *Antilink activado correctamente.*" });
+            return sock.sendMessage(jid, { text: "🟢 *Antilink activado correctamente.*" });
         }
 
-        if (args[0] === "off") {
+        if (opt === "off") {
             setState(jid, "antilink", false);
-            return sock.sendMessage(jid, { text: "🚫 *Antilink desactivado.*" });
+            return sock.sendMessage(jid, { text: "🔴 *Antilink desactivado.*" });
         }
 
-        // ====== SI NO USA ON/OFF ======
-        return sock.sendMessage(jid, {
-            text: `⚙️ *ANTILINK PRO*\n\nEstado actual: *${currentState ? "🟢 ACTIVADO" : "🔴 DESACTIVADO"}*\n\nUsa:\n• .antilink on\n• .antilink off`
+        return sock.sendMessage(jid, { 
+            text: `⚙️ *ANTILINK*\nEstado: ${getState(jid, "antilink") ? "🟢 ON" : "🔴 OFF"}\n\nUsa:\n.antilink on\n.antilink off`
         });
     },
 
-    // =============== HANDLER DE MENSAJES ===============
     async onMessage(sock, msg, ctx) {
-        const jid = msg.key.remoteJid;
-
-        // ====== VALIDACIONES SEGURAS ======
+        // PREVENIR CRASH
         if (!ctx || !ctx.isGroup) return;
 
-        const isActive = getState(jid, "antilink");
-        if (!isActive) return;
+        const jid = msg.key.remoteJid;
 
-        const sender = ctx.sender;
-        if (!sender) return;
+        if (!getState(jid, "antilink")) return;
 
-        // SI EL QUE ENVÍA ES ADMIN, NO PASA NADA
-        const metadata = await sock.groupMetadata(jid);
-        const admins = metadata.participants.filter(p => p.admin !== null).map(p => p.id);
-        const isAdminSender = admins.includes(sender);
+        const body = msg.body || "";
 
-        // ====== DETECTAR LINKS ======
-        const body = msg.message.conversation ||
-                     msg.message.extendedTextMessage?.text ||
-                     "";
+        if (/(https?:\/\/)?chat\.whatsapp\.com\//i.test(body)) {
 
-        const linkRegex = /(https?:\/\/[^\s]+)/gi;
-        const containsLink = linkRegex.test(body);
+            // Obtener info del remitente
+            const user = msg.sender;
 
-        if (!containsLink) return;
+            // Si es admin, ignorar
+            if (ctx.isAdmin(user)) return;
 
-        // ====== SI ES ADMIN ======
-        if (isAdminSender) {
-            return sock.sendMessage(jid, { text: `⚠️ El admin envió un link:\n${body}` });
-        }
-
-        // ====== BORRAR MENSAJE ======
-        try {
-            await sock.sendMessage(jid, {
-                delete: msg.key
+            await sock.sendMessage(jid, { 
+                text: `🚫 *Enlace detectado*\n@${user.split("@")[0]} no se permiten links aquí.`,
+                mentions: [user]
             });
-        } catch {}
 
-        // ====== ADVERTIR ======
-        await sock.sendMessage(jid, {
-            text: `🚫 *Prohibido enviar links.*\n@${sender.split("@")[0]}`,
-            mentions: [sender]
-        });
-
-        // ====== SANCIÓN OPCIONAL ======
-        // await sock.groupParticipantsUpdate(jid, [sender], "remove"); ← si quieres expulsar
+            try {
+                await sock.groupParticipantsUpdate(
+                    jid,
+                    [user],
+                    "remove"
+                );
+            } catch (err) {
+                console.log("Error al expulsar:", err);
+            }
+        }
     }
 };
