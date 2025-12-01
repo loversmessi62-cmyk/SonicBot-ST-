@@ -1,18 +1,25 @@
 export default {
-    commands: ["todos"],
+    commands: ["todos", "invocar"],
     admin: true, // Solo admin
     category: "administración",
 
     async run(sock, msg, args, ctx) {
         try {
-            const { jid, isGroup, groupMetadata } = ctx;
+            const jid = ctx.jid || msg.key.remoteJid;
 
-            if (!isGroup) {
+            if (!ctx.isGroup) {
                 return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
             }
 
-            const nombreGrupo = groupMetadata.subject;
-            const total = groupMetadata.participants.length;
+            // Obtener metadata de forma segura
+            const metadata = ctx.groupMetadata || await sock.groupMetadata(jid);
+            if (!metadata || !Array.isArray(metadata.participants)) {
+                return sock.sendMessage(jid, { text: "❌ No pude obtener la lista de participantes del grupo." });
+            }
+
+            const nombreGrupo = metadata.subject || "Grupo";
+            const participantes = metadata.participants.map(p => p.id); // ["1234@s.whatsapp.net", ...]
+            const total = participantes.length;
 
             // Fecha bonita
             const fecha = new Date();
@@ -21,27 +28,36 @@ export default {
                 "Enero","Febrero","Marzo","Abril","Mayo","Junio",
                 "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"
             ];
-
             const fechaBonita = `${dias[fecha.getDay()]}, ${fecha.getDate()} de ${meses[fecha.getMonth()]} de ${fecha.getFullYear()}`;
 
-            const mensaje = args.join(" ") || "Aquí está la información del grupo.";
+            // Texto principal
+            const mensaje = args.join(" ").trim() || "Mensaje del admin:";
+            // Lista de tags en líneas separadas: @tag\n@tag\n...
+            const listaTags = participantes.map(id => "@" + id.split("@")[0]).join("\n");
 
-            const texto = 
+            const texto =
 `📢 *MENSAJE PARA TODOS LOS MIEMBROS*
 
 👥 *Grupo:* ${nombreGrupo}
-📌 *Participantes:* ${total}
+📌 *Participantes (total):* ${total}
 📅 *Día:* ${fechaBonita}
 
-💬 *Mensaje del admin:* 
+💬 *Mensaje del admin:*
 ${mensaje}
+
+🔖 *Menciones:*
+${listaTags}
 `;
 
-            await sock.sendMessage(jid, { text: texto });
+            // Enviar con menciones reales (soporta notificaciones)
+            await sock.sendMessage(jid, {
+                text: texto,
+                mentions: participantes
+            });
 
         } catch (err) {
             console.error("Error en admin-todos:", err);
-            await sock.sendMessage(ctx.jid, { text: "❌ Hubo un error ejecutando este comando." });
+            await sock.sendMessage(ctx.jid || msg.key.remoteJid, { text: "❌ Hubo un error ejecutando este comando." });
         }
     }
 };
