@@ -1,5 +1,3 @@
-import fetch from "node-fetch";
-
 export default {
     commands: ["hd", "info-hd"],
     admin: false,
@@ -8,45 +6,50 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // DESCARGAR IMAGEN
+        // DESCARGAR IMAGEN DESDE ctx (tu handler SÍ lo tiene)
         let buffer;
         try {
             buffer = await ctx.download();
-        } catch (err) {
+        } catch (e) {
             return sock.sendMessage(jid, {
-                text: "❌ *Responde a una imagen o envía una imagen directamente.*"
+                text: "❌ *Responde a una imagen para mejorarla en HD.*"
             });
         }
 
         await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen en HD...*" });
 
         try {
-            // API GRATIS Y ESTABLE
-            const response = await fetch("https://api.upscale.media/api/v1/upscale", {
+            // FormData nativo (Node 18+)
+            const form = new FormData();
+            form.append("image_file", new Blob([buffer]), "photo.jpg");
+
+            // API ESTABLE sin key
+            const res = await fetch("https://api.upscalepics.com/images/upscale", {
                 method: "POST",
-                headers: {
-                    "Accept": "application/json"
-                },
-                body: buffer
+                body: form
             });
 
-            const json = await response.json();
+            const json = await res.json();
 
-            if (!json || !json.output_url) {
-                return sock.sendMessage(jid, { text: "❌ Error al mejorar la imagen." });
+            if (!json || !json.output_image_url) {
+                return sock.sendMessage(jid, {
+                    text: "❌ No se pudo mejorar la imagen."
+                });
             }
 
-            const hdImage = await fetch(json.output_url).then(res => res.arrayBuffer());
+            const hdResponse = await fetch(json.output_image_url);
+            const hdArray = await hdResponse.arrayBuffer();
+            const hdBuffer = Buffer.from(hdArray);
 
             await sock.sendMessage(jid, {
-                image: Buffer.from(hdImage),
+                image: hdBuffer,
                 caption: "✨ *Imagen mejorada en HD*"
             });
 
         } catch (err) {
             console.error("ERROR HD:", err);
             return sock.sendMessage(jid, {
-                text: "❌ Ocurrió un error al procesar la imagen."
+                text: "❌ Error al procesar la imagen."
             });
         }
     }
