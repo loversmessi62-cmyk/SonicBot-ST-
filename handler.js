@@ -62,13 +62,11 @@ export const handleMessage = async (sock, msg) => {
         if (isGroup) {
             metadata = await sock.groupMetadata(jid);
 
-            // Detectar LID real
-            const found = metadata.participants.find(p =>
-                p.jid === sender || p.id === sender
+            const found = metadata.participants.find(
+                p => p.jid === sender || p.id === sender
             );
             if (found) realSender = found.id;
 
-            // Listado de admins
             admins = metadata.participants
                 .filter(p => p.admin)
                 .map(p => p.id);
@@ -79,7 +77,6 @@ export const handleMessage = async (sock, msg) => {
             isBotAdmin = admins.includes(botId);
         }
 
-        // Texto del mensaje
         const text =
             msg.message?.conversation ||
             msg.message?.extendedTextMessage?.text ||
@@ -142,6 +139,31 @@ export const handleMessage = async (sock, msg) => {
 
         const plugin = plugins[command];
 
+        // -----------------------------------------------------
+        //           DETECCIÓN REAL DE MEDIA (MEGA FIX)
+        // -----------------------------------------------------
+        function getMediaMessage(m) {
+            if (!m.message) return null;
+
+            if (m.message.imageMessage) return ["imageMessage", m.message.imageMessage];
+            if (m.message.videoMessage) return ["videoMessage", m.message.videoMessage];
+            if (m.message.stickerMessage) return ["stickerMessage", m.message.stickerMessage];
+            if (m.message.audioMessage) return ["audioMessage", m.message.audioMessage];
+            if (m.message.documentMessage) return ["documentMessage", m.message.documentMessage];
+
+            // ❗ Si es mensaje citado
+            const quoted = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
+            if (!quoted) return null;
+
+            if (quoted.imageMessage) return ["imageMessage", quoted.imageMessage];
+            if (quoted.videoMessage) return ["videoMessage", quoted.videoMessage];
+            if (quoted.stickerMessage) return ["stickerMessage", quoted.stickerMessage];
+            if (quoted.audioMessage) return ["audioMessage", quoted.audioMessage];
+            if (quoted.documentMessage) return ["documentMessage", quoted.documentMessage];
+
+            return null;
+        }
+
         // ===============================
         //      CONTEXTO (ctx)
         // ===============================
@@ -154,24 +176,28 @@ export const handleMessage = async (sock, msg) => {
             isBotAdmin,
             isGroup,
             args,
+
             groupMetadata: metadata,
             participants: metadata?.participants || [],
             groupAdmins: admins,
 
+            // 🔥 SUPER FIX PARA .HD Y OTROS COMANDOS DE DESCARGA
             download: async () => {
                 try {
-                    const type = Object.keys(msg.message)[0];
-                    const stream = await downloadContentFromMessage(
-                        msg.message[type],
-                        type.replace("Message", "").toLowerCase()
-                    );
+                    const detected = getMediaMessage(msg);
+
+                    if (!detected) throw new Error("NO_MEDIA_FOUND");
+
+                    const [type, media] = detected;
+                    const stream = await downloadContentFromMessage(media, type.replace("Message", ""));
 
                     let buffer = Buffer.from([]);
                     for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
                     return buffer;
 
                 } catch (e) {
-                    console.error("Error en ctx.download:", e);
+                    console.error("⛔ Error en ctx.download:", e);
                     throw e;
                 }
             }
@@ -192,7 +218,7 @@ export const handleMessage = async (sock, msg) => {
         }
 
         // ===============================
-        //   PROTECCIÓN SOLO ADMIN (NO TOCADO)
+        //   PROTECCIÓN SOLO ADMIN
         // ===============================
         if (plugin.admin && !isAdmin) {
             return sock.sendMessage(jid, {
