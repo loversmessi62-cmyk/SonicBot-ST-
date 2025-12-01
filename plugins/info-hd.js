@@ -1,63 +1,71 @@
 import axios from "axios";
-import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
 export default {
-    commands: ["hd", "enhance", "mejorar"],
+    commands: ["hd", "remini"],
+    category: "tools",
+    description: "Mejora la calidad de una imagen",
 
     async run(sock, msg, args, ctx) {
+        const jid = ctx.jid;
 
-        // Detectar imagen en mensaje normal o mensaje citado
-        let img =
-            msg.message?.imageMessage ||
-            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
-            msg.message?.ephemeralMessage?.message?.imageMessage ||
-            msg.message?.viewOnceMessage?.message?.imageMessage;
+        // Debe citar una imagen
+        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-        if (!img) {
-            return sock.sendMessage(ctx.jid, {
-                text: "📸 *Envía o responde a una imagen para mejorarla en HD.*"
-            });
+        if (!quoted) {
+            return sock.sendMessage(jid, { text: "📸 *Responde a una imagen para mejorarla.*" });
         }
 
+        // Detectamos si es imagen o sticker
+        const qType = Object.keys(quoted)[0];
+
+        if (!["imageMessage", "stickerMessage"].includes(qType)) {
+            return sock.sendMessage(jid, { text: "⚠️ *Error: Solo puedo mejorar imágenes o stickers.*" });
+        }
+
+        // Descargar buffer con tu ctx.download FIX
+        let buffer;
         try {
+            buffer = await ctx.download();
+        } catch (e) {
+            console.error("⛔ Error al descargar media:", e);
+            return sock.sendMessage(jid, { text: "❌ No pude leer el archivo. Manda una imagen normal." });
+        }
 
-            // Descargar la imagen correctamente
-            let buffer = Buffer.from([]);
+        if (!buffer) {
+            return sock.sendMessage(jid, { text: "❌ *No pude obtener la imagen. Intenta de nuevo.*" });
+        }
 
-            const stream = await downloadContentFromMessage(
-                img,
-                "image"
-            );
+        await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen, espera…*" });
 
-            for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk]);
-            }
-
-            await sock.sendMessage(ctx.jid, { text: "⏳ *Mejorando imagen, espera…*" });
-
-            // API gratuita
-            const { data } = await axios.post(
-                "https://api.deepai.org/api/torch-srgan",
-                { image: buffer.toString("base64") },
-                {
-                    headers: {
-                        "api-key": "quickstart-QUdJIGlzIGNvbWluZy4uLi4K"
-                    }
+        try {
+            // Enviar a DeepAI
+            const response = await axios({
+                method: "post",
+                url: "https://api.deepai.org/api/torch-srgan", 
+                headers: {
+                    "api-key": "f34fd260-0a46-4e06-be83-77c41d7d2e07"
+                },
+                data: {
+                    image: buffer.toString("base64")
                 }
-            );
-
-            // Descargar la imagen resultante
-            const hd = await axios.get(data.output_url, { responseType: "arraybuffer" });
-
-            await sock.sendMessage(ctx.jid, {
-                image: Buffer.from(hd.data),
-                caption: "✨ *Imagen mejorada en HD*"
             });
 
-        } catch (e) {
-            console.error("HD ERROR:", e);
-            return sock.sendMessage(ctx.jid, {
-                text: "❌ *No pude mejorar esta imagen.*\nIntenta con otra o vuelve a enviarla."
+            const result = response.data?.output_url;
+
+            if (!result) {
+                return sock.sendMessage(jid, { text: "❌ DeepAI no devolvió ninguna imagen HD." });
+            }
+
+            // Enviar la imagen mejorada
+            await sock.sendMessage(jid, {
+                image: { url: result },
+                caption: "✨ *Imagen mejorada con éxito*"
+            });
+
+        } catch (err) {
+            console.error(err);
+            return sock.sendMessage(jid, {
+                text: "❌ Error procesando la imagen. DeepAI puede estar saturado."
             });
         }
     }
