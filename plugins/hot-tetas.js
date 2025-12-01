@@ -7,6 +7,7 @@ export default {
 
         const links = [
             "https://files.catbox.moe/6f7ufo.jpeg",
+            "https://files.catbox.moe/vvnn3r.jpeg",
           
         ];
 
