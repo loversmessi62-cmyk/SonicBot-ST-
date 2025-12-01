@@ -2,7 +2,7 @@ import fs from "fs";
 
 export default {
     commands: ["unmute"],
-    category: "administracion",
+    category: "admin",
     admin: true,
     description: "Le permite escribir a un usuario nuevamente.",
 
