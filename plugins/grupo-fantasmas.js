@@ -5,22 +5,44 @@ export default {
     description: "Muestra quiénes no han hablado recientemente.",
 
     async run(sock, msg, args, ctx) {
-        const jid = msg.key.remoteJid;
+        const jid = ctx.jid;
 
-        const chat = await sock.loadMessages(jid, 100);
-        const activos = new Set(chat.map(m => m.key.participant));
+        if (!ctx.isGroup) {
+            return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+        }
 
-        const todos = ctx.groupMetadata.participants.map(p => p.id);
-        const fantasmas = todos.filter(u => !activos.has(u));
+        // ------------------------------
+        //  OBTENER ÚLTIMOS MENSAJES
+        // ------------------------------
+        let mensajes = [];
+        try {
+            mensajes = await sock.fetchMessages(jid, { limit: 200 });
+        } catch (e) {
+            console.log("ERROR FETCH:", e);
+            return sock.sendMessage(jid, { text: "❌ No pude obtener los mensajes del grupo." });
+        }
 
-        if (!fantasmas.length)
-            return sock.sendMessage(jid, { text: "✨ No hay fantasmas, todos han hablado." }, { quoted: msg });
+        const activos = new Set(
+            mensajes
+                .filter(m => m?.key?.participant)
+                .map(m => m.key.participant)
+        );
 
-        const lista = fantasmas.map(u => "@" + u.split("@")[0]).join("\n");
+        // Lista completa del grupo
+        const participantes = ctx.groupMetadata.participants.map(p => p.id);
+
+        // Usuarios que NO han enviado mensajes
+        const fantasmas = participantes.filter(id => !activos.has(id));
+
+        if (fantasmas.length === 0) {
+            return sock.sendMessage(jid, { text: "✨ No hay fantasmas, todos han hablado recientemente." });
+        }
+
+        const lista = fantasmas.map(u => `👻 @${u.split("@")[0]}`).join("\n");
 
         await sock.sendMessage(jid, {
-            text: `👻 *Fantasmas detectados:*\n\n${lista}`,
+            text: `*👻 FANTASMAS DETECTADOS*\n\n${lista}`,
             mentions: fantasmas
-        }, { quoted: msg });
+        });
     }
 };
