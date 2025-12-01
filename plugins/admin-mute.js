@@ -2,7 +2,7 @@ import fs from "fs";
 
 export default {
     commands: ["mute"],
-    category: "administracion",
+    category: "admin",
     admin: true,
     description: "Borra todos los mensajes del usuario muteado.",
 
