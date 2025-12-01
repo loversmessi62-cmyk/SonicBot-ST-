@@ -1,0 +1,24 @@
+export default {
+    commands: ["pornvid"],
+    category: "hot",
+
+    async run(sock, msg, args, ctx) {
+        const jid = ctx.jid;
+
+        const links = [
+            "https://yourvideo1.mp4",
+            "https://yourvideo2.mp4",
+            "https://yourvideo3.mp4"
+        ];
+
+        if (!links.length)
+            return sock.sendMessage(jid, { text: "⚠ No hay videos en .pornvid" });
+
+        const random = links[Math.floor(Math.random() * links.length)];
+
+        await sock.sendMessage(jid, {
+            video: { url: random },
+            caption: "🎥 *PORN VIDEO*"
+        });
+    }
+};
