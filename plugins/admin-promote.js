@@ -1,6 +1,6 @@
 export default {
     commands: ["promote", "admin"],
-    category: "administracion",
+    category: "admin",
     admin: true,
     description: "Da admin al usuario respondido.",
 
