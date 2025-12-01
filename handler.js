@@ -155,44 +155,40 @@ export const handleMessage = async (sock, msg) => {
 
         const plugin = plugins[command];
 
-        // --------------------------------------
-        // CONTEXTO UNIVERSAL PARA PLUGINS
-        // --------------------------------------
-        const ctx = {
-            sock,
-            msg,
-            jid,
-            sender: realSender,
-            isAdmin,
-            isGroup,
-            args,
+       const ctx = {
+    sock,
+    msg,
+    jid,
+    sender: realSender,
+    isAdmin,
+    isBotAdmin,
+    isGroup,
+    args,
 
-            // ⭐ AÑADIDO PARA QUE FUNCIONE .todos
-            groupMetadata: metadata,
-            participants: metadata?.participants || [],
-            groupAdmins: admins,
+    groupMetadata: metadata,
+    participants: metadata?.participants || [],
+    groupAdmins: admins,
 
-            // Descarga de multimedia FIX
-            download: async () => {
-                try {
-                    const type = Object.keys(msg.message)[0];
-                    const stream = await downloadContentFromMessage(
-                        msg.message[type],
-                        type.replace("Message", "").toLowerCase()
-                    );
+    download: async () => {
+        try {
+            const type = Object.keys(msg.message)[0];
+            const stream = await downloadContentFromMessage(
+                msg.message[type],
+                type.replace("Message", "").toLowerCase()
+            );
 
-                    let buffer = Buffer.from([]);
-                    for await (const chunk of stream) {
-                        buffer = Buffer.concat([buffer, chunk]);
-                    }
-                    return buffer;
-
-                } catch (e) {
-                    console.error("Error en ctx.download:", e);
-                    throw e;
-                }
+            let buffer = Buffer.from([]);
+            for await (const chunk of stream) {
+                buffer = Buffer.concat([buffer, chunk]);
             }
-        };
+            return buffer;
+
+        } catch (e) {
+            console.error("Error en ctx.download:", e);
+            throw e;
+        }
+    }
+};
 
 
         // --------------------------------------
