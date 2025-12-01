@@ -12,32 +12,35 @@ export default {
         }
 
         // ------------------------------
-        //  OBTENER ÚLTIMOS MENSAJES
+        //  LEER MENSAJES DESDE EL STORE
         // ------------------------------
-        let mensajes = [];
+        let chatData;
         try {
-            mensajes = await sock.fetchMessages(jid, { limit: 200 });
+            chatData = sock.store.loadMessages(jid);
         } catch (e) {
-            console.log("ERROR FETCH:", e);
-            return sock.sendMessage(jid, { text: "❌ No pude obtener los mensajes del grupo." });
+            console.log("ERROR STORE:", e);
+            return sock.sendMessage(jid, { text: "❌ No pude acceder al historial del grupo." });
         }
 
+        const mensajes = chatData?.messages || [];
         const activos = new Set(
             mensajes
                 .filter(m => m?.key?.participant)
                 .map(m => m.key.participant)
         );
 
-        // Lista completa del grupo
+        // Participantes del grupo
         const participantes = ctx.groupMetadata.participants.map(p => p.id);
 
-        // Usuarios que NO han enviado mensajes
+        // Usuarios sin actividad reciente
         const fantasmas = participantes.filter(id => !activos.has(id));
 
-        if (fantasmas.length === 0) {
+        // Si no hay fantasmas
+        if (!fantasmas.length) {
             return sock.sendMessage(jid, { text: "✨ No hay fantasmas, todos han hablado recientemente." });
         }
 
+        // Construir lista
         const lista = fantasmas.map(u => `👻 @${u.split("@")[0]}`).join("\n");
 
         await sock.sendMessage(jid, {
