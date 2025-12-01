@@ -9,15 +9,18 @@ export default {
         if (!ctx.isGroup)
             return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
 
-        // Obtener metadata correcta sin depender del handler
-        const metadata = await sock.groupMetadata(jid);
-        const groupName = metadata.subject || "Este grupo";
+        // En tu base, ES AQUÍ donde viene el grupo
+        const metadata = ctx.groupMetadata;
 
-        // Obtener participantes
+        if (!metadata)
+            return sock.sendMessage(jid, { text: "⚠ No pude obtener la información del grupo." });
+
+        const groupName = metadata.subject || "este grupo";
+
         const participants = metadata.participants || [];
+
         const mentions = participants.map(p => p.id);
 
-        // Texto con menciones uno por uno
         const mentionText = participants
             .map(p => `@${p.id.split("@")[0]}`)
             .join("\n");
