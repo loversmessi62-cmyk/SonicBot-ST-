@@ -1,15 +1,14 @@
-const Replicate = require("replicate");
+import Replicate from "replicate";
 
-module.exports = {
+export default {
     commands: ["hd", "info-hd"],
     admin: false,
     category: "info",
 
     async run(sock, msg, args, ctx) {
-
         const jid = ctx.jid;
 
-        // DESCARGAR IMAGEN
+        // DESCARGAR LA IMAGEN
         let buffer;
         try {
             buffer = await ctx.download();
@@ -19,19 +18,19 @@ module.exports = {
             });
         }
 
-        await sock.sendMessage(jid, { text: "⏳ *Mejorando en HD... espera un momento.*" });
+        await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen en HD...*" });
 
         try {
             const replicate = new Replicate({
                 auth: "r8_PZQQOKMhEWjVt0dHQBhycl34cPak3WI4SrjAF"
             });
 
-            // Convertir imagen a base64
+            // PASAMOS LA IMAGEN A BASE64
             const base64Image = "data:image/jpeg;base64," + buffer.toString("base64");
 
-            // Ejecutar modelo Real-ESRGAN
+            // MODELO COMPATIBLE SIN upload()
             const output = await replicate.run(
-                "cjwbw/real-esrgan",   // modelo compatible con base64
+                "cjwbw/real-esrgan",
                 {
                     input: {
                         image: base64Image,
@@ -40,15 +39,17 @@ module.exports = {
                 }
             );
 
-            // output = URL directa
+            // DEVOLVER IMAGEN HD
             await sock.sendMessage(jid, {
                 image: { url: output },
                 caption: "✨ *Imagen mejorada en HD*"
             });
 
         } catch (err) {
-            console.log("ERROR HD:", err);
-            return sock.sendMessage(jid, { text: "❌ Error al procesar la imagen." });
+            console.error("ERROR HD:", err);
+            return sock.sendMessage(jid, {
+                text: "❌ Ocurrió un error procesando la imagen."
+            });
         }
     }
 };
