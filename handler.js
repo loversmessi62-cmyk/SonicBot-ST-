@@ -3,7 +3,9 @@ import path from "path";
 import { getState } from "./utils/cdmtoggle.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
-
+// ============================================
+//              SISTEMA DE PLUGINS
+// ============================================
 export const plugins = {};
 
 export const loadPlugins = async () => {
@@ -13,22 +15,21 @@ export const loadPlugins = async () => {
 
         for (let file of files) {
             try {
-                console.log(`🔎 Intentando cargar: ${file}`);
+                console.log(`🔎 Cargando plugin: ${file}`);
 
                 const module = await import("file://" + path.resolve(`./plugins/${file}`));
-
                 const cmds = module.default.commands || module.default.command;
 
                 if (!cmds) {
-                    console.warn(`⚠️ El plugin ${file} no tiene "command" ni "commands"`);
+                    console.warn(`⚠️ ${file} no tiene "command" ni "commands"`);
                     continue;
                 }
 
                 cmds.forEach(cmd => plugins[cmd] = module.default);
-
                 console.log(`🔥 Plugin cargado: ${file}`);
+
             } catch (err) {
-                console.error(`❌ ERROR en plugin ${file}:`, err);
+                console.error(`❌ Error en plugin ${file}:`, err);
             }
         }
     } catch (e) {
@@ -37,9 +38,8 @@ export const loadPlugins = async () => {
 };
 
 
-
 // =====================================================
-//        ⚡ HANDLER PRINCIPAL (FIX ADMIN LID)
+//               ⚡ HANDLER PRINCIPAL FIX ⚡
 // =====================================================
 
 export const handleMessage = async (sock, msg) => {
@@ -47,111 +47,94 @@ export const handleMessage = async (sock, msg) => {
         const jid = msg.key.remoteJid;
         const isGroup = jid.endsWith("@g.us");
 
-        // JID ORIGINAL DEL SENDER
+        // Sender real
         const sender = msg.key.participant || msg.key.remoteJid;
+        let realSender = sender;
 
         let metadata = null;
         let admins = [];
         let isAdmin = false;
         let isBotAdmin = false;
 
-        // LID REAL DEL SENDER
-        let realSender = sender;
-
+        // =====================================
+        //           SISTEMA DE ADMINS (NO TOCADO)
+        // =====================================
         if (isGroup) {
-
             metadata = await sock.groupMetadata(jid);
 
-            // Buscar el participante para obtener el LID correcto
+            // Detectar LID real
             const found = metadata.participants.find(p =>
                 p.jid === sender || p.id === sender
             );
-
             if (found) realSender = found.id;
 
-            // LISTA DE ADMINS (LID)
+            // Listado de admins
             admins = metadata.participants
                 .filter(p => p.admin)
                 .map(p => p.id);
 
             isAdmin = admins.includes(realSender);
-            // BOT ADMIN FIX
+
             const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
             isBotAdmin = admins.includes(botId);
-
         }
 
+        // Texto del mensaje
         const text =
             msg.message?.conversation ||
             msg.message?.extendedTextMessage?.text ||
             msg.message?.imageMessage?.caption ||
             "";
 
-        // ===================================
-        //          SISTEMA ANTILINK
-        // ===================================
+        // ==========================================
+        //              SISTEMA ANTILINK
+        // ==========================================
         if (isGroup && getState("antilink")) {
-
             const linkRegex = /(https?:\/\/[^\s]+)/gi;
 
-            const textMsg =
-                msg.message?.conversation ||
-                msg.message?.extendedTextMessage?.text ||
-                msg.message?.imageMessage?.caption ||
-                "";
+            if (linkRegex.test(text)) {
 
-            if (linkRegex.test(textMsg)) {
-
-                // No expulsar admins
                 if (isAdmin) {
                     await sock.sendMessage(jid, {
-                        text: "⚠️ *Antilink activo, pero eres admin. No te expulso.*"
+                        text: "⚠️ Antilink activo, pero eres admin."
                     });
                     return;
                 }
 
-                // 1️⃣ BORRAR el mensaje
-                try {
-                    await sock.sendMessage(jid, {
-                        delete: msg.key
-                    });
-                } catch (e) {
-                    console.log("❌ Error al borrar mensaje:", e);
-                }
+                try { await sock.sendMessage(jid, { delete: msg.key }); }
+                catch (e) { console.log("❌ No se pudo borrar mensaje:", e); }
 
-                // 2️⃣ Avisar + Expulsar al usuario
                 await sock.sendMessage(jid, {
-                    text: `🚫 *Se detectó un link prohibido*\nEliminando a @${realSender.split("@")[0]}…`,
+                    text: `🚫 Link detectado, expulsando a @${realSender.split("@")[0]}`,
                     mentions: [realSender]
                 });
 
                 try {
-                    await sock.groupParticipantsUpdate(
-                        jid,
-                        [realSender],
-                        "remove"
-                    );
+                    await sock.groupParticipantsUpdate(jid, [realSender], "remove");
                 } catch (e) {
-                    console.log("❌ Error expulsando usuario:", e);
+                    console.log("❌ No se pudo expulsar:", e);
                 }
 
                 return;
             }
         }
 
-
+        // ==================================================
+        //       SI NO ES COMANDO → ejecutar "onMessage"
+        // ==================================================
         if (!text.startsWith(".")) {
-
             for (let name in plugins) {
                 const plug = plugins[name];
                 if (plug.onMessage) {
                     await plug.onMessage(sock, msg);
                 }
             }
-
             return;
         }
 
+        // ===============================
+        //        PROCESAR COMANDO
+        // ===============================
         const args = text.slice(1).trim().split(/\s+/);
         const command = args.shift().toLowerCase();
 
@@ -159,69 +142,67 @@ export const handleMessage = async (sock, msg) => {
 
         const plugin = plugins[command];
 
-       const ctx = {
-    sock,
-    msg,
-    jid,
-    sender: realSender,
-    isAdmin,
-    isBotAdmin,
-    isGroup,
-    args,
+        // ===============================
+        //      CONTEXTO (ctx)
+        // ===============================
+        const ctx = {
+            sock,
+            msg,
+            jid,
+            sender: realSender,
+            isAdmin,
+            isBotAdmin,
+            isGroup,
+            args,
+            groupMetadata: metadata,
+            participants: metadata?.participants || [],
+            groupAdmins: admins,
 
-    groupMetadata: metadata,
-    participants: metadata?.participants || [],
-    groupAdmins: admins,
+            download: async () => {
+                try {
+                    const type = Object.keys(msg.message)[0];
+                    const stream = await downloadContentFromMessage(
+                        msg.message[type],
+                        type.replace("Message", "").toLowerCase()
+                    );
 
-    download: async () => {
-        try {
-            const type = Object.keys(msg.message)[0];
-            const stream = await downloadContentFromMessage(
-                msg.message[type],
-                type.replace("Message", "").toLowerCase()
-            );
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+                    return buffer;
 
-            let buffer = Buffer.from([]);
-            for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk]);
+                } catch (e) {
+                    console.error("Error en ctx.download:", e);
+                    throw e;
+                }
             }
-            return buffer;
+        };
 
+        // ===============================
+        //       SISTEMA ON/OFF
+        // ===============================
+        try {
+            const state = getState(command);
+            if (state === false) {
+                return sock.sendMessage(jid, {
+                    text: `⚠️ El comando *.${command}* está desactivado.`
+                });
+            }
         } catch (e) {
-            console.error("Error en ctx.download:", e);
-            throw e;
+            console.error("Error verificando on/off:", e);
         }
-    }
-};
 
-
-        // --------------------------------------
-        // VERIFICAR SI EL COMANDO ESTÁ ON/OFF
-        // --------------------------------------
-       // Verificar si el comando está on/off (defensivo)
-try {
-  const state = getState(command);
-  if (state === false) {
-    return sock.sendMessage(jid, {
-      text: `⚠️ El comando *.${command}* está desactivado.`
-    });
-  }
-} catch (e) {
-  console.error("Error comprobando estado del comando:", e);
-  // en caso de error, permitimos ejecutar el comando
-}
-
-
-        // --------------------------------------
-        // PROTECCIÓN SOLO ADMIN
-        // --------------------------------------
+        // ===============================
+        //   PROTECCIÓN SOLO ADMIN (NO TOCADO)
+        // ===============================
         if (plugin.admin && !isAdmin) {
             return sock.sendMessage(jid, {
-                text: "❌ *Solo los administradores pueden usar este comando.*"
+                text: "❌ Solo administradores pueden usar este comando."
             });
         }
 
-
+        // ===============================
+        //         EJECUTAR COMANDO
+        // ===============================
         await plugin.run(sock, msg, args, ctx);
 
     } catch (e) {
