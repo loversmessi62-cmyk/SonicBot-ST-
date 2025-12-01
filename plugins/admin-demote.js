@@ -1,6 +1,6 @@
 export default {
     commands: ["demote"],
-    category: "administracion",
+    category: "admin",
     admin: true,
     description: "Quita admin al usuario respondido.",
 
