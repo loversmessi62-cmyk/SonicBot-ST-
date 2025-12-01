@@ -2,6 +2,7 @@ import { exec } from "child_process";
 
 export default {
   commands: ["update", "upd"],   // 👈 Compatible con tu handler
+  category: "owner",
   admin: true,                   // Solo admin
 
   run: async (sock, msg, args, ctx) => {
