@@ -5,19 +5,18 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // AGREGA TUS LINKS AQUÍ
         const links = [
             "https://files.catbox.moe/vef24v.jpeg",
             "https://files.catbox.moe/naom00.jpeg",
-            
         ];
 
         if (links.length === 0)
             return sock.sendMessage(jid, { text: "⚠ No hay links en el comando .booty" });
 
-        const random = links[Math.floor(Math.random() * links.length)];
+        // prevenir caché
+        const random = links[Math.floor(Math.random() * links.length)] + "?r=" + Math.random();
 
-        const isVideo = random.endsWith(".mp4") || random.endsWith(".mov");
+        const isVideo = random.includes(".mp4") || random.includes(".mov");
 
         await sock.sendMessage(jid, {
             [isVideo ? "video" : "image"]: { url: random },
