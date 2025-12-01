@@ -1,72 +1,87 @@
 import { getState, setState } from "../utils/cdmtoggle.js";
 
 export default {
-    commands: ["antilink"],
+    commands: ["antilink", "antilinks"],
     admin: true,
-    category: "on/off",
+    group: true,
+    category: "protección",
 
     async run(sock, msg, args, ctx) {
+
+        // ====== VALIDACIONES SEGURAS ======
+        if (!ctx || !ctx.isGroup)
+            return sock.sendMessage(msg.key.remoteJid, { text: "❌ Este comando solo funciona en grupos." });
+
         const jid = msg.key.remoteJid;
+        const sender = ctx.sender;
 
-        if (!ctx.isGroup)
-            return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+        // ====== ESTADO DEL GRUPO ======
+        const currentState = getState(jid, "antilink") || false;
 
-        const option = (args[0] || "").toLowerCase();
-        const key = `antilink_${jid}`; // ESTADO POR GRUPO
-
-        if (!option)
-            return sock.sendMessage(jid, { text: "⚠️ Usa:\n\n.antilink on\n.antilink off" });
-
-        if (option === "on") {
-            setState(key, true);
-            return sock.sendMessage(jid, { text: "🛡️ *Antilink ACTIVADO* 🟢" });
+        // ====== ACTIVAR / DESACTIVAR ======
+        if (args[0] === "on") {
+            setState(jid, "antilink", true);
+            return sock.sendMessage(jid, { text: "🛡️ *Antilink activado correctamente.*" });
         }
 
-        if (option === "off") {
-            setState(key, false);
-            return sock.sendMessage(jid, { text: "🛡️ *Antilink DESACTIVADO* 🔴" });
+        if (args[0] === "off") {
+            setState(jid, "antilink", false);
+            return sock.sendMessage(jid, { text: "🚫 *Antilink desactivado.*" });
         }
 
-        return sock.sendMessage(jid, { text: "❌ Opción inválida. Usa: on / off" });
+        // ====== SI NO USA ON/OFF ======
+        return sock.sendMessage(jid, {
+            text: `⚙️ *ANTILINK PRO*\n\nEstado actual: *${currentState ? "🟢 ACTIVADO" : "🔴 DESACTIVADO"}*\n\nUsa:\n• .antilink on\n• .antilink off`
+        });
     },
 
+    // =============== HANDLER DE MENSAJES ===============
     async onMessage(sock, msg, ctx) {
         const jid = msg.key.remoteJid;
-        if (!ctx.isGroup) return;
 
-        const key = `antilink_${jid}`;
-        const active = getState(key);
+        // ====== VALIDACIONES SEGURAS ======
+        if (!ctx || !ctx.isGroup) return;
 
-        if (!active) return;
+        const isActive = getState(jid, "antilink");
+        if (!isActive) return;
 
-        const sender = msg.key.participant || msg.participant;
-        const isAdmin = ctx.groupAdmins?.includes(sender);
-        if (isAdmin) return;
+        const sender = ctx.sender;
+        if (!sender) return;
 
-        const body =
-            msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text ||
-            "";
+        // SI EL QUE ENVÍA ES ADMIN, NO PASA NADA
+        const metadata = await sock.groupMetadata(jid);
+        const admins = metadata.participants.filter(p => p.admin !== null).map(p => p.id);
+        const isAdminSender = admins.includes(sender);
+
+        // ====== DETECTAR LINKS ======
+        const body = msg.message.conversation ||
+                     msg.message.extendedTextMessage?.text ||
+                     "";
 
         const linkRegex = /(https?:\/\/[^\s]+)/gi;
-        if (!linkRegex.test(body)) return;
+        const containsLink = linkRegex.test(body);
 
-        // BORRAR MENSAJE
+        if (!containsLink) return;
+
+        // ====== SI ES ADMIN ======
+        if (isAdminSender) {
+            return sock.sendMessage(jid, { text: `⚠️ El admin envió un link:\n${body}` });
+        }
+
+        // ====== BORRAR MENSAJE ======
         try {
-            await sock.sendMessage(jid, { delete: msg.key });
+            await sock.sendMessage(jid, {
+                delete: msg.key
+            });
         } catch {}
 
-        // ADVERTENCIA
+        // ====== ADVERTIR ======
         await sock.sendMessage(jid, {
-            text: `🚫 *Regla rota:* Enlace prohibido detectado.\n@${sender.split("@")[0]} será expulsado.`,
+            text: `🚫 *Prohibido enviar links.*\n@${sender.split("@")[0]}`,
             mentions: [sender]
         });
 
-        // EXPULSAR
-        try {
-            await sock.groupParticipantsUpdate(jid, [sender], "remove");
-        } catch (e) {
-            console.log("Error expulsando:", e);
-        }
+        // ====== SANCIÓN OPCIONAL ======
+        // await sock.groupParticipantsUpdate(jid, [sender], "remove"); ← si quieres expulsar
     }
 };
