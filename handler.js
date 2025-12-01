@@ -53,6 +53,7 @@ export const handleMessage = async (sock, msg) => {
         let metadata = null;
         let admins = [];
         let isAdmin = false;
+        let isBotAdmin = false;
 
         // LID REAL DEL SENDER
         let realSender = sender;
@@ -74,6 +75,9 @@ export const handleMessage = async (sock, msg) => {
                 .map(p => p.id);
 
             isAdmin = admins.includes(realSender);
+            // BOT ADMIN FIX
+            const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+            isBotAdmin = admins.includes(botId);
 
         }
 
