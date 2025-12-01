@@ -1,13 +1,15 @@
-import Replicate from "replicate";
+const Replicate = require("replicate");
 
-export default {
+module.exports = {
     commands: ["hd", "info-hd"],
     admin: false,
     category: "info",
 
     async run(sock, msg, args, ctx) {
+
         const jid = ctx.jid;
 
+        // DESCARGAR IMAGEN
         let buffer;
         try {
             buffer = await ctx.download();
@@ -17,42 +19,36 @@ export default {
             });
         }
 
-        await sock.sendMessage(jid, {
-            text: "⏳ *Mejorando imagen en HD... espera un momento.*"
-        });
+        await sock.sendMessage(jid, { text: "⏳ *Mejorando en HD... espera un momento.*" });
 
         try {
-            // CONFIGURA TU API KEY AQUI  ⬇️⬇️⬇️⬇️⬇️⬇️
             const replicate = new Replicate({
                 auth: "r8_PZQQOKMhEWjVt0dHQBhycl34cPak3WI4SrjAF"
             });
-            // EJEMPLO:
-            // auth: "r8_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
-            // SUBIR IMAGEN A REPLICATE
-            const upload = await replicate.files.upload(buffer);
+            // Convertir imagen a base64
+            const base64Image = "data:image/jpeg;base64," + buffer.toString("base64");
 
-            // PROCESAR IMAGEN
+            // Ejecutar modelo Real-ESRGAN
             const output = await replicate.run(
-                "xinntao/real-esrgan:latest",
+                "cjwbw/real-esrgan",   // modelo compatible con base64
                 {
                     input: {
-                        image: upload,
+                        image: base64Image,
                         scale: 4
                     }
                 }
             );
 
+            // output = URL directa
             await sock.sendMessage(jid, {
                 image: { url: output },
                 caption: "✨ *Imagen mejorada en HD*"
             });
 
         } catch (err) {
-            console.error("❌ ERROR HD:", err);
-            return sock.sendMessage(jid, {
-                text: "⚠️ Error al procesar la imagen en HD."
-            });
+            console.log("ERROR HD:", err);
+            return sock.sendMessage(jid, { text: "❌ Error al procesar la imagen." });
         }
     }
 };
