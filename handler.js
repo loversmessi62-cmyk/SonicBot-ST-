@@ -1,68 +1,237 @@
-import FormData from "form-data";
+import fs from "fs";
+import path from "path";
+import { getState } from "./utils/cdmtoggle.js";
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
-export default {
-    command: ["hd", "upscale", "enhance"],
+// ============================================
+//              SISTEMA DE PLUGINS
+// ============================================
+export const plugins = {};
 
-    async run(sock, msg, args, ctx) {
-        const jid = ctx.jid;
+export const loadPlugins = async () => {
+    try {
+        const dir = "./plugins";
+        const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"));
 
-        try {
-            // Validar imagen
-            if (!ctx.isImage && !ctx.isQuotedImage) {
-                return sock.sendMessage(jid, {
-                    text: "📸 Responde a una imagen con *.hd*"
-                });
+        for (let file of files) {
+            try {
+                console.log(`🔎 Cargando plugin: ${file}`);
+
+                const module = await import("file://" + path.resolve(`./plugins/${file}`));
+                const cmds = module.default.commands || module.default.command;
+
+                if (!cmds) {
+                    console.warn(`⚠️ ${file} no tiene "command" ni "commands"`);
+                    continue;
+                }
+
+                cmds.forEach(cmd => plugins[cmd] = module.default);
+                console.log(`🔥 Plugin cargado: ${file}`);
+
+            } catch (err) {
+                console.error(`❌ Error en plugin ${file}:`, err);
             }
-
-            // Descargar la imagen
-            const buffer = await ctx.download().catch(() => null);
-
-            if (!buffer) {
-                return sock.sendMessage(jid, {
-                    text: "❌ No pude descargar la imagen."
-                });
-            }
-
-            // Crear formdata
-            const form = new FormData();
-            form.append("image", buffer, {
-                filename: "photo.jpg"
-            });
-
-            // Petición a DeepAI
-            const res = await fetch("https://api.deepai.org/api/torch-srgan", {
-                method: "POST",
-                headers: {
-                    "api-key": "f34fd260-0a46-4e06-be83-77c41d7d2e07"
-                },
-                body: form
-            });
-
-            const json = await res.json();
-
-            if (!json.output_url) {
-                return sock.sendMessage(jid, {
-                    text: "❌ La API no devolvió imagen HD."
-                });
-            }
-
-            // Descargar imagen procesada
-            const hd = await fetch(json.output_url)
-                .then(r => r.arrayBuffer())
-                .then(buf => Buffer.from(buf));
-
-            // Enviar imagen HD
-            await sock.sendMessage(jid, {
-                image: hd,
-                caption: "✨ Imagen mejorada a HD."
-            });
-
-        } catch (e) {
-            console.log("❌ ERROR EN PLUGIN .HD:", e);
-            await sock.sendMessage(jid, {
-                text: "❌ Ocurrió un error procesando la imagen."
-            });
         }
+    } catch (e) {
+        console.error("❌ Error cargando plugins:", e);
     }
 };
 
+
+// =====================================================
+//               ⚡ HANDLER PRINCIPAL FIX ⚡
+// =====================================================
+
+export const handleMessage = async (sock, msg) => {
+    try {
+        const jid = msg.key.remoteJid;
+        const isGroup = jid.endsWith("@g.us");
+
+        // Sender real
+        const sender = msg.key.participant || msg.key.remoteJid;
+        let realSender = sender;
+
+        let metadata = null;
+        let admins = [];
+        let isAdmin = false;
+        let isBotAdmin = false;
+
+        // =====================================
+        //           SISTEMA DE ADMINS (NO TOCADO)
+        // =====================================
+        if (isGroup) {
+            metadata = await sock.groupMetadata(jid);
+
+            const found = metadata.participants.find(
+                p => p.jid === sender || p.id === sender
+            );
+            if (found) realSender = found.id;
+
+            admins = metadata.participants
+                .filter(p => p.admin)
+                .map(p => p.id);
+
+            isAdmin = admins.includes(realSender);
+
+            const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+            isBotAdmin = admins.includes(botId);
+        }
+
+        const text =
+            msg.message?.conversation ||
+            msg.message?.extendedTextMessage?.text ||
+            msg.message?.imageMessage?.caption ||
+            "";
+
+        // ==========================================
+        //              SISTEMA ANTILINK
+        // ==========================================
+        if (isGroup && getState("antilink")) {
+            const linkRegex = /(https?:\/\/[^\s]+)/gi;
+
+            if (linkRegex.test(text)) {
+
+                if (isAdmin) {
+                    await sock.sendMessage(jid, {
+                        text: "⚠️ Antilink activo, pero eres admin."
+                    });
+                    return;
+                }
+
+                try { await sock.sendMessage(jid, { delete: msg.key }); }
+                catch (e) { console.log("❌ No se pudo borrar mensaje:", e); }
+
+                await sock.sendMessage(jid, {
+                    text: `🚫 Link detectado, expulsando a @${realSender.split("@")[0]}`,
+                    mentions: [realSender]
+                });
+
+                try {
+                    await sock.groupParticipantsUpdate(jid, [realSender], "remove");
+                } catch (e) {
+                    console.log("❌ No se pudo expulsar:", e);
+                }
+
+                return;
+            }
+        }
+
+        // ==================================================
+        //       SI NO ES COMANDO → ejecutar "onMessage"
+        // ==================================================
+        if (!text.startsWith(".")) {
+            for (let name in plugins) {
+                const plug = plugins[name];
+                if (plug.onMessage) {
+                    await plug.onMessage(sock, msg);
+                }
+            }
+            return;
+        }
+
+        // ===============================
+        //        PROCESAR COMANDO
+        // ===============================
+        const args = text.slice(1).trim().split(/\s+/);
+        const command = args.shift().toLowerCase();
+
+        if (!plugins[command]) return;
+
+        const plugin = plugins[command];
+
+        // -----------------------------------------------------
+        //           DETECCIÓN REAL DE MEDIA (MEGA FIX)
+        // -----------------------------------------------------
+        function getMediaMessage(m) {
+            if (!m.message) return null;
+
+            if (m.message.imageMessage) return ["imageMessage", m.message.imageMessage];
+            if (m.message.videoMessage) return ["videoMessage", m.message.videoMessage];
+            if (m.message.stickerMessage) return ["stickerMessage", m.message.stickerMessage];
+            if (m.message.audioMessage) return ["audioMessage", m.message.audioMessage];
+            if (m.message.documentMessage) return ["documentMessage", m.message.documentMessage];
+
+            // ❗ Si es mensaje citado
+            const quoted = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
+            if (!quoted) return null;
+
+            if (quoted.imageMessage) return ["imageMessage", quoted.imageMessage];
+            if (quoted.videoMessage) return ["videoMessage", quoted.videoMessage];
+            if (quoted.stickerMessage) return ["stickerMessage", quoted.stickerMessage];
+            if (quoted.audioMessage) return ["audioMessage", quoted.audioMessage];
+            if (quoted.documentMessage) return ["documentMessage", quoted.documentMessage];
+
+            return null;
+        }
+
+        // ===============================
+        //      CONTEXTO (ctx)
+        // ===============================
+        const ctx = {
+            sock,
+            msg,
+            jid,
+            sender: realSender,
+            isAdmin,
+            isBotAdmin,
+            isGroup,
+            args,
+
+            groupMetadata: metadata,
+            participants: metadata?.participants || [],
+            groupAdmins: admins,
+
+            // 🔥 SUPER FIX PARA .HD Y OTROS COMANDOS DE DESCARGA
+            download: async () => {
+                try {
+                    const detected = getMediaMessage(msg);
+
+                    if (!detected) throw new Error("NO_MEDIA_FOUND");
+
+                    const [type, media] = detected;
+                    const stream = await downloadContentFromMessage(media, type.replace("Message", ""));
+
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+                    return buffer;
+
+                } catch (e) {
+                    console.error("⛔ Error en ctx.download:", e);
+                    throw e;
+                }
+            }
+        };
+
+        // ===============================
+        //       SISTEMA ON/OFF
+        // ===============================
+        try {
+            const state = getState(command);
+            if (state === false) {
+                return sock.sendMessage(jid, {
+                    text: `⚠️ El comando *.${command}* está desactivado.`
+                });
+            }
+        } catch (e) {
+            console.error("Error verificando on/off:", e);
+        }
+
+        // ===============================
+        //   PROTECCIÓN SOLO ADMIN
+        // ===============================
+        if (plugin.admin && !isAdmin) {
+            return sock.sendMessage(jid, {
+                text: "❌ Solo administradores pueden usar este comando."
+            });
+        }
+
+        // ===============================
+        //         EJECUTAR COMANDO
+        // ===============================
+        await plugin.run(sock, msg, args, ctx);
+
+    } catch (e) {
+        console.error("❌ ERROR EN HANDLER:", e);
+    }
+};
