@@ -6,7 +6,7 @@ export default {
         const jid = ctx.jid;
 
         const links = [
-            "https://yourlink1.jpg",
+            "https://files.catbox.moe/v7vsn8.bin",
             "https://yourlink2.png",
             "https://yourlink3.mp4"
         ];
