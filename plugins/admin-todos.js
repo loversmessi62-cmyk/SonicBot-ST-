@@ -1,7 +1,7 @@
 export default {
     commands: ["todos", "tagall"],
     admin: true,
-    category: "admins",
+    category: "admin",
 
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
