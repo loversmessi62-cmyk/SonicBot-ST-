@@ -1,6 +1,6 @@
 export default {
     commands: ["kick", "ban"],
-    category: "administracion",
+    category: "admin",
     admin: true,
     description: "Expulsa al usuario respondido.",
 
