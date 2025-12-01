@@ -1,39 +1,42 @@
 import axios from "axios";
 import fs from "fs";
 import path from "path";
+import FormData from "form-data";
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
 export default {
     commands: ["tourl"],
-    category: "utilidad",
+    category: "info",
 
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // Revisar si el mensaje trae archivo o es respuesta
         const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-        const mime = ctx.mime;
+        if (!quoted) {
+            return sock.sendMessage(jid, { text: "📌 Responde a una imagen/video/audio/documento para convertirlo a link." });
+        }
 
-        if (!mime && !quoted)
-            return sock.sendMessage(jid, { text: "📌 Responde a una *imagen/video/audio/documento* para convertirlo en link." });
+        // Detectar tipo
+        const msgType = Object.keys(quoted)[0];
+        const mediaMessage = quoted[msgType];
 
-        // Obtener el tipo de media
-        const msgType = Object.keys(quoted || msg.message).find(k => k.includes("Message"));
-        const mediaMessage = quoted ? quoted[msgType] : msg.message[msgType];
+        const type = msgType.replace("Message", ""); // image → image
+        const stream = await downloadContentFromMessage(mediaMessage, type);
 
-        // Descargar archivo
-        const buffer = await sock.downloadMediaMessage({ message: { [msgType]: mediaMessage } });
+        let buffer = Buffer.from([]);
+        for await (const chunk of stream) {
+            buffer = Buffer.concat([buffer, chunk]);
+        }
 
-        // Guardar archivo temporal
-        const tempName = Date.now() + ".tmp";
-        const tempPath = path.join("./temp", tempName);
+        // Crear archivo temporal
         if (!fs.existsSync("./temp")) fs.mkdirSync("./temp");
-
-        fs.writeFileSync(tempPath, buffer);
+        const fileTemp = `./temp/${Date.now()}.bin`;
+        fs.writeFileSync(fileTemp, buffer);
 
         // Subir a Catbox
         const form = new FormData();
         form.append("reqtype", "fileupload");
-        form.append("fileToUpload", fs.createReadStream(tempPath));
+        form.append("fileToUpload", fs.createReadStream(fileTemp));
 
         let upload;
         try {
@@ -45,11 +48,11 @@ export default {
         }
 
         // Eliminar archivo temporal
-        fs.unlinkSync(tempPath);
+        fs.unlinkSync(fileTemp);
 
         // Enviar link final
         await sock.sendMessage(jid, {
-            text: `✅ Archivo subido:\n${upload.data}`
+            text: `✅ *LINK GENERADO:*\n${upload.data}`
         });
     }
 };
