@@ -1,58 +1,72 @@
+import { Blob } from "buffer";
+
 export default {
     commands: ["hd", "enhance"],
     category: "tools",
 
     async run(sock, msg, args, ctx) {
-        const send = (txt) =>
-            sock.sendMessage(ctx.jid, { text: txt }, { quoted: msg });
+        const send = (t) =>
+            sock.sendMessage(ctx.jid, { text: t }, { quoted: msg });
 
         try {
-            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-            if (!quoted)
-                return send("⚠️ *Responde a una imagen o sticker para mejorarla en HD.*");
+            const quoted =
+                msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-            // --- DESCARGA REAL (compatible con tu handler) ---
+            if (!quoted)
+                return send("⚠️ *Responde a una imagen para mejorarla en HD.*");
+
+            // ------------------------------------------
+            // DESCARGA REAL→ funciona con tu handler
+            // ------------------------------------------
             let buffer;
             try {
-                buffer = await ctx.download(quoted);
+                buffer = await ctx.download();
             } catch (e) {
-                console.log("❌ Error:", e);
-                return send("❌ *No se pudo descargar la imagen. Intenta con otra.*");
+                console.log("❌ error:", e);
+                return send("❌ *No pude leer la imagen.*");
             }
 
-            if (!buffer) return send("❌ *No pude obtener la imagen.*");
+            if (!buffer) return send("❌ *Imagen inválida.*");
 
-            await send("⏳ Mejorando imagen en HD, espera…");
+            await send("⏳ Mejorando imagen en HD…");
 
-            // ========= API HD =========
+            // ------------------------------------------
+            // FIX: undici → convertir buffer a Blob
+            // ------------------------------------------
+            const blob = new Blob([buffer], { type: "image/jpeg" });
             const form = new FormData();
-            form.append("image", buffer, "image.jpg");
+            form.append("image", blob, "image.jpg");
 
+            // API KEY tuya
             const apiKey = "f34fd260-0a46-4e06-be83-77c41d7d2e07";
 
             const req = await fetch("https://api.upscaler.my.id/v1/upscale", {
                 method: "POST",
                 headers: { "x-api-key": apiKey },
-                body: form
+                body: form,
             });
 
-            if (!req.ok)
-                return send("❌ *Error en el servidor de mejora HD.*");
+            if (!req.ok) return send("❌ *Error en el servidor HD.*");
 
             const json = await req.json();
-            const imageURL = json?.data?.image;
+            const imageUrl = json?.data?.image;
 
-            if (!imageURL)
-                return send("⚠️ *La API no devolvió una imagen.*");
+            if (!imageUrl)
+                return send("❌ *La API no devolvió imagen.*");
 
-            await sock.sendMessage(ctx.jid, {
-                image: { url: imageURL },
-                caption: "✨ *Imagen mejorada en HD*"
-            }, { quoted: msg });
+            // ENVIAR FOTO HD
+            await sock.sendMessage(
+                ctx.jid,
+                {
+                    image: { url: imageUrl },
+                    caption: "✨ *Imagen mejorada en HD*",
+                },
+                { quoted: msg }
+            );
 
         } catch (err) {
             console.error("Error en HD:", err);
-            send("❌ *Ocurrió un error inesperado.*");
+            send("❌ *Error inesperado.*");
         }
-    }
+    },
 };
