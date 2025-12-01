@@ -2,7 +2,7 @@ import axios from "axios";
 
 export default {
     commands: ["hd", "enhance", "mejorar"],
-
+     category: "info",
     async run(sock, msg, args, ctx) {
 
         // Verificar si hay imagen
