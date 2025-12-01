@@ -198,11 +198,18 @@ export const handleMessage = async (sock, msg) => {
         // --------------------------------------
         // VERIFICAR SI EL COMANDO ESTÁ ON/OFF
         // --------------------------------------
-        if (!getState(command)) {
-            return sock.sendMessage(jid, {
-                text: `⚠️ El comando *.${command}* está desactivado.`
-            });
-        }
+       // Verificar si el comando está on/off (defensivo)
+try {
+  const state = getState(command);
+  if (state === false) {
+    return sock.sendMessage(jid, {
+      text: `⚠️ El comando *.${command}* está desactivado.`
+    });
+  }
+} catch (e) {
+  console.error("Error comprobando estado del comando:", e);
+  // en caso de error, permitimos ejecutar el comando
+}
 
 
         // --------------------------------------
