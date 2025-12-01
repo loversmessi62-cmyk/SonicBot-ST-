@@ -1,55 +1,40 @@
 import Replicate from "replicate";
 
 export default {
-    commands: ["hd", "info-hd"],
-    admin: false,
-    category: "info",
-
+    commands: ["hd"],
+    description: "Mejora la calidad de una imagen",
+    
     async run(sock, msg, args, ctx) {
-        const jid = ctx.jid;
-
-        // DESCARGAR LA IMAGEN
-        let buffer;
-        try {
-            buffer = await ctx.download();
-        } catch (e) {
-            return sock.sendMessage(jid, {
-                text: "❌ *Responde a una imagen o envía una imagen directamente.*"
-            });
-        }
-
-        await sock.sendMessage(jid, { text: "⏳ *Mejorando imagen en HD...*" });
-
         try {
             const replicate = new Replicate({
                 auth: "r8_PZQQOKMhEWjVt0dHQBhycl34cPak3WI4SrjAF"
             });
 
-            // PASAMOS LA IMAGEN A BASE64
-            const base64Image = "data:image/jpeg;base64," + buffer.toString("base64");
+            if (!msg.message.imageMessage)
+                return sock.sendMessage(msg.key.remoteJid, { text: "❌ Debes responder a una imagen." });
 
-            // MODELO COMPATIBLE SIN upload()
+            const buffer = await downloadContentFromMessage(msg.message.imageMessage, "image");
+            const chunks = [];
+            for await (const chunk of buffer) chunks.push(chunk);
+            const imageData = Buffer.concat(chunks);
+
             const output = await replicate.run(
-                "cjwbw/real-esrgan",
+                "lucataco/real-esrgan:latest",
                 {
                     input: {
-                        image: base64Image,
-                        scale: 4
+                        image: `data:image/png;base64,${imageData.toString("base64")}`
                     }
                 }
             );
 
-            // DEVOLVER IMAGEN HD
-            await sock.sendMessage(jid, {
+            await sock.sendMessage(msg.key.remoteJid, {
                 image: { url: output },
-                caption: "✨ *Imagen mejorada en HD*"
+                caption: "✔️ Imagen mejorada en HD"
             });
 
-        } catch (err) {
-            console.error("ERROR HD:", err);
-            return sock.sendMessage(jid, {
-                text: "❌ Ocurrió un error procesando la imagen."
-            });
+        } catch (e) {
+            console.error("ERROR HD:", e);
+            sock.sendMessage(msg.key.remoteJid, { text: "❌ Error al procesar la imagen." });
         }
     }
 };
