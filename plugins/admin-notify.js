@@ -1,5 +1,6 @@
 export default {
     commands: ["n"],
+    category: "admin",
     admin: true, // Solo admins
 
     async run(sock, msg, args, ctx) {
