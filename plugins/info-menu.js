@@ -54,6 +54,9 @@ export default {
                     case "grupo":
                         grupo.push(...lista);
                         break;
+                         case "multi":
+                        grupo.push(...lista);
+                        break;
                     case "on-off":
                     case "onoff":
                     case "on/off":
