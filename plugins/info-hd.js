@@ -4,7 +4,7 @@ import FormData from "form-data";
 export default {
     commands: ["hd", "info-hd"],
     admin: false,
-    category: "tools",
+    category: "info",
 
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
