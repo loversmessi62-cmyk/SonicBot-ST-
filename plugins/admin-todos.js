@@ -1,34 +1,34 @@
-import baileys from "@whiskeysockets/baileys";
-
 export default {
     commands: ["todos", "invocar"],
     admin: true,
-    category: "admin",
 
     async run(sock, msg, args, ctx) {
 
+        const jid = ctx.jid;
+
         // 1. Validar que sea grupo
-        const jid = msg.key.remoteJid;
         if (!ctx.isGroup) {
             return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
         }
 
-        // 2. Obtener metadata del grupo correctamente
+        // 2. Obtener metadata de manera segura SIEMPRE
         let metadata;
         try {
-            metadata = await sock.groupMetadata(jid);
+            metadata = ctx.groupMetadata || await sock.groupMetadata(jid);
         } catch (e) {
-            return sock.sendMessage(jid, { text: "❌ No pude obtener los datos del grupo." });
+            return sock.sendMessage(jid, { text: "❌ No pude obtener metadata del grupo." });
         }
 
-        // 3. Validación fuerte por si regresa null o undefined
-        if (!metadata || !metadata.participants) {
-            return sock.sendMessage(jid, { text: "❌ Error inesperado: metadata del grupo vacía." });
+        // 3. Validación REAL que evita tu error
+        if (!metadata || !Array.isArray(metadata.participants)) {
+            return sock.sendMessage(jid, { text: "❌ El grupo no tiene participantes disponibles." });
         }
 
-        // 4. Construir menciones
+        // 4. Construir las menciones
         const members = metadata.participants.map(p => p.id);
-        const texto = args.length ? args.join(" ") : "👥 *Etiquetando a todos los miembros*";
+        const texto = args.length
+            ? args.join(" ")
+            : "👥 *Etiquetando a todos los miembros del grupo.*";
 
         await sock.sendMessage(jid, {
             text: texto,
