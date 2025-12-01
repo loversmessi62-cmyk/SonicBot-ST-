@@ -1,4 +1,5 @@
 import Replicate from "replicate";
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
 export default {
     commands: ["hd"],
@@ -10,23 +11,43 @@ export default {
                 auth: "r8_PZQQOKMhEWjVt0dHQBhycl34cPak3WI4SrjAF"
             });
 
-            if (!msg.message.imageMessage)
+            // 📌 DETECCIÓN UNIVERSAL DE IMÁGENES
+            const m = msg.message;
+            let img;
+
+            if (m?.imageMessage) {
+                img = m.imageMessage;
+            } 
+            else if (m?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage) {
+                img = m.extendedTextMessage.contextInfo.quotedMessage.imageMessage;
+            }
+            else if (m?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message?.imageMessage) {
+                img = m.extendedTextMessage.contextInfo.quotedMessage.viewOnceMessageV2.message.imageMessage;
+            }
+
+            if (!img) {
                 return sock.sendMessage(msg.key.remoteJid, { text: "❌ Debes responder a una imagen." });
+            }
 
-            const buffer = await downloadContentFromMessage(msg.message.imageMessage, "image");
-            const chunks = [];
-            for await (const chunk of buffer) chunks.push(chunk);
-            const imageData = Buffer.concat(chunks);
+            // 📌 DESCARGA DE LA IMAGEN
+            const stream = await downloadContentFromMessage(img, "image");
+            let buffer = Buffer.from([]);
 
+            for await (const chunk of stream) {
+                buffer = Buffer.concat([buffer, chunk]);
+            }
+
+            // 📌 ENVÍO A REPLICATE
             const output = await replicate.run(
                 "lucataco/real-esrgan:latest",
                 {
                     input: {
-                        image: `data:image/png;base64,${imageData.toString("base64")}`
+                        image: `data:image/png;base64,${buffer.toString("base64")}`
                     }
                 }
             );
 
+            // 📌 ENVÍA LA IMAGEN MEJORADA
             await sock.sendMessage(msg.key.remoteJid, {
                 image: { url: output },
                 caption: "✔️ Imagen mejorada en HD"
