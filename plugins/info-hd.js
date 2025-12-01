@@ -1,14 +1,17 @@
 import axios from "axios";
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
 export default {
     commands: ["hd", "enhance", "mejorar"],
-     category: "info",
+
     async run(sock, msg, args, ctx) {
 
-        // Verificar si hay imagen
-        const img =
+        // Detectar imagen en mensaje normal o mensaje citado
+        let img =
             msg.message?.imageMessage ||
-            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
+            msg.message?.ephemeralMessage?.message?.imageMessage ||
+            msg.message?.viewOnceMessage?.message?.imageMessage;
 
         if (!img) {
             return sock.sendMessage(ctx.jid, {
@@ -17,17 +20,25 @@ export default {
         }
 
         try {
-            // Descargar imagen original
-            const buffer = await ctx.download();
+
+            // Descargar la imagen correctamente
+            let buffer = Buffer.from([]);
+
+            const stream = await downloadContentFromMessage(
+                img,
+                "image"
+            );
+
+            for await (const chunk of stream) {
+                buffer = Buffer.concat([buffer, chunk]);
+            }
 
             await sock.sendMessage(ctx.jid, { text: "⏳ *Mejorando imagen, espera…*" });
 
-            // API gratuita de upscale (muy estable)
+            // API gratuita
             const { data } = await axios.post(
                 "https://api.deepai.org/api/torch-srgan",
-                {
-                    image: buffer.toString("base64")
-                },
+                { image: buffer.toString("base64") },
                 {
                     headers: {
                         "api-key": "quickstart-QUdJIGlzIGNvbWluZy4uLi4K"
@@ -35,19 +46,18 @@ export default {
                 }
             );
 
-            // Descargar la imagen mejorada
-            const hdImage = await axios.get(data.output_url, { responseType: "arraybuffer" });
+            // Descargar la imagen resultante
+            const hd = await axios.get(data.output_url, { responseType: "arraybuffer" });
 
-            // Enviar imagen resultante
             await sock.sendMessage(ctx.jid, {
-                image: Buffer.from(hdImage.data),
+                image: Buffer.from(hd.data),
                 caption: "✨ *Imagen mejorada en HD*"
             });
 
         } catch (e) {
-            console.error(e);
+            console.error("HD ERROR:", e);
             return sock.sendMessage(ctx.jid, {
-                text: "❌ *Error al mejorar la imagen.*\nIntenta con otra foto."
+                text: "❌ *No pude mejorar esta imagen.*\nIntenta con otra o vuelve a enviarla."
             });
         }
     }
