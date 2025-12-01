@@ -1,6 +1,6 @@
 export default {
     commands: ["sticker", "s"],
-    category: "multimedia",
+    category: "multi",
     admin: false,
     description: "Convierte una imagen en sticker.",
 
