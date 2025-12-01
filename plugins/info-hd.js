@@ -9,50 +9,65 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // Intentar descargar imagen
+        // ============================
+        //     DESCARGAR LA IMAGEN
+        // ============================
         let buffer;
         try {
-            buffer = await ctx.download(); // ACTIVA LA DETECCIÓN REAL
-        } catch (e) {
+            buffer = await ctx.download(); 
+        } catch {
             return sock.sendMessage(jid, {
-                text: "❌ *Responde a una imagen para mejorarla.*"
+                text: "❌ *Debes responder a una imagen para mejorarla.*"
             });
         }
 
-        await sock.sendMessage(jid, { text: "⏳ *Mejorando calidad... espera...*" });
+        await sock.sendMessage(jid, { text: "⏳ *Procesando imagen en HD...*" });
 
         try {
+            // ============================
+            //   FORM DATA REAL Y VÁLIDO
+            // ============================
             const form = new FormData();
-            form.append("image", buffer, { filename: "input.jpg" });
+            form.append("image", buffer, {
+                filename: "image.jpg",
+                contentType: "image/jpeg"
+            });
 
-            const r = await fetch("https://api.deepai.org/api/torch-srgan", {
+            // ============================
+            //        PETICIÓN A DEEPAI
+            // ============================
+            const resp = await fetch("https://api.deepai.org/api/torch-srgan", {
                 method: "POST",
                 headers: {
-                    "api-key": "f34fd260-0a46-4e06-be83-77c41d7d2e07"
+                    "api-key": "f34fd260-0a46-4e06-be83-77c41d7d2e07",
+                    ...form.getHeaders()
                 },
                 body: form
             });
 
-            const json = await r.json();
+            const data = await resp.json();
 
-            if (!json.output_url) {
+            if (!data.output_url) {
+                console.log("DeepAI Response:", data);
                 return sock.sendMessage(jid, {
-                    text: "❌ No se pudo mejorar la imagen."
+                    text: "❌ *DeepAI no pudo mejorar la imagen.*"
                 });
             }
 
-            const improved = await fetch(json.output_url).then(r => r.arrayBuffer());
+            // ============================
+            //    DESCARGAR LA IMAGEN HD
+            // ============================
+            const improvedBuffer = await fetch(data.output_url).then(r => r.arrayBuffer());
 
             await sock.sendMessage(jid, {
-                image: Buffer.from(improved),
-                caption: "✨ *Imagen mejorada en HD*"
+                image: Buffer.from(improvedBuffer),
+                caption: "✨ *Imagen mejorada en HD.*"
             });
 
         } catch (err) {
             console.error("ERROR HD:", err);
-
             return sock.sendMessage(jid, {
-                text: "❌ Ocurrió un error procesando la imagen."
+                text: "❌ *Hubo un error al procesar tu imagen.*"
             });
         }
     }
