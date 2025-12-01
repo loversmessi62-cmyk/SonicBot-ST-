@@ -9,7 +9,7 @@ if (!fs.existsSync(file)) {
 
 export const getState = (cmd) => {
     const data = JSON.parse(fs.readFileSync(file));
-    return data[cmd] ?? false; // Por defecto OFF
+    return data[cmd] ?? true; // Por defecto ON
 };
 
 export const setState = (cmd, value) => {
