@@ -12,14 +12,14 @@ export default {
         ];
 
         if (links.length === 0)
-            return sock.sendMessage(jid, { text: "⚠ No hay links en el comando .boobs" });
+            return sock.sendMessage(jid, { text: "⚠ No hay links en el comando .tetas" });
 
         const random = links[Math.floor(Math.random() * links.length)];
         const isVideo = random.endsWith(".mp4") || random.endsWith(".mov");
 
         await sock.sendMessage(jid, {
             [isVideo ? "video" : "image"]: { url: random },
-            caption: "🍒 *BOOBS*"
+            caption: "🍒 *tetas*"
         });
     }
 };
