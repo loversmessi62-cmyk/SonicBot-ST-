@@ -4,18 +4,17 @@ export default {
 
     async run(sock, msg, args, ctx) {
         try {
-            const jid = msg.key.remoteJid;
+            const jid = ctx.jid;
 
             if (!ctx.isGroup) {
-                return await sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+                return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
             }
 
-            // INFO DEL GRUPO
-            const groupMetadata = await sock.groupMetadata(jid);
-            const groupName = groupMetadata.subject;
-            const participantes = groupMetadata.participants?.length || 0;
+            const metadata = ctx.groupMetadata;
+            const groupName = metadata.subject;
+            const participantes = metadata.participants.length;
 
-            // FECHA DEL DÍA
+            // Fecha bonita
             const fecha = new Date();
             const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
             const meses = [
@@ -23,28 +22,28 @@ export default {
                 "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"
             ];
 
-            const diaSemana = dias[fecha.getDay()];
-            const dia = fecha.getDate();
-            const mes = meses[fecha.getMonth()];
-            const año = fecha.getFullYear();
+            const fechaBonita =
+                `${dias[fecha.getDay()]}, ${fecha.getDate()} de ${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
 
-            const fechaBonita = `${diaSemana}, ${dia} de ${mes} ${año}`;
+            // Mensaje del usuario
+            const textoUsuario = ctx.args.length
+                ? ctx.args.join(" ")
+                : "Aquí está la información del grupo.";
 
-            // MENSAJE QUE MANDA EL USUARIO
-            const mensaje = args.length > 0 ? args.join(" ") : "¡Aquí está la info del grupo!";
+            const texto = 
+`🌐 *INFORMACIÓN DEL GRUPO*
 
-            // MENSAJE FINAL
-            const texto = `🌐 *INFORMACIÓN DEL GRUPO*\n\n` +
-                `👥 *Grupo:* ${groupName}\n` +
-                `📌 *Participantes:* ${participantes}\n` +
-                `📅 *Fecha:* ${fechaBonita}\n\n` +
-                `💬 *Mensaje:* ${mensaje}`;
+👥 *Grupo:* ${groupName}
+📌 *Participantes:* ${participantes}
+📅 *Fecha:* ${fechaBonita}
+
+💬 *Mensaje:* ${textoUsuario}`;
 
             await sock.sendMessage(jid, { text: texto });
 
-        } catch (e) {
-            console.error("Error en .todos:", e);
-            return sock.sendMessage(msg.key.remoteJid, { text: "❌ Error al obtener la información." });
+        } catch (err) {
+            console.error("Error en .todos:", err);
+            await sock.sendMessage(msg.key.remoteJid, { text: "❌ Error ejecutando el comando." });
         }
     }
 };
