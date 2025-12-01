@@ -142,27 +142,43 @@ export const handleMessage = async (sock, msg) => {
         // -----------------------------------------------------
         //           DETECCIÓN REAL DE MEDIA (MEGA FIX)
         // -----------------------------------------------------
-        function getMediaMessage(m) {
-            if (!m.message) return null;
+       function getMediaMessage(m) {
+    if (!m?.message) return null;
 
-            if (m.message.imageMessage) return ["imageMessage", m.message.imageMessage];
-            if (m.message.videoMessage) return ["videoMessage", m.message.videoMessage];
-            if (m.message.stickerMessage) return ["stickerMessage", m.message.stickerMessage];
-            if (m.message.audioMessage) return ["audioMessage", m.message.audioMessage];
-            if (m.message.documentMessage) return ["documentMessage", m.message.documentMessage];
+    const msg = m.message;
 
-            // ❗ Si es mensaje citado
-            const quoted = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
-            if (!quoted) return null;
+    // IMAGEN NORMAL
+    if (msg.imageMessage) return ["image", msg.imageMessage];
 
-            if (quoted.imageMessage) return ["imageMessage", quoted.imageMessage];
-            if (quoted.videoMessage) return ["videoMessage", quoted.videoMessage];
-            if (quoted.stickerMessage) return ["stickerMessage", quoted.stickerMessage];
-            if (quoted.audioMessage) return ["audioMessage", quoted.audioMessage];
-            if (quoted.documentMessage) return ["documentMessage", quoted.documentMessage];
+    // VIDEO
+    if (msg.videoMessage) return ["video", msg.videoMessage];
 
-            return null;
-        }
+    // DOCUMENTO
+    if (msg.documentMessage) return ["document", msg.documentMessage];
+
+    // STICKER
+    if (msg.stickerMessage) return ["sticker", msg.stickerMessage];
+
+    // AUDIO
+    if (msg.audioMessage) return ["audio", msg.audioMessage];
+
+    // VIEW ONCE
+    const vo = msg.viewOnceMessageV2?.message || msg.viewOnceMessage?.message;
+    if (vo?.imageMessage) return ["image", vo.imageMessage];
+    if (vo?.videoMessage) return ["video", vo.videoMessage];
+
+    // QUOTED (RESPUESTA)
+    const quoted = msg.extendedTextMessage?.contextInfo?.quotedMessage;
+    if (quoted) {
+        if (quoted.imageMessage) return ["image", quoted.imageMessage];
+        if (quoted.videoMessage) return ["video", quoted.videoMessage];
+        if (quoted.stickerMessage) return ["sticker", quoted.stickerMessage];
+        if (quoted.documentMessage) return ["document", quoted.documentMessage];
+    }
+
+    return null;
+}
+
 
         // ===============================
         //      CONTEXTO (ctx)
