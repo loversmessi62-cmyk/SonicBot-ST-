@@ -7,9 +7,9 @@ export default {
 
         // AGREGA TUS LINKS AQUÍ
         const links = [
-            "https://yourlink1.jpg",
-            "https://yourlink2.jpg",
-            "https://yourlink3.mp4"
+            "https://files.catbox.moe/vef24v.jpeg",
+            "https://files.catbox.moe/naom00.jpeg",
+            
         ];
 
         if (links.length === 0)
