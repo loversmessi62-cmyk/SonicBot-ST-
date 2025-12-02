@@ -1,7 +1,6 @@
 import baileys from "@whiskeysockets/baileys";
-const { downloadMediaMessage } = baileys;
-import sharp from "sharp";  // Para procesar imágenes
-import { spawn } from "child_process";  // Para ejecutar FFmpeg del sistema
+import jimp from "jimp";  // Alternativa a sharp (instala con npm install jimp)
+import { spawn } from "child_process";  // Para FFmpeg
 import fs from "fs";
 import path from "path";
 
@@ -11,65 +10,41 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
-        // Detectar media (imagen, video, quoted, o viewOnce)
-        const m = msg.message;
-        let target = null;
-
-        if (m.imageMessage) target = msg;
-        else if (m.videoMessage) target = msg;
-        else if (m?.extendedTextMessage?.contextInfo?.quotedMessage) {
-            target = {
-                message: m.extendedTextMessage.contextInfo.quotedMessage
-            };
-        } else if (m?.viewOnceMessageV2?.message) {
-            target = { message: m.viewOnceMessageV2.message };
-        }
-
-        if (!target) {
-            return sock.sendMessage(jid, {
-                text: "⚠️ *Responde a una imagen o video con .s*"
-            }, { quoted: msg });
-        }
-
-        // Descargar el buffer del archivo
+        // Usar ctx.download() de tu handler para obtener el buffer
         let buffer;
         try {
-            buffer = await downloadMediaMessage(
-                target,
-                "buffer",
-                {},
-                {
-                    reuploadRequest: sock.updateMediaMessage
-                }
-            );
+            buffer = await ctx.download();  // Descarga el media detectado por el handler
         } catch (e) {
             console.log(e);
             return sock.sendMessage(jid, {
-                text: "❌ No pude descargar el archivo."
+                text: "❌ No pude descargar el archivo. Asegúrate de responder a una imagen o video."
             }, { quoted: msg });
         }
 
-        // Procesar el buffer para convertir a sticker WebP
+        // Detectar tipo de media (basado en el buffer y ctx)
+        const isVideo = ctx.msg.message?.videoMessage || ctx.msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
         let stickerBuffer;
+
         try {
-            if (target.message.imageMessage) {
-                // Para imágenes: convertir a WebP con sharp
-                stickerBuffer = await sharp(buffer)
-                    .resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })  // Tamaño máximo, fondo transparente
-                    .webp({ quality: 80 })  // Formato WebP
-                    .toBuffer();
-            } else if (target.message.videoMessage) {
-                // Para videos: extraer primer frame con FFmpeg del sistema y convertir con sharp
+            if (!isVideo) {
+                // Para imágenes: usar jimp para convertir a WebP sticker
+                const image = await jimp.read(buffer);
+                image.resize(512, 512);  // Tamaño máximo de WhatsApp
+                image.background(0x00000000);  // Fondo transparente
+                stickerBuffer = await image.getBufferAsync(jimp.MIME_PNG);  // O usa WebP si jimp lo soporta, pero PNG funciona como sticker
+                // Nota: jimp no tiene WebP directo, pero PNG con transparencia se envía como sticker en Baileys
+            } else {
+                // Para videos: extraer primer frame con FFmpeg y convertir con jimp
                 const tempVideoPath = path.join(process.cwd(), 'temp_video.mp4');
                 const tempFramePath = path.join(process.cwd(), 'temp_frame.png');
 
-                fs.writeFileSync(tempVideoPath, buffer);  // Guardar video temporal
+                fs.writeFileSync(tempVideoPath, buffer);
 
-                // Usar FFmpeg instalado en Termux para extraer el primer frame
+                // Extraer frame con FFmpeg
                 await new Promise((resolve, reject) => {
                     const ffmpegProcess = spawn('ffmpeg', [
                         '-i', tempVideoPath,
-                        '-vf', 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=00000000',  // Escalar y pad con transparencia
+                        '-vf', 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=00000000',
                         '-frames:v', '1',
                         tempFramePath
                     ]);
@@ -79,12 +54,13 @@ export default {
                     });
                 });
 
-                // Convertir el frame a WebP con sharp
-                stickerBuffer = await sharp(tempFramePath)
-                    .webp({ quality: 80 })
-                    .toBuffer();
+                // Convertir frame con jimp
+                const image = await jimp.read(tempFramePath);
+                image.resize(512, 512);
+                image.background(0x00000000);
+                stickerBuffer = await image.getBufferAsync(jimp.MIME_PNG);
 
-                // Limpiar archivos temporales
+                // Limpiar temporales
                 fs.unlinkSync(tempVideoPath);
                 fs.unlinkSync(tempFramePath);
             }
@@ -95,7 +71,7 @@ export default {
             }, { quoted: msg });
         }
 
-        // Enviar el sticker procesado
+        // Enviar sticker
         try {
             await sock.sendMessage(jid, { sticker: stickerBuffer }, { quoted: msg });
         } catch (e) {
