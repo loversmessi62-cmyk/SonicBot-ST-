@@ -1,45 +1,42 @@
-// multi-qc.js — BASE ADRI-BOT COMPATIBLE
 import axios from "axios";
-import { sticker } from "../lib/sticker.js";
+import fs from "fs";
 
 export default {
     commands: ["qc"],
 
     async run(sock, msg, args, ctx) {
         try {
-            const jid = msg.key.remoteJid;
-            const sender = msg.key.participant || msg.key.remoteJid;
+            const text = args.join(" ");
+            if (!text) return sock.sendMessage(ctx.jid, { text: "❌ Ingresa un texto\n\nEjemplo: *.qc hola*" });
 
-            const text = args.join(" ").trim();
-            if (!text) {
-                return sock.sendMessage(jid, { text: "⚠️ Escribe texto.\nEj: .qc Hola" });
-            }
+            // Nombre real del usuario
+            const name = msg.pushName || "Sin Nombre";
 
-            // Nombre real del usuario según tu base
-            const name = ctx.name || "Usuario";
-
-            // Foto del usuario
+            // Foto de perfil real
             let pfp;
             try {
-                pfp = await sock.profilePictureUrl(sender, "image");
+                pfp = await sock.profilePictureUrl(ctx.sender, "image");
             } catch {
-                pfp = "https://telegra.ph/file/24fa902ead26340f3df2c.png";
+                pfp = "https://i.ibb.co/6BRf4Rc/avatar.png";
             }
 
-            // Generar QC
+            // Body del QC CUADRADO
             const body = {
                 type: "quote",
                 format: "png",
                 backgroundColor: "#000000",
                 width: 512,
-                height: 768,
-                scale: 2,
+                height: 512,
+                scale: 3,
+                padding: 0,
+                radius: 30,
+
                 messages: [
                     {
                         avatar: true,
                         from: {
                             id: 1,
-                            name: name,
+                            name: name,       // ← AQUÍ VA TU NOMBRE REAL
                             photo: { url: pfp }
                         },
                         text: text,
@@ -48,30 +45,22 @@ export default {
                 ]
             };
 
-            const res = await axios.post(
-                "https://bot.lyo.su/quote/generate",
+            // Petición a la API
+            const { data } = await axios.post(
+                "https://quotly.net/api/generate",
                 body,
-                { headers: { "Content-Type": "application/json" } }
+                { responseType: "arraybuffer" }
             );
 
-            const img = Buffer.from(res.data.result.image, "base64");
-
-            // Datos del pack
-            const userData = global.db?.data?.users?.[sender] || {};
-            const pack = userData.text1 || "AdriPack";
-            const author = userData.text2 || "AdriBot";
-
-            // Convertir a sticker
-            const final = await sticker(img, null, pack, author);
-
-            // Enviar
-            return await sock.sendMessage(jid, { sticker: final });
+            // Enviar como sticker
+            await sock.sendMessage(ctx.jid, {
+                sticker: data,
+                mimetype: "image/webp"
+            });
 
         } catch (err) {
-            console.error("QC ERROR:", err);
-            return sock.sendMessage(msg.key.remoteJid, {
-                text: "❌ Error creando el QC."
-            });
+            console.log("QC ERROR:", err);
+            sock.sendMessage(ctx.jid, { text: "❌ No se pudo generar el QC." });
         }
-    }
+    },
 };
