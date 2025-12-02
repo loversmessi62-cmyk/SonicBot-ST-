@@ -15,35 +15,32 @@ export default {
 
             // Foto del usuario
             const ppUrl = await sock.profilePictureUrl(sender, "image").catch(() => null);
-            const userPfp = ppUrl ? await Jimp.read(ppUrl) : await Jimp.read("https://i.imgur.com/TrcVn5E.png");
+            const userPfp = ppUrl 
+                ? await Jimp.read(ppUrl)
+                : await Jimp.read("https://i.imgur.com/TrcVn5E.png");
 
-            userPfp.resize(200, 200).circle(); // foto redonda
+            userPfp.resize(200, 200).circle(); 
 
-            // Lienzo base
-            const img = new Jimp(800, 400, "#00000000"); // transparente
+            // Lienzo transparente
+            const img = new Jimp(800, 400, 0x00000000);
 
             const font = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
 
-            // Escribir nombre
             img.print(font, 230, 40, username);
-
-            // Escribir texto
             img.print(font, 230, 120, text, 520);
-
-            // Poner foto
             img.composite(userPfp, 20, 20);
 
-            // Ajusta los bordes detectando contenido real
             img.autocrop({ leaveBorder: 20 });
 
-            const buffer = await img.getBufferAsync("image/webp");
+            // GENERAR PNG
+            const buffer = await img.getBufferAsync(Jimp.MIME_PNG);
 
             await sock.sendMessage(jid, {
-                sticker: buffer
+                sticker: { url: buffer }
             });
 
         } catch (e) {
-            console.log(e);
+            console.log("QC ERROR:", e);
             sock.sendMessage(msg.key.remoteJid, { text: "❌ Error en .qc" });
         }
     }
