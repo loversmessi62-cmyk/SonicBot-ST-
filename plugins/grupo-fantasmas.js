@@ -1,90 +1,58 @@
 export default {
     commands: ["fantasmas", "kickfantasmas"],
-    admin: true, // solo admins
-    category: "grupo",
+    admin: true,
 
     async run(sock, msg, args, ctx) {
-        const { jid, groupMetadata, store, isBotAdmin, sock: client } = ctx;
+        const { jid, participants, store, isBotAdmin } = ctx;
+        const command = ctx.msg.message.conversation?.slice(1).split(" ")[0].toLowerCase();
 
-        if (!ctx.isGroup)
-            return client.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+        // asegurar datos
+        if (!store.chats[jid]) store.chats[jid] = {};
 
-        if (!isBotAdmin)
-            return client.sendMessage(jid, { text: "❌ Necesito ser administrador para usar esto." });
+        const chat = store.chats[jid];
 
-        const participantes = groupMetadata.participants;
-        const registros = store.chats[jid] || {};
+        // lista exacta de fantasmas
+        const inactivos = participants.filter(p => {
+            const id = p.id;
+            const count = chat[id] || 0;
+            return count === 0;   // nunca hicieron NADA
+        });
 
-        // =============================================
-        //                COMANDO: .fantasmas
-        // =============================================
-        if (ctx.command === "fantasmas") {
-            let inactivos = [];
-
-            for (let user of participantes) {
-                const id = user.id;
-                const msgs = registros[id] || 0;
-
-                if (msgs < 5) { // 🔥 menos de 5 mensajes = fantasma
-                    inactivos.push(id);
-                }
-            }
-
+        // --- comando .fantasmas ---
+        if (command === "fantasmas") {
             if (inactivos.length === 0) {
-                return client.sendMessage(jid, { text: "🟢 No hay fantasmas. Todos están activos." });
+                return sock.sendMessage(jid, { text: "✨ No hay fantasmas en este grupo." });
             }
 
-            const lista = inactivos
-                .map(u => `• @${u.split("@")[0]}`)
-                .join("\n");
+            const tags = inactivos.map(u => `@${u.id.split("@")[0]}`).join("\n");
 
-            return client.sendMessage(jid, {
-                text:
-`👻 *FANTASMAS DETECTADOS*
-Usuarios con muy poca actividad:
-
-${lista}
-
-Usa *.kickfantasmas* para expulsarlos.`,
-                mentions: inactivos
+            return sock.sendMessage(jid, {
+                text: `🕯️ *FANTASMAS DEL GRUPO*\n\n${tags}\n\n⚠️ No han enviado ni una reacción, sticker, mensaje, imagen o nada.`,
+                mentions: inactivos.map(u => u.id)
             });
         }
 
-        // =============================================
-        //             COMANDO: .kickfantasmas
-        // =============================================
-        if (ctx.command === "kickfantasmas") {
+        // --- comando .kickfantasmas ---
+        if (command === "kickfantasmas") {
 
-            let inactivos = [];
+            if (!isBotAdmin)
+                return sock.sendMessage(jid, { text: "❌ Necesito ser administrador para expulsarlos." });
 
-            for (let user of participantes) {
-                const id = user.id;
-                const msgs = registros[id] || 0;
+            if (inactivos.length === 0)
+                return sock.sendMessage(jid, { text: "✨ No hay fantasmas que expulsar." });
 
-                if (msgs < 5) {
-                    inactivos.push(id);
-                }
-            }
+            const ids = inactivos.map(u => u.id);
 
-            if (inactivos.length === 0) {
-                return client.sendMessage(jid, { text: "🟢 No hay fantasmas para expulsar." });
-            }
-
-            await client.sendMessage(jid, {
-                text: `👻 Expulsando a ${inactivos.length} fantasmas...`
+            await sock.sendMessage(jid, {
+                text: `🗑️ *Expulsando fantasmas…*\n\n${ids.map(x => `@${x.split("@")[0]}`).join("\n")}`,
+                mentions: ids
             });
 
-            for (let user of inactivos) {
-                try {
-                    await client.groupParticipantsUpdate(jid, [user], "remove");
-                } catch (e) {
-                    console.log("No se pudo expulsar:", user);
-                }
+            try {
+                await sock.groupParticipantsUpdate(jid, ids, "remove");
+            } catch (e) {
+                console.log("❌ Error expulsando fantasmas:", e);
             }
-
-            return client.sendMessage(jid, {
-                text: "✅ *Fantasmas expulsados correctamente.*"
-            });
         }
     }
 };
