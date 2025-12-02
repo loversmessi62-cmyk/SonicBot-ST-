@@ -1,72 +1,53 @@
-import axios from "axios";
+import fs from "fs";
+import path from "path";
 import { sticker } from "../lib/sticker.js";
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
 export default {
-    commands: ["qc"],
-    category: "stickers",
+    commands: ["qc", "multiqc", "multi-qc"],
 
     async run(sock, msg, args, ctx) {
-        const jid = msg.key.remoteJid;
-
-        // Texto de QC
-        let texto = args.join(" ").trim();
-        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-
-        if (!texto && quoted?.conversation) texto = quoted.conversation;
-        if (!texto) return sock.sendMessage(jid, { text: "⚠️ Te faltó escribir algo." });
-
-        if (texto.length > 80)
-            return sock.sendMessage(jid, { text: "⚠️ Máximo 80 caracteres." });
-
-        // Foto de perfil
-        let pp;
         try {
-            pp = await sock.profilePictureUrl(ctx.sender, "image");
-        } catch {
-            pp = "https://telegra.ph/file/24fa902ead26340f3df2c.png";
+            const jid = msg.key.remoteJid;
+            const sender = msg.key.participant || msg.key.remoteJid;
+
+            // VERIFICAR SI ES RESPUESTA
+            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+            if (!quoted)
+                return sock.sendMessage(jid, { text: "❌ Responde a un mensaje para hacer QC." }, { quoted: msg });
+
+            // DETECTAR TEXTO O IMAGEN
+            let buffer;
+            if (quoted.conversation) {
+                // Si es texto
+                buffer = Buffer.from(`
+                ┌─── QC ───
+                │ Usuario: @${sender.split("@")[0]}
+                │ Mensaje: ${quoted.conversation}
+                └──────────
+                `);
+            } else if (quoted.imageMessage) {
+                // Si es imagen
+                const stream = await downloadContentFromMessage(quoted.imageMessage, "image");
+                const chunks = [];
+                for await (const chunk of stream) chunks.push(chunk);
+                buffer = Buffer.concat(chunks);
+            } else {
+                return sock.sendMessage(jid, { text: "❌ Solo puedo hacer QC de imágenes o texto." }, { quoted: msg });
+            }
+
+            // CREAR STICKER CON EXIF
+            const stc = await sticker(buffer, "QC AdriBot", "Adri");
+
+            if (!stc)
+                return sock.sendMessage(jid, { text: "❌ Error al generar QC." }, { quoted: msg });
+
+            // ENVIAR
+            await sock.sendMessage(jid, { sticker: stc }, { quoted: msg });
+
+        } catch (e) {
+            console.error("Error QC:", e);
+            await sock.sendMessage(jid, { text: "❌ Error interno al generar el QC." }, { quoted: msg });
         }
-
-        const nombre = (ctx.pushName || "Usuario").slice(0, 20);
-
-        // Objeto QC
-        const obj = {
-            type: "quote",
-            format: "png",
-            backgroundColor: "#00000000",
-            width: 512,
-            height: 768,
-            scale: 2,
-            messages: [
-                {
-                    entities: [],
-                    avatar: true,
-                    from: {
-                        id: 1,
-                        name: nombre,
-                        photo: { url: pp }
-                    },
-                    text: texto,
-                    replyMessage: {}
-                }
-            ]
-        };
-
-        // API QC
-        const json = await axios.post(
-            "https://bot.lyo.su/quote/generate",
-            obj,
-            { headers: { "Content-Type": "application/json" } }
-        );
-
-        const bufferPNG = Buffer.from(json.data.result.image, "base64");
-
-        // 🟩 AQUÍ VIENE LA MAGIA → sticker sin recorte
-        const stickerFinal = await sticker(bufferPNG, {
-            type: "full",
-            packname: "AdriBot 5.0",
-            author: "Adri"
-        });
-
-        return sock.sendMessage(jid, { sticker: stickerFinal }, { quoted: msg });
     }
 };
