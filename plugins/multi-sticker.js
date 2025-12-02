@@ -5,12 +5,9 @@ export default {
     category: "tools",
 
     async run(sock, msg, args, ctx) {
-        const { jid, download, type } = ctx;
+        const { jid, download } = ctx;
 
         try {
-            // ============================
-            //    DESCARGAR ARCHIVO
-            // ============================
             const buffer = await download();
             if (!buffer) {
                 return sock.sendMessage(jid, { 
@@ -18,14 +15,8 @@ export default {
                 }, { quoted: msg });
             }
 
-            // ============================
-            //    PROCESAR CON FFmpeg
-            // ============================
             const sticker = await makeSticker(buffer);
 
-            // ============================
-            //     ENVIAR STICKER
-            // ============================
             await sock.sendMessage(
                 jid,
                 { sticker },
