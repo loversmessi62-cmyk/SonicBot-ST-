@@ -4,17 +4,17 @@ export default {
     commands: ["qc"],
     category: "multi",
     admin: false,
-    description: "Genera un QC con la frase que escribas.",
+    description: "Genera un QC con tu texto.",
 
     async run(sock, msg, args) {
         const jid = msg.key.remoteJid;
         const texto = args.join(" ");
 
         if (!texto)
-            return sock.sendMessage(jid, { text: "❌ Escribe un texto para el QC.\nEjemplo: .qc Hola" }, { quoted: msg });
+            return sock.sendMessage(jid, { text: "❌ Escribe un texto.\nEj: .qc Hola" }, { quoted: msg });
 
         try {
-            const api = `https://widipe.com/qc?text=${encodeURIComponent(texto)}&username=adri`;
+            const api = `https://api.tioo.eu.org/canvas/qc?text=${encodeURIComponent(texto)}`;
 
             const { data } = await axios.get(api, { responseType: "arraybuffer" });
 
@@ -22,7 +22,7 @@ export default {
 
         } catch (e) {
             console.error("Error QC:", e);
-            await sock.sendMessage(jid, { text: "❌ Error generando el QC. La API no respondió." }, { quoted: msg });
+            await sock.sendMessage(jid, { text: "❌ La API no respondió.\nIntenta más tarde." }, { quoted: msg });
         }
     }
 };
