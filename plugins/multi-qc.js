@@ -1,28 +1,72 @@
-import axios from "axios";
+import Jimp from "jimp";
 
 export default {
-    commands: ["qc"],
+    commands: ["qc", "quote"],
     category: "multi",
+    admin: false,
+    description: "Genera un sticker estilo QC sin usar APIs.",
 
-    async run(sock, msg, args) {
-        const jid = msg.key.remoteJid;
-        const texto = args.join(" ");
+    async run(sock, msg, args, ctx) {
+        const { jid, download } = ctx;
 
-        if (!texto)
-            return sock.sendMessage(jid, { text: "❌ Escribe un texto.\nEj: .qc Hola" }, { quoted: msg });
+        if (!args.length)
+            return sock.sendMessage(jid, { text: "✏️ Escribe el texto del QC.\nEjemplo:\n.qc Hola bro" }, { quoted: msg });
+
+        const text = args.join(" ");
+
+        let buffer;
+        try {
+            buffer = await download();
+        } catch {
+            return sock.sendMessage(jid, { text: "❌ Envía o responde una imagen." }, { quoted: msg });
+        }
 
         try {
-            const APIKEY = "TU_API_KEY_AQUI"; // ← PON TU KEY
+            // ────────────────
+            // Cargar imagen
+            // ────────────────
+            const img = await Jimp.read(buffer);
 
-            const url = `https://api.nekozuwa.xyz/api/canvas/qc?text=${encodeURIComponent(texto)}&apikey=${APIKEY}`;
+            // Efecto QC
+            img.blur(10).brightness(-0.1);
 
-            const { data } = await axios.get(url, { responseType: "arraybuffer" });
+            // Tamaño estándar
+            img.resize(512, 512);
 
-            await sock.sendMessage(jid, { image: data, caption: "✨ QC generado" }, { quoted: msg });
+            // Marco negro
+            const borderSize = 10;
+            const bordered = new Jimp(img.bitmap.width + borderSize * 2, img.bitmap.height + borderSize * 2, "#000000");
+            bordered.composite(img, borderSize, borderSize);
 
-        } catch (e) {
-            console.error("Error QC:", e);
-            await sock.sendMessage(jid, { text: "❌ Error al generar QC.\nLa API no respondió." }, { quoted: msg });
+            // Banda negra abajo
+            const bandHeight = 80;
+            const finalImg = new Jimp(512, 512 + bandHeight, "#000000");
+            finalImg.composite(bordered, 0, 0);
+
+            // Cargar fuente
+            const font = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+
+            // Escribir texto centered
+            finalImg.print(
+                font,
+                0,
+                512 + 20,
+                {
+                    text,
+                    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+                    alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE
+                },
+                512,
+                bandHeight
+            );
+
+            const stickerBuffer = await finalImg.getBufferAsync(Jimp.MIME_PNG);
+
+            await sock.sendMessage(jid, { sticker: stickerBuffer }, { quoted: msg });
+
+        } catch (err) {
+            console.log(err);
+            return sock.sendMessage(jid, { text: "⚠️ Error al generar el QC local." }, { quoted: msg });
         }
     }
 };
