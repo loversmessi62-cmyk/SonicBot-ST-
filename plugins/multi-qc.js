@@ -10,34 +10,36 @@ export default {
 
         // Obtener texto
         let texto = args.join(" ").trim();
-        if (!texto && msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation) {
-            texto = msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation;
+        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+
+        if (!texto && quoted?.conversation) {
+            texto = quoted.conversation;
         }
         if (!texto) return sock.sendMessage(jid, { text: "🚩 *Te faltó el texto!*" });
 
-        if (texto.length > 30)
-            return sock.sendMessage(jid, { text: "🚩 *Máximo 30 caracteres!*" });
+        if (texto.length > 80)
+            return sock.sendMessage(jid, { text: "🚩 *Máximo 80 caracteres!*" });
 
         const who = ctx.sender;
-        
-        // Foto de perfil
+
+        // Foto de perfil valida
         let pfp;
         try {
-            pfp = await sock.profilePictureUrl(who, "image");
+            pfp = await sock.profilePictureUrl(who, "image") || "";
         } catch {
             pfp = "https://telegra.ph/file/24fa902ead26340f3df2c.png";
         }
 
-        // Nombre
-        const nombre = ctx.pushName || "Usuario";
+        // Nombre real
+        const nombre = (ctx.pushName || "Usuario").slice(0, 24);
 
-        // Objeto de la API
+        // Objeto limpio y compatible con API
         const obj = {
             type: "quote",
             format: "png",
-            backgroundColor: "#000000",
+            backgroundColor: "00000000", // transparente
             width: 512,
-            height: 768,
+            height: 600,
             scale: 2,
             messages: [
                 {
@@ -46,7 +48,7 @@ export default {
                     from: {
                         id: 1,
                         name: nombre,
-                        photo: { url: pfp },
+                        photo: { url: pfp }
                     },
                     text: texto,
                     replyMessage: {}
@@ -54,16 +56,20 @@ export default {
             ]
         };
 
-        // Petición API
+        // API
         const json = await axios.post("https://bot.lyo.su/quote/generate", obj, {
             headers: { "Content-Type": "application/json" }
         });
 
         const buffer = Buffer.from(json.data.result.image, "base64");
 
-        // Crear sticker
-        const stk = await sticker(buffer, false, "ADRI BOT", "Sticker");
+        // Crear sticker correctamente
+        const stk = await sticker(buffer, { type: "full" });
 
-        return sock.sendMessage(jid, { sticker: stk }, { quoted: msg });
+        return sock.sendMessage(
+            jid,
+            { sticker: stk },
+            { quoted: msg }
+        );
     }
 };
