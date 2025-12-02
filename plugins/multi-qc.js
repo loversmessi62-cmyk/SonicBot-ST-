@@ -12,14 +12,18 @@ export default {
         const text = args.join(" ");
 
         if (!text)
-            return sock.sendMessage(jid, { text: "✏️ Escribe un texto para hacer el *QC*\n\nEjemplo:\n.qc Hola soy AdriBot" }, { quoted: msg });
+            return sock.sendMessage(jid, { text: "✏️ Escribe un texto para el QC.\nEjemplo:\n.qc Hola soy AdriBot" }, { quoted: msg });
 
-        // Datos del usuario
-        const name = ctx.pushName || "Usuario";
-        const avatarPath = `/storage/emulated/0/ADRI-BOT/tmp/avatar-${Date.now()}.jpg`;
+        // Crear carpeta tmp interna del bot
+        const tmpDir = path.join(process.cwd(), "tmp");
+        if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
+
+        const avatarPath = path.join(tmpDir, `avatar-${Date.now()}.jpg`);
+        const jsonPath = path.join(tmpDir, `qc-${Date.now()}.json`);
+        const outPath = path.join(tmpDir, `qc-${Date.now()}.png`);
 
         try {
-            // Descargar avatar
+            // Avatar
             const ppUrl = await sock.profilePictureUrl(sender, "image").catch(_ => null);
 
             if (ppUrl) {
@@ -28,7 +32,7 @@ export default {
                 fs.writeFileSync(avatarPath, res.data);
             }
 
-            // JSON del QC
+            // JSON para QC
             const qcData = {
                 type: "quote",
                 format: "png",
@@ -40,7 +44,7 @@ export default {
                     {
                         avatar: ppUrl ? avatarPath : "",
                         from: {
-                            name: name,
+                            name: ctx.pushName || "Usuario",
                             text_color: "#ffffff",
                             font: "Roboto"
                         },
@@ -51,41 +55,25 @@ export default {
                 ]
             };
 
-            // Guardar JSON temporal
-            const jsonPath = `/storage/emulated/0/ADRI-BOT/tmp/qc-${Date.now()}.json`;
             fs.writeFileSync(jsonPath, JSON.stringify(qcData));
 
-            // Salida del QC
-            const outPath = `/storage/emulated/0/ADRI-BOT/tmp/qc-${Date.now()}.png`;
-
-            // Ejecutar ffmpeg (Termux ya lo trae)
+            // Ejecutar ffmpeg
             await new Promise((resolve, reject) => {
-                const process = spawn("ffmpeg", [
-                    "-i", jsonPath,
-                    outPath
-                ]);
-
-                process.on("close", code => {
-                    if (code === 0) resolve();
-                    else reject("FFmpeg error");
-                });
+                const ff = spawn("ffmpeg", ["-i", jsonPath, outPath]);
+                ff.on("close", code => code === 0 ? resolve() : reject("FFmpeg error"));
             });
 
             // Enviar como sticker
-            await sock.sendMessage(jid, {
-                sticker: {
-                    url: outPath
-                }
-            }, { quoted: msg });
+            await sock.sendMessage(jid, { sticker: { url: outPath } }, { quoted: msg });
 
-            // Limpiar archivos
-            fs.unlinkSync(jsonPath);
+            // Limpiar
             if (fs.existsSync(avatarPath)) fs.unlinkSync(avatarPath);
+            fs.unlinkSync(jsonPath);
             fs.unlinkSync(outPath);
 
         } catch (e) {
             console.log("Error QC:", e);
-            return sock.sendMessage(jid, { text: "❌ Error al generar el QC." }, { quoted: msg });
+            return sock.sendMessage(jid, { text: "❌ Error al generar QC." }, { quoted: msg });
         }
     }
 };
