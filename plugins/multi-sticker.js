@@ -1,4 +1,5 @@
-import { createSticker } from '../sticker-func.js';
+import { makeSticker } from "../utils/sticker-func.js";
+
 
 export default {
     name: "multi-sticker",
