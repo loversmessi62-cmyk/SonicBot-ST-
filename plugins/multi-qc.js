@@ -1,77 +1,82 @@
-import fs from "fs";
-import path from "path";
 import axios from "axios";
+import { sticker } from "./sticker.js"; // <-- AQUÍ EL CAMBIO REAL
 
 export default {
-  commands: ["qc"],
-  category: "fun",
+    commands: ["qc"],
+    group: true,
 
-  async run(sock, msg, args, ctx) {
-    try {
-      const text = args.join(" ") || "Sin texto";
-      const jid = msg.key.remoteJid;
-      const sender = msg.key.participant || msg.key.remoteJid;
+    async run(sock, msg, args, ctx) {
 
-      // ---------------------------
-      // OBTENER FOTO DE PERFIL
-      // ---------------------------
-      let profilePic;
+        let text = args.join(" ");
+        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-      try {
-        profilePic = await sock.profilePictureUrl(sender, "image");
-      } catch {
-        profilePic = "https://files.catbox.moe/k98we9.jpeg"; // SIN ESPACIO
-      }
+        if (!text && quoted?.conversation) text = quoted.conversation;
+        if (!text) {
+            await sock.sendMessage(ctx.jid, {
+                text: "❗ Ingresa un texto o responde un mensaje."
+            });
+            return;
+        }
 
-      // Descargar avatar
-      const res = await axios.get(profilePic, { responseType: "arraybuffer" });
-      const avatarBuffer = Buffer.from(res.data);
+        const target = msg.key.participant || msg.key.remoteJid;
 
-      // ---------------------------
-      // CREAR IMAGEN TIPO QC
-      // ---------------------------
-      const { createCanvas, loadImage } = await import("canvas");
+        let pp;
+        try {
+            pp = await sock.profilePictureUrl(target, "image");
+        } catch {
+            pp = "https://telegra.ph/file/24fa902ead26340f3df2c.png";
+        }
 
-      const canvas = createCanvas(800, 400);
-      const ctx2 = canvas.getContext("2d");
+        let nombre;
+        try {
+            nombre = await sock.getName(target);
+        } catch {
+            nombre = "Usuario";
+        }
 
-      // Fondo negro
-      ctx2.fillStyle = "#000";
-      ctx2.fillRect(0, 0, 800, 400);
+        if (text.length > 30) {
+            await sock.sendMessage(ctx.jid, {
+                text: "✧ El texto no puede tener más de 30 caracteres."
+            });
+            return;
+        }
 
-      // Foto usuario
-      const avatar = await loadImage(avatarBuffer);
-      ctx2.save();
-      ctx2.beginPath();
-      ctx2.arc(150, 200, 120, 0, Math.PI * 2);
-      ctx2.closePath();
-      ctx2.clip();
-      ctx2.drawImage(avatar, 30, 80, 240, 240);
-      ctx2.restore();
+        const obj = {
+            type: "quote",
+            format: "png",
+            backgroundColor: "#000000",
+            width: 512,
+            height: 768,
+            scale: 2,
+            messages: [{
+                entities: [],
+                avatar: true,
+                from: {
+                    id: 1,
+                    name: nombre,
+                    photo: { url: pp }
+                },
+                text: text,
+                replyMessage: {}
+            }]
+        };
 
-      // Nombre (arreglado)
-      const username = ctx.name || "Usuario";
-      ctx2.fillStyle = "#ffa646";
-      ctx2.font = "bold 80px Arial";
-      ctx2.fillText(username, 320, 180);
+        const api = await axios.post(
+            "https://bot.lyo.su/quote/generate",
+            obj,
+            { headers: { "Content-Type": "application/json" } }
+        );
 
-      // Texto de abajo
-      ctx2.fillStyle = "#fff";
-      ctx2.font = "70px Arial";
-      ctx2.fillText(text, 320, 280);
+        const buffer = Buffer.from(api.data.result.image, "base64");
 
-      const output = canvas.toBuffer();
+        // 👑 LO CONVERTIMOS A STICKER
+        const pack1 = "ADRI-BOT";
+        const pack2 = "QC Quotes";
 
-      // ---------------------------
-      // ENVIAR IMAGEN FINAL
-      // ---------------------------
-      await sock.sendMessage(jid, { image: output });
+        const st = await sticker(buffer, false, pack1, pack2);
 
-    } catch (e) {
-      console.error(e);
-      return sock.sendMessage(msg.key.remoteJid, {
-        text: "❌ Error generando la QC.",
-      });
+        await sock.sendMessage(ctx.jid, {
+            sticker: st
+        }, { quoted: msg });
     }
-  }
 };
