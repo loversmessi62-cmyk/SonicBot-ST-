@@ -1,7 +1,12 @@
 import fs from "fs";
 import { exec } from "child_process";
 import { createRequire } from "module";
-const require = createRequire(import.meta.url); // <--- 🔥 ARREGLA require()
+
+// 🔥 ACTIVAR require dentro de un archivo ESM
+const require = createRequire(import.meta.url);
+
+// Cargar node-webpmux con require
+const webp = require("node-webpmux");
 
 export async function makeSticker(buffer, packname = "ADRI-BOT", author = "Adri") {
     return new Promise((resolve, reject) => {
@@ -14,7 +19,7 @@ export async function makeSticker(buffer, packname = "ADRI-BOT", author = "Adri"
 
             const cmd = `ffmpeg -i "${input}" -vcodec libwebp -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15" -lossless 1 -qscale 1 -preset picture -an -vsync 0 "${output}"`;
 
-            exec(cmd, (err) => {
+            exec(cmd, async (err) => {
                 fs.unlinkSync(input);
 
                 if (err) {
@@ -29,19 +34,17 @@ export async function makeSticker(buffer, packname = "ADRI-BOT", author = "Adri"
                 let sticker = fs.readFileSync(output);
                 fs.unlinkSync(output);
 
-                const webp = require("node-webpmux");
+                // Crear metadata
                 const img = new webp.Image();
+                await img.load(sticker);
 
-                img.load(sticker).then(() => {
-                    img.exif = webp.Meta.create({
-                        "Sticker Pack Name": packname,
-                        "Sticker Pack Publisher": author
-                    });
+                img.exif = webp.Meta.create({
+                    "Sticker Pack Name": packname,
+                    "Sticker Pack Publisher": author
+                });
 
-                    img.save(Buffer).then(finalSticker => {
-                        resolve(finalSticker);
-                    });
-                }).catch(reject);
+                const final = await img.save(null);
+                resolve(final);
             });
 
         } catch (err) {
