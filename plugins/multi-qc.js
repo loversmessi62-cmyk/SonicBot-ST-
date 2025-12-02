@@ -20,18 +20,12 @@ export default {
       try {
         profilePic = await sock.profilePictureUrl(sender, "image");
       } catch {
-        // Si NO tiene foto → usar la tuya por defecto
-        profilePic = "./media/qc_default.jpg";
+        profilePic = "https://files.catbox.moe/k98we9.jpeg"; // SIN ESPACIO
       }
 
-      // Si viene URL → descargarla
-      let avatarBuffer;
-      if (profilePic.startsWith("http")) {
-        const res = await axios.get(profilePic, { responseType: "arraybuffer" });
-        avatarBuffer = Buffer.from(res.data);
-      } else {
-        avatarBuffer = fs.readFileSync(profilePic);
-      }
+      // Descargar avatar
+      const res = await axios.get(profilePic, { responseType: "arraybuffer" });
+      const avatarBuffer = Buffer.from(res.data);
 
       // ---------------------------
       // CREAR IMAGEN TIPO QC
@@ -55,14 +49,15 @@ export default {
       ctx2.drawImage(avatar, 30, 80, 240, 240);
       ctx2.restore();
 
-      // Nombre
+      // Nombre (arreglado)
+      const username = ctx.name || "Usuario";
       ctx2.fillStyle = "#ffa646";
-      ctx2.font = "bold 80px Sans-serif";
-      ctx2.fillText(ctx.pushName || "Usuario", 320, 180);
+      ctx2.font = "bold 80px Arial";
+      ctx2.fillText(username, 320, 180);
 
-      // Texto debajo
+      // Texto de abajo
       ctx2.fillStyle = "#fff";
-      ctx2.font = "70px Sans-serif";
+      ctx2.font = "70px Arial";
       ctx2.fillText(text, 320, 280);
 
       const output = canvas.toBuffer();
