@@ -1,6 +1,7 @@
 import axios from "axios";
 import fs from "fs";
-import { makeSticker } from "../utils/sticker-func.js";   // ✔ IMPORT CORRECTO
+import path from "path";
+import ffmpeg from "fluent-ffmpeg";
 
 export default {
   commands: ["qc"],
@@ -8,7 +9,6 @@ export default {
 
   async run(sock, msg, args, ctx) {
     try {
-
       const text = args.join(" ") || "Sin texto";
       const { jid } = ctx;
 
@@ -28,49 +28,74 @@ export default {
       const avatarBuffer = Buffer.from(res.data);
 
       // ============================
-      //     CREAR LIENZO QC
+      //     CREAR QC CON CANVAS
       // ============================
       const { createCanvas, loadImage } = await import("canvas");
 
-      const canvas = createCanvas(800, 400);
+      const canvas = createCanvas(900, 500);
       const ctx2 = canvas.getContext("2d");
 
-      // Fondo negro
-      ctx2.fillStyle = "#000";
-      ctx2.fillRect(0, 0, 800, 400);
+      // Fondo
+      ctx2.fillStyle = "#1a1a1a";
+      ctx2.fillRect(0, 0, 900, 500);
 
-      // Foto circular
+      // Avatar circular
       const avatar = await loadImage(avatarBuffer);
       ctx2.save();
       ctx2.beginPath();
-      ctx2.arc(150, 200, 120, 0, Math.PI * 2);
+      ctx2.arc(150, 250, 130, 0, Math.PI * 2);
       ctx2.closePath();
       ctx2.clip();
-      ctx2.drawImage(avatar, 30, 80, 240, 240);
+      ctx2.drawImage(avatar, 20, 120, 260, 260);
       ctx2.restore();
 
       // Nombre
-      ctx2.fillStyle = "#ffa646";
-      ctx2.font = "bold 80px Sans-serif";
-      ctx2.fillText(ctx.pushName || "Usuario", 320, 180);
+      ctx2.fillStyle = "#ffb84c";
+      ctx2.font = "bold 70px Sans-serif";
+      ctx2.fillText(ctx.pushName || "Usuario", 320, 200);
 
-      // Texto ingresado
+      // Caja de texto estilo QC
+      ctx2.fillStyle = "#333";
+      ctx2.roundRect(310, 250, 540, 160, 25);
+      ctx2.fill();
+
+      // Texto
       ctx2.fillStyle = "#fff";
-      ctx2.font = "70px Sans-serif";
-      ctx2.fillText(text, 320, 280);
+      ctx2.font = "50px Sans-serif";
+      ctx2.fillText(text, 330, 350);
 
-      const finalImage = canvas.toBuffer();
+      const finalPNG = canvas.toBuffer();
 
       // ============================
-      //     CONVERTIR A STICKER
+      //   CREAR STICKER WEBP FINAL
       // ============================
-      const stickerFinal = await makeSticker(finalImage);
+      const input = path.join(process.cwd(), `qc_${Date.now()}.png`);
+      const output = path.join(process.cwd(), `qc_${Date.now()}.webp`);
 
-      await sock.sendMessage(
-        jid,
-        { sticker: stickerFinal },
-        { quoted: msg }
-      );
+      fs.writeFileSync(input, finalPNG);
+
+      // convertir png a sticker webp
+      await new Promise((resolve, reject) => {
+        ffmpeg(input)
+          .addOutputOptions([
+            "-vcodec", "libwebp",
+            "-vf", "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=black,setsar=1",
+            "-lossless", "1",
+            "-preset", "picture",
+            "-loop", "0",
+            "-an"
+          ])
+          .save(output)
+          .on("end", resolve)
+          .on("error", reject);
+      });
+
+      const sticker = fs.readFileSync(output);
+
+      await sock.sendMessage(jid, { sticker }, { quoted: msg });
+
+      fs.unlinkSync(input);
+      fs.unlinkSync(output);
 
     } catch (e) {
       console.error(e);
