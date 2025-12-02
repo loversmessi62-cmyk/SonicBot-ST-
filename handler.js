@@ -99,18 +99,18 @@ export const handleMessage = async (sock, msg) => {
             msg.message?.extendedTextMessage?.text ||
             msg.message?.imageMessage?.caption ||
             "";
-
         // =========================================================
-        //           📌 CONTADOR DE MENSAJES (PARA FANTASMAS)
+        // CONTADOR DE MENSAJES (PARA FANTASMAS)
         // =========================================================
-        if (isGroup) {
-            if (!store.chats[jid]) store.chats[jid] = {};
+     
+if (isGroup) {
+    if (!store.chats[jid]) store.chats[jid] = {};
 
-            store.chats[jid][realSender] =
-                (store.chats[jid][realSender] || 0) + 1;
+    store.chats[jid][realSender] =
+        (store.chats[jid][realSender] || 0) + 1;
 
-            saveStore();
-        }
+    saveStore();
+}
 
         // =========================================================
         //              SISTEMA ANTILINK
