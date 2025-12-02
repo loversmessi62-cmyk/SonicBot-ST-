@@ -1,107 +1,91 @@
-import axios from "axios";
 import fs from "fs";
 import path from "path";
-import ffmpeg from "fluent-ffmpeg";
+import { spawn } from "child_process";
 
 export default {
-  commands: ["qc"],
-  category: "fun",
+    commands: ["qc", "quote"],
+    category: "fun",
 
-  async run(sock, msg, args, ctx) {
-    try {
-      const text = args.join(" ") || "Sin texto";
-      const { jid } = ctx;
+    async run(sock, msg, args, ctx) {
+        const jid = msg.key.remoteJid;
+        const sender = msg.key.participant || msg.key.remoteJid;
+        const text = args.join(" ");
 
-      const sender = msg.key.participant || msg.key.remoteJid;
+        if (!text)
+            return sock.sendMessage(jid, { text: "✏️ Escribe un texto para hacer el *QC*\n\nEjemplo:\n.qc Hola soy AdriBot" }, { quoted: msg });
 
-      // ============================
-      //     FOTO DE PERFIL
-      // ============================
-      let profilePic;
-      try {
-        profilePic = await sock.profilePictureUrl(sender, "image");
-      } catch {
-        profilePic = "https://files.catbox.moe/k98we9.jpeg";
-      }
+        // Datos del usuario
+        const name = ctx.pushName || "Usuario";
+        const avatarPath = `/storage/emulated/0/ADRI-BOT/tmp/avatar-${Date.now()}.jpg`;
 
-      const res = await axios.get(profilePic, { responseType: "arraybuffer" });
-      const avatarBuffer = Buffer.from(res.data);
+        try {
+            // Descargar avatar
+            const ppUrl = await sock.profilePictureUrl(sender, "image").catch(_ => null);
 
-      // ============================
-      //     CREAR QC CON CANVAS
-      // ============================
-      const { createCanvas, loadImage } = await import("canvas");
+            if (ppUrl) {
+                const axios = (await import("axios")).default;
+                const res = await axios.get(ppUrl, { responseType: "arraybuffer" });
+                fs.writeFileSync(avatarPath, res.data);
+            }
 
-      const canvas = createCanvas(900, 500);
-      const ctx2 = canvas.getContext("2d");
+            // JSON del QC
+            const qcData = {
+                type: "quote",
+                format: "png",
+                backgroundColor: "#000000",
+                width: 700,
+                height: 600,
+                scale: 3,
+                messages: [
+                    {
+                        avatar: ppUrl ? avatarPath : "",
+                        from: {
+                            name: name,
+                            text_color: "#ffffff",
+                            font: "Roboto"
+                        },
+                        text: text,
+                        reply_message: {},
+                        watermark: "Hecho por ADRIBOT"
+                    }
+                ]
+            };
 
-      // Fondo
-      ctx2.fillStyle = "#1a1a1a";
-      ctx2.fillRect(0, 0, 900, 500);
+            // Guardar JSON temporal
+            const jsonPath = `/storage/emulated/0/ADRI-BOT/tmp/qc-${Date.now()}.json`;
+            fs.writeFileSync(jsonPath, JSON.stringify(qcData));
 
-      // Avatar circular
-      const avatar = await loadImage(avatarBuffer);
-      ctx2.save();
-      ctx2.beginPath();
-      ctx2.arc(150, 250, 130, 0, Math.PI * 2);
-      ctx2.closePath();
-      ctx2.clip();
-      ctx2.drawImage(avatar, 20, 120, 260, 260);
-      ctx2.restore();
+            // Salida del QC
+            const outPath = `/storage/emulated/0/ADRI-BOT/tmp/qc-${Date.now()}.png`;
 
-      // Nombre
-      ctx2.fillStyle = "#ffb84c";
-      ctx2.font = "bold 70px Sans-serif";
-      ctx2.fillText(ctx.pushName || "Usuario", 320, 200);
+            // Ejecutar ffmpeg (Termux ya lo trae)
+            await new Promise((resolve, reject) => {
+                const process = spawn("ffmpeg", [
+                    "-i", jsonPath,
+                    outPath
+                ]);
 
-      // Caja de texto estilo QC
-      ctx2.fillStyle = "#333";
-      ctx2.roundRect(310, 250, 540, 160, 25);
-      ctx2.fill();
+                process.on("close", code => {
+                    if (code === 0) resolve();
+                    else reject("FFmpeg error");
+                });
+            });
 
-      // Texto
-      ctx2.fillStyle = "#fff";
-      ctx2.font = "50px Sans-serif";
-      ctx2.fillText(text, 330, 350);
+            // Enviar como sticker
+            await sock.sendMessage(jid, {
+                sticker: {
+                    url: outPath
+                }
+            }, { quoted: msg });
 
-      const finalPNG = canvas.toBuffer();
+            // Limpiar archivos
+            fs.unlinkSync(jsonPath);
+            if (fs.existsSync(avatarPath)) fs.unlinkSync(avatarPath);
+            fs.unlinkSync(outPath);
 
-      // ============================
-      //   CREAR STICKER WEBP FINAL
-      // ============================
-      const input = path.join(process.cwd(), `qc_${Date.now()}.png`);
-      const output = path.join(process.cwd(), `qc_${Date.now()}.webp`);
-
-      fs.writeFileSync(input, finalPNG);
-
-      // convertir png a sticker webp
-      await new Promise((resolve, reject) => {
-        ffmpeg(input)
-          .addOutputOptions([
-            "-vcodec", "libwebp",
-            "-vf", "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=black,setsar=1",
-            "-lossless", "1",
-            "-preset", "picture",
-            "-loop", "0",
-            "-an"
-          ])
-          .save(output)
-          .on("end", resolve)
-          .on("error", reject);
-      });
-
-      const sticker = fs.readFileSync(output);
-
-      await sock.sendMessage(jid, { sticker }, { quoted: msg });
-
-      fs.unlinkSync(input);
-      fs.unlinkSync(output);
-
-    } catch (e) {
-      console.error(e);
-      return sock.sendMessage(ctx.jid, {
-        text: "❌ Error generando la QC."
-      });
+        } catch (e) {
+            console.log("Error QC:", e);
+            return sock.sendMessage(jid, { text: "❌ Error al generar el QC." }, { quoted: msg });
+        }
     }
-  }
 };
