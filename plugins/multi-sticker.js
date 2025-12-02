@@ -19,21 +19,19 @@ export default {
 
         const input = path.join(process.cwd(), `input_${Date.now()}.jpg`);
         const output = path.join(process.cwd(), `sticker_${Date.now()}.webp`);
-
         fs.writeFileSync(input, buffer);
 
         await new Promise((resolve, reject) => {
             const ff = spawn("ffmpeg", [
                 "-i", input,
 
-                // 🔥 RELLENA COMPLETO SIN BORDES (FULL COVER)
+                // 🔥 AUTO-FIT — SIN RECORTES, SIN BORDES, MISMA FORMA
                 "-vf",
-                "scale=512:512:force_original_aspect_ratio=increase," +
-                "crop=512:512",
+                "scale=512:-1:force_original_aspect_ratio=decrease",
 
                 "-vcodec", "libwebp",
                 "-lossless", "0",
-                "-quality", "70",
+                "-quality", "80",
                 "-preset", "default",
                 "-an",
                 "-vsync", "0",
