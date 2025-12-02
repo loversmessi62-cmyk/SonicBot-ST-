@@ -8,48 +8,56 @@ export default {
         const sender = msg.pushName || "Usuario";
         const texto = args.join(" ") || "Sin mensaje";
 
-        // Crear lienzo 700x700 fondo blanco
-        const img = new Jimp(700, 700, "#ffffff");
+        // Tamaño tipo sticker
+        const size = 512;
 
-        // Cargar fuente negra 32px
-        const font = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK);
+        // Crear fondo negro
+        const img = new Jimp(size, size, "#000000");
 
-        // Marco negro
+        // Hacer esquinas redondeadas (bordes 50px)
+        const radius = 90;
         img.scan(0, 0, img.bitmap.width, img.bitmap.height, function (x, y, idx) {
-            if (x < 10 || x > this.bitmap.width - 10 || y < 10 || y > this.bitmap.height - 10) {
-                this.bitmap.data[idx] = 0;     // R
-                this.bitmap.data[idx + 1] = 0; // G
-                this.bitmap.data[idx + 2] = 0; // B
-                this.bitmap.data[idx + 3] = 255; // A
-            }
+            const dx = x < radius ? radius - x : x > this.bitmap.width - radius ? x - (this.bitmap.width - radius) : 0;
+            const dy = y < radius ? radius - y : y > this.bitmap.height - radius ? y - (this.bitmap.height - radius) : 0;
+            if (dx * dx + dy * dy > radius * radius) this.bitmap.data[idx + 3] = 0;
         });
 
-        // Texto del QC
-        const mensaje =
-`✨ QC DE: ${sender}
-💬 MENSAJE: ${texto}`;
+        // Fuentes
+        const fontOrange = await Jimp.loadFont(Jimp.FONT_SANS_64_ORANGE);
+        const fontWhite = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
 
-        // Imprimir el texto
+        // Texto
         img.print(
-            font,
+            fontOrange,
             40,
-            40,
+            120,
             {
-                text: mensaje,
-                alignmentX: Jimp.HORIZONTAL_ALIGN_LEFT,
+                text: sender,
+                alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
                 alignmentY: Jimp.VERTICAL_ALIGN_TOP
             },
-            620,
-            620
+            size - 80,
+            100
         );
 
-        // Convertir a PNG
-        const buffer = await img.getBufferAsync(Jimp.MIME_PNG);
+        img.print(
+            fontWhite,
+            40,
+            240,
+            {
+                text: texto,
+                alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+                alignmentY: Jimp.VERTICAL_ALIGN_TOP
+            },
+            size - 80,
+            200
+        );
 
-        // Enviar como STICKER
+        // Convertir a WebP para sticker
+        const buffer = await img.getBufferAsync("image/webp");
+
         await sock.sendMessage(jid, {
             sticker: buffer
         });
-
     }
 };
