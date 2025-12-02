@@ -1,3 +1,5 @@
+import { Sticker, StickerTypes } from "wa-sticker-formatter";
+
 export default {
     commands: ["sticker", "s"],
     category: "multi",
@@ -7,47 +9,58 @@ export default {
     async run(sock, msg, args, ctx) {
         const { jid, download } = ctx;
 
-        // ================================
-        //   DETECTAR IMAGEN (QUOTE O DIRECTA)
-        // ================================
-        let buffer;
-
+        // ==================================================
+        //         DESCARGAR IMAGEN (QUOTE O DIRECTA)
+        // ==================================================
+        let mediaBuffer;
         try {
-            buffer = await download(); // Usa tu función EXACTA del handler
-        } catch (e) {
+            mediaBuffer = await download();
+        } catch {
             return sock.sendMessage(
                 jid,
-                { text: "❌ Debes enviar o responder una *imagen*." },
+                { text: "❌ Envía o responde una *imagen*." },
                 { quoted: msg }
             );
         }
 
-        // Validar que realmente sea una imagen
-        const mime = msg.message?.imageMessage?.mimetype ||
-                     msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage?.mimetype;
+        // Validar que sea imagen
+        const mime =
+            msg.message?.imageMessage?.mimetype ||
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage?.mimetype;
 
-        if (!mime || !mime.includes("image")) {
+        if (!mime || !mime.includes("image/")) {
             return sock.sendMessage(
                 jid,
-                { text: "❌ El archivo no es una imagen válida para convertir a sticker." },
+                { text: "❌ El archivo no es una imagen válida." },
                 { quoted: msg }
             );
         }
 
-        // ================================
-        //       ENVIAR STICKER
-        // ================================
+        // ==================================================
+        //          CONVERTIR A WEBP REAL (STICKER)
+        // ==================================================
         try {
+            const sticker = new Sticker(mediaBuffer, {
+                pack: "Diamond Bot",
+                author: "Adri",
+                type: StickerTypes.FULL,
+                quality: 80,
+            });
+
+            const webpBuffer = await sticker.toBuffer();
+
             await sock.sendMessage(
                 jid,
-                { sticker: buffer },
+                { sticker: webpBuffer },
                 { quoted: msg }
             );
         } catch (err) {
-            console.log("Error al enviar sticker:", err);
-            return sock.sendMessage(jid, {
-                text: "⚠️ Hubo un error al generar el sticker."
-            }, { quoted: msg });
+            console.log("❌ Error generando sticker:", err);
+            return sock.sendMessage(
+                jid,
+                { text: "⚠️ Ocurrió un error al generar el sticker." },
+                { quoted: msg }
+            );
         }
-    }
+    },
 };
