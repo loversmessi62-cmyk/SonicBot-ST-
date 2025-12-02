@@ -1,4 +1,4 @@
-import { store } from "../index.js"; // <-- AJUSTA ESTA RUTA si tu store se exporta en otro lado
+import { store } from "../index.js"; // ajusta si tu store está en otro archivo
 
 export default {
     commands: ["fantasmas", "kickfantasmas"],
@@ -12,14 +12,16 @@ export default {
         if (!ctx.isGroup)
             return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
 
-        // OBTENER MIEMBROS DEL GRUPO
+        const comando = ctx.body?.toLowerCase() || "";
+
+        // Obtener participantes del grupo
         const group = await sock.groupMetadata(jid);
         const participantes = group.participants.map(p => p.id);
 
-        // MENSAJES RECIENTES DESDE STORE
+        // Obtener mensajes del STORE
         const mensajesGrupo = store.messages.get(jid) || [];
 
-        // USUARIOS QUE SÍ HAN ESCRITO
+        // Usuarios activos
         const activos = new Set();
 
         for (const m of mensajesGrupo) {
@@ -33,43 +35,46 @@ export default {
             }
         }
 
-        // FILTRAR FANTASMAS
+        // Filtrar fantasmas
         const fantasmas = participantes.filter(u => !activos.has(u));
 
-        // ========= COMANDO: .fantasmas ==========
-        if (msg.body.startsWith(".fantasmas")) {
+        // -------------------------------
+        // COMANDO: .fantasmas
+        // -------------------------------
+        if (comando.startsWith(".fantasmas")) {
 
             if (fantasmas.length === 0)
-                return sock.sendMessage(jid, { text: "✨ No hay fantasmas, todos están activos." });
-
-            const texto =
-                `👻 *Fantasmas detectados* 👻\n\n` +
-                fantasmas.map(u => `@${u.split("@")[0]}`).join("\n");
+                return sock.sendMessage(jid, { text: "✨ No hay usuarios inactivos." });
 
             return sock.sendMessage(jid, {
-                text: texto,
+                text:
+                    "👻 *Usuarios inactivos detectados:*\n\n" +
+                    fantasmas.map(u => `@${u.split("@")[0]}`).join("\n"),
                 mentions: fantasmas
             });
         }
 
-        // ========= COMANDO: .kickfantasmas ==========
-        if (msg.body.startsWith(".kickfantasmas")) {
+        // -------------------------------
+        // COMANDO: .kickfantasmas
+        // -------------------------------
+        if (comando.startsWith(".kickfantasmas")) {
 
             if (!ctx.isAdmin)
-                return sock.sendMessage(jid, { text: "❌ Necesito permisos de admin para expulsar." });
+                return sock.sendMessage(jid, { text: "❌ No tienes permisos para expulsar." });
 
             if (fantasmas.length === 0)
                 return sock.sendMessage(jid, { text: "✨ No hay fantasmas que expulsar." });
 
             await sock.sendMessage(jid, {
-                text: `👢 *Expulsando fantasmas...*\n\n${fantasmas.map(u => "@" + u.split("@")[0]).join("\n")}`,
+                text:
+                    "👢 *Expulsando fantasmas...*\n\n" +
+                    fantasmas.map(u => `@${u.split("@")[0]}`).join("\n"),
                 mentions: fantasmas
             });
 
-            // Expulsar con delay para evitar bloqueos
             for (const user of fantasmas) {
                 await sock.groupParticipantsUpdate(jid, [user], "remove");
-                await new Promise(res => setTimeout(res, 500));
+                await new Promise(res => setTimeout(res, 400));
             }
         }
     }
