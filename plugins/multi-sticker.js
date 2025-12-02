@@ -1,39 +1,42 @@
 import fs from "fs";
 import { exec } from "child_process";
 
-// ======================================
-//           PACK SUPER PRO
-// ======================================
-const PACKNAME = "⚡ ADRI-BOT ⚡";
-const AUTHOR = "👑 Adri DH";
-
-// ======================================
-//     FUNCIÓN PARA GENERAR CUALQUIER STICKER
-// ======================================
-export async function sticker(buffer, isVideo = false) {
+async function convertToSticker(buffer, type = "image") {
     return new Promise((resolve, reject) => {
         try {
-            const timestamp = Date.now();
-            const input = `/sdcard/input_${timestamp}.${isVideo ? "mp4" : "jpg"}`;
-            const output = `/sdcard/output_${timestamp}.webp`;
+            const id = Date.now();
+            const input = `/sdcard/input_${id}`;
+            const output = `/sdcard/output_${id}.webp`;
 
-            fs.writeFileSync(input, buffer);
+            // Guarda según tipo
+            let ext = "jpg";
+            if (type === "video" || type === "gif") ext = "mp4";
+            else if (type === "audio") ext = "mp3";
+            else if (type === "sticker") ext = "webp";
 
-            // FFMPEG PARA IMÁGENES
-            const cmdImage = `ffmpeg -i "${input}" -vf scale=512:512:force_original_aspect_ratio=decrease -vcodec libwebp -lossless 1 -qscale 1 -preset picture -an -vsync 0 -metadata title="${PACKNAME}" -metadata author="${AUTHOR}" "${output}"`;
+            fs.writeFileSync(`${input}.${ext}`, buffer);
 
-            // FFMPEG PARA VIDEOS / GIFS
-            const cmdVideo = `ffmpeg -i "${input}" -vcodec libwebp -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15" -loop 0 -preset default -an -vsync 0 -metadata title="${PACKNAME}" -metadata author="${AUTHOR}" "${output}"`;
+            let ffmpegCmd = "";
 
-            exec(isVideo ? cmdVideo : cmdImage, (err) => {
-                if (fs.existsSync(input)) fs.unlinkSync(input);
+            if (type === "image") {
+                ffmpegCmd = `ffmpeg -i "${input}.${ext}" -vf scale=512:512:force_original_aspect_ratio=decrease -vcodec libwebp -lossless 1 -qscale 1 -preset picture -an -vsync 0 "${output}"`;
+            } else if (type === "sticker") {
+                ffmpegCmd = `ffmpeg -i "${input}.${ext}" -vcodec libwebp -lossless 1 "${output}"`;
+            } else if (type === "video" || type === "gif") {
+                ffmpegCmd = `ffmpeg -i "${input}.${ext}" -vcodec libwebp -filter:v fps=15 -lossless 0 -qscale 30 -preset default -loop 0 -an -vsync 0 "${output}"`;
+            } else if (type === "audio") {
+                ffmpegCmd = `ffmpeg -i "${input}.${ext}" -filter_complex showwavespic=s=512x512:colors=white -frames:v 1 "${output}"`;
+            }
+
+            exec(ffmpegCmd, err => {
+                fs.unlinkSync(`${input}.${ext}`);
 
                 if (err) return reject(err);
 
-                const stickerBuffer = fs.readFileSync(output);
-                if (fs.existsSync(output)) fs.unlinkSync(output);
+                const result = fs.readFileSync(output);
+                fs.unlinkSync(output);
 
-                resolve(stickerBuffer);
+                resolve(result);
             });
 
         } catch (e) {
@@ -42,51 +45,43 @@ export async function sticker(buffer, isVideo = false) {
     });
 }
 
-// ======================================
-//              COMANDO
-// ======================================
 export default {
-    commands: ["sticker", "s"],
-    category: "sticker",
+    commands: ["s", "sticker", "stick"],
+    category: "tools",
     admin: false,
-    description: "Convierte imagen/video/gif/webp a sticker PRO.",
+    description: "Convierte cualquier archivo en sticker.",
 
     async run(sock, msg, args, ctx) {
-        const { jid, mime, download } = ctx;
+        const { jid, download, type } = ctx;
 
         let buffer;
         try {
             buffer = await download();
         } catch {
-            return sock.sendMessage(
-                jid,
-                { text: "❌ Debes enviar o responder *una imagen, video o gif*." },
-                { quoted: msg }
-            );
+            return sock.sendMessage(jid, {
+                text: "❌ Debes enviar o responder *cualquier archivo* (imagen/video/audio/gif/sticker)."
+            }, { quoted: msg });
         }
 
-        // Detectar si es video/gif/webp animado
-        const isVideo =
-            mime?.includes("video") ||
-            mime?.includes("gif") ||
-            (mime?.includes("webp") && !mime.includes("image"));
+        let contentType = "image";
+
+        if (type === "videoMessage") contentType = "video";
+        else if (type === "audioMessage") contentType = "audio";
+        else if (type === "stickerMessage") contentType = "sticker";
+        else if (type === "imageMessage") contentType = "image";
 
         try {
-            const stickerResult = await sticker(buffer, isVideo);
+            const stickerFile = await convertToSticker(buffer, contentType);
 
             await sock.sendMessage(
                 jid,
-                { sticker: stickerResult },
+                { sticker: stickerFile },
                 { quoted: msg }
             );
-
-        } catch (err) {
-            console.log("Error en sticker:", err);
-            return sock.sendMessage(
-                jid,
-                { text: "⚠️ Error al crear el sticker. Intenta con otro archivo." },
-                { quoted: msg }
-            );
+        } catch (e) {
+            return sock.sendMessage(jid, {
+                text: "⚠️ Error al procesar el sticker."
+            }, { quoted: msg });
         }
     }
 };
