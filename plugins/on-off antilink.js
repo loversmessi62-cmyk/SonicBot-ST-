@@ -1,63 +1,37 @@
 import { getState, setState } from "../utils/cdmtoggle.js";
 
 export default {
-    commands: ["antilink", "antilinks"],
+    commands: ["antilink"],
     admin: true,
-    group: true,
     category: "on/off",
 
     async run(sock, msg, args, ctx) {
 
-        const { jid } = ctx;
+        // Asegurar que es grupo
+        if (!ctx.isGroup)
+            return sock.sendMessage(msg.key.remoteJid, { text: "❌ Este comando solo funciona en grupos." });
 
-        const opt = (args[0] || "").toLowerCase();
+        const jid = msg.key.remoteJid; // <── ESTA ES TU JID REAL
+        const estadoActual = getState(jid, "antilink");
 
-        if (opt === "on") {
-            setState("antilink", true, jid); // 🔥 GUARDAR POR GRUPO
-            return sock.sendMessage(jid, { text: "🟢 *Antilink activado en este grupo.*" });
+        if (!args[0]) {
+            return sock.sendMessage(jid, { 
+                text: `🔗 *Antilink*: ${estadoActual ? "ACTIVADO ✔️" : "DESACTIVADO ❌"}`
+            });
         }
 
-        if (opt === "off") {
-            setState("antilink", false, jid); // 🔥 DESACTIVAR SOLO ESTE GRUPO
-            return sock.sendMessage(jid, { text: "🔴 *Antilink desactivado en este grupo.*" });
-        }
+        const opcion = args[0].toLowerCase();
 
-        const estado = getState("antilink", jid);
+        if (opcion === "on") {
+            setState(jid, "antilink", true);
+            return sock.sendMessage(jid, { text: "🔗 Antilink ACTIVADO ✔️" });
 
-        return sock.sendMessage(jid, { 
-            text: `⚙️ *ANTILINK*\n\nEstado en este grupo: ${estado ? "🟢 ON" : "🔴 OFF"}\n\nUsa:\n.antilink on\n.antilink off`
-        });
-    },
+        } else if (opcion === "off") {
+            setState(jid, "antilink", false);
+            return sock.sendMessage(jid, { text: "🔗 Antilink DESACTIVADO ❌" });
 
-    async onMessage(sock, msg, ctx) {
-
-        const { jid, isGroup, isAdmin, sender } = ctx;
-        if (!isGroup) return;
-
-        // Si en este grupo NO está activado → ignorar
-        if (!getState("antilink", jid)) return;
-
-        const text =
-            msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text ||
-            msg.message?.imageMessage?.caption ||
-            "";
-
-        // Detectar links de grupos
-        if (!/(https?:\/\/)?chat\.whatsapp\.com\//i.test(text)) return;
-
-        if (isAdmin)
-            return; // Admin no se expulsa
-
-        await sock.sendMessage(jid, {
-            text: `🚫 *Link detectado*\n@${sender.split("@")[0]} no se permiten links.`,
-            mentions: [sender]
-        });
-
-        try {
-            await sock.groupParticipantsUpdate(jid, [sender], "remove");
-        } catch (e) {
-            console.log("Error expulsando:", e);
+        } else {
+            return sock.sendMessage(jid, { text: "Usa: *.antilink on/off*" });
         }
     }
-};
+}
