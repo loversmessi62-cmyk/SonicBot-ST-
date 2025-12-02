@@ -1,54 +1,34 @@
-export default {
-    commands: ["fantasmas"],
-    admin: true,
-    category: "grupo",
+import { store } from "../index.js";
 
-    async run(sock, msg, args, ctx) {
+export default {
+    commands: ["fantasmas", "inactivos"],
+    category: "grupos",
+
+    async run(sock, msg) {
         const jid = msg.key.remoteJid;
 
-        // Store
-        const store = sock.store;
-        if (!store) return sock.sendMessage(jid, { text: "⚠️ No hay store disponible." });
+        const metadata = await sock.groupMetadata(jid);
+        const participantes = metadata.participants.map(p => p.id);
 
-        const mensajes = store.messages[jid];
-        if (!mensajes) {
-            return sock.sendMessage(jid, { text: "⚠️ No hay historial de mensajes para analizar." });
-        }
+        await store.loadMessages(jid, 200);
 
-        // Días para revisar
-        const dias = parseInt(args[0]) || 7;
-        const limite = Date.now() - dias * 24 * 60 * 60 * 1000;
+        const msgs = store.messages[jid] || {};
 
-        // Lista de miembros
-        const miembros = ctx.participants.map(u => u.id);
+        const inactivos = participantes.filter(p => !msgs[p]);
 
-        // Últimos mensajes por usuario
-        const ultimoMensaje = {};
+        let texto = "👻 *MIEMBROS INACTIVOS*\n\n";
 
-        for (let m of mensajes) {
-            const sender = m.key.participant || m.key.remoteJid;
-            if (!sender) continue;
-
-            const timestamp = (m.messageTimestamp || 0) * 1000;
-            if (!ultimoMensaje[sender] || timestamp > ultimoMensaje[sender]) {
-                ultimoMensaje[sender] = timestamp;
+        if (inactivos.length === 0) {
+            texto += "✨ No hay fantasmas en este grupo";
+        } else {
+            for (let u of inactivos) {
+                texto += `• @${u.split("@")[0]}\n`;
             }
         }
 
-        // Buscar inactivos
-        const fantasmas = miembros.filter(id => {
-            return !ultimoMensaje[id] || ultimoMensaje[id] < limite;
-        });
-
-        if (fantasmas.length === 0) {
-            return sock.sendMessage(jid, { text: `🌟 No hay fantasmas en los últimos *${dias} días*.` });
-        }
-
         await sock.sendMessage(jid, {
-            text:
-                `👻 *Fantasmas ${dias} días:*\n\n` +
-                fantasmas.map(f => `• @${f.split("@")[0]}`).join("\n"),
-            mentions: fantasmas
-        });
+            text: texto,
+            mentions: inactivos
+        }, { quoted: msg });
     }
 };
