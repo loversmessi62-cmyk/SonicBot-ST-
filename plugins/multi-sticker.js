@@ -1,4 +1,6 @@
-import { Sticker, StickerTypes } from "wa-sticker-formatter";
+import fs from "fs";
+import { exec } from "child_process";
+import path from "path";
 
 export default {
     commands: ["sticker", "s"],
@@ -9,58 +11,46 @@ export default {
     async run(sock, msg, args, ctx) {
         const { jid, download } = ctx;
 
-        // ==================================================
-        //         DESCARGAR IMAGEN (QUOTE O DIRECTA)
-        // ==================================================
-        let mediaBuffer;
+        // Descargar la imagen con tu handler
+        let buffer;
         try {
-            mediaBuffer = await download();
-        } catch {
-            return sock.sendMessage(
-                jid,
-                { text: "❌ Envía o responde una *imagen*." },
-                { quoted: msg }
-            );
+            buffer = await download();
+        } catch (e) {
+            return sock.sendMessage(jid, { 
+                text: "❌ Debes enviar o responder una *imagen*." 
+            }, { quoted: msg });
         }
 
-        // Validar que sea imagen
-        const mime =
-            msg.message?.imageMessage?.mimetype ||
-            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage?.mimetype;
+        // Guardar temporal
+        const input = `/sdcard/input_${Date.now()}.jpg`;
+        const output = `/sdcard/output_${Date.now()}.webp`;
 
-        if (!mime || !mime.includes("image/")) {
-            return sock.sendMessage(
-                jid,
-                { text: "❌ El archivo no es una imagen válida." },
-                { quoted: msg }
-            );
-        }
+        fs.writeFileSync(input, buffer);
 
-        // ==================================================
-        //          CONVERTIR A WEBP REAL (STICKER)
-        // ==================================================
-        try {
-            const sticker = new Sticker(mediaBuffer, {
-                pack: "Diamond Bot",
-                author: "Adri",
-                type: StickerTypes.FULL,
-                quality: 80,
-            });
+        // Convertir a WebP con ffmpeg
+        exec(`ffmpeg -i "${input}" -vf scale=512:512:force_original_aspect_ratio=decrease -vcodec libwebp -lossless 1 -qscale 1 -preset picture -an -vsync 0 "${output}"`,
+            async (err) => {
 
-            const webpBuffer = await sticker.toBuffer();
+                // Borrar input
+                fs.unlinkSync(input);
 
-            await sock.sendMessage(
-                jid,
-                { sticker: webpBuffer },
-                { quoted: msg }
-            );
-        } catch (err) {
-            console.log("❌ Error generando sticker:", err);
-            return sock.sendMessage(
-                jid,
-                { text: "⚠️ Ocurrió un error al generar el sticker." },
-                { quoted: msg }
-            );
-        }
-    },
+                if (err) {
+                    console.log(err);
+                    return sock.sendMessage(jid, { 
+                        text: "⚠️ Error al convertir la imagen a sticker." 
+                    }, { quoted: msg });
+                }
+
+                // Enviar sticker correcto
+                const stickerBuffer = fs.readFileSync(output);
+
+                await sock.sendMessage(jid, { 
+                    sticker: stickerBuffer 
+                }, { quoted: msg });
+
+                // Borrar archivo final
+                fs.unlinkSync(output);
+            }
+        );
+    }
 };
