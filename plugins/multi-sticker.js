@@ -1,83 +1,41 @@
-import fs from "fs"
-import path from "path"
-import { exec } from "child_process"
-import { downloadContentFromMessage } from "@whiskeysockets/baileys"
-
-const __filename = new URL(import.meta.url).pathname
-const __dirname = path.dirname(__filename)
+import { Sticker, StickerTypes } from "wa-sticker-formatter";
 
 export default {
     commands: ["s", "sticker", "stiker"],
-    tags: ["sticker"],
+    alias: ["st"],
+    category: "stickers",
 
-    async run(sock, msg, args, ctx) {
+    async run(sock, msg, args) {
         try {
+            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-            // === OBTENER EL MENSAJE CITADO ===
-            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage
-            const mediaMsg = quoted || msg.message?.imageMessage || msg.message?.videoMessage
+            const mime = quoted?.imageMessage
+                ? "image"
+                : quoted?.videoMessage
+                ? "video"
+                : null;
 
-            if (!mediaMsg)
-                return sock.sendMessage(ctx.chat, { text: "📸 Envía o responde a una imagen/video." })
+            if (!mime)
+                return sock.sendMessage(msg.key.remoteJid, { text: "❌ Responde una imagen o video." });
 
-            // === DESCARGAR MEDIA ===
-            const type = Object.keys(mediaMsg)[0]
-            const stream = await downloadContentFromMessage(mediaMsg[type], type.replace("Message",""))
+            const buffer = await sock.downloadMediaMessage({
+                message: quoted
+            });
 
-            let buffer = Buffer.from([])
-            for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk])
-            }
+            const sticker = new Sticker(buffer, {
+                type: StickerTypes.FULL,
+                quality: 70,           // evitar gris
+                pack: "",              // evitar errores EXIF
+                author: "",            // evitar errores EXIF
+            });
 
-            // === RUTAS TEMPORALES ===
-            const inputPath = path.join(__dirname, `input_${Date.now()}.jpg`)
-            const outputPath = path.join(__dirname, `out_${Date.now()}.webp`)
-            const exifPath = path.join(__dirname, `exif_${Date.now()}.exif`)
-            const finalPath = path.join(__dirname, `sticker_${Date.now()}.webp`)
-
-            fs.writeFileSync(inputPath, buffer)
-
-            // === CREAR EXIF VALIDO ===
-            const exifData = {
-                "sticker-pack-id": "multi-sticker",
-                "sticker-pack-name": "ADRI-BOT",
-                "sticker-pack-publisher": "Adri",
-                emojis: ["🔥"]
-            }
-
-            const exifJson = Buffer.from(JSON.stringify(exifData), "utf8")
-            const exifHeader = Buffer.from("457869660000", "hex") // header válido
-
-            fs.writeFileSync(exifPath, Buffer.concat([exifHeader, exifJson]))
-
-            // === CONVERTIR A WEBP ===
-            const cmd = `ffmpeg -i "${inputPath}" -vf scale=512:512:force_original_aspect_ratio=decrease,fps=15 -vcodec libwebp -lossless 1 -qscale 75 "${outputPath}" -y`
-
-            await new Promise((resolve, reject) =>
-                exec(cmd, (e) => e ? reject(e) : resolve())
-            )
-
-            // === AGREGAR EXIF ===
-            const cmdExif = `webpmux -set exif "${exifPath}" "${outputPath}" -o "${finalPath}"`
-
-            await new Promise((resolve, reject) =>
-                exec(cmdExif, (e) => e ? reject(e) : resolve())
-            )
-
-            // === ENVIAR STICKER REAL ===
-            await sock.sendMessage(ctx.chat, {
-                sticker: { url: finalPath }
-            })
-
-            // === LIMPIAR TEMPORALES ===
-            fs.unlinkSync(inputPath)
-            fs.unlinkSync(outputPath)
-            fs.unlinkSync(exifPath)
-            fs.unlinkSync(finalPath)
+            await sock.sendMessage(msg.key.remoteJid, { 
+                sticker: await sticker.build()
+            });
 
         } catch (e) {
-            console.log(e)
-            return sock.sendMessage(ctx.chat, { text: "❌ Error generando sticker." })
+            console.log("STICKER ERROR:", e);
+            sock.sendMessage(msg.key.remoteJid, { text: "❌ Falló el sticker." });
         }
     }
-}
+};
