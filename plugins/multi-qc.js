@@ -1,102 +1,106 @@
-// multi-qc.js — Adri-BOT
+// qc.js — Adri-BOT Optimizado
 import axios from "axios";
 import { sticker } from "../lib/sticker.js";
 
 export default {
     commands: ["qc", "multiqc", "quote"],
     group: true,
-    usage: ".qc <texto>",
     category: "stickers",
 
     async run(sock, msg, args, ctx) {
         try {
-            const { jid } = ctx;
+            const jid = ctx.jid;
 
-            let text;
+            // ==========================
+            // 1. OBTENER TEXTO
+            // ==========================
+            let texto =
+                args.join(" ") ||
+                msg.quoted?.text ||
+                msg.quoted?.caption ||
+                msg.quoted?.message?.conversation ||
+                null;
 
-            // Texto enviado
-            if (args.length > 0) {
-                text = args.join(" ");
-            } else if (msg.quoted?.text) {
-                text = msg.quoted.text;
-            } else {
+            if (!texto) {
                 return sock.sendMessage(
                     jid,
-                    { text: "⚠️ Ingresa un texto o responde un mensaje para generar el QC." },
+                    { text: "⚠️ Escribe un texto o responde un mensaje." },
                     { quoted: msg }
                 );
             }
 
-            if (text.length > 30) {
-                return sock.sendMessage(
-                    jid,
-                    { text: "⚠️ El texto debe tener *máximo 30 caracteres*." },
-                    { quoted: msg }
-                );
-            }
-
-            // Usuario objetivo
+            // ==========================
+            // 2. USUARIO OBJETIVO
+            // ==========================
             const target = msg.quoted?.sender || msg.sender;
 
-            // Obtener foto y nombre
-            const pp = await sock.profilePictureUrl(target).catch(
-                _ => "https://telegra.ph/file/24fa902ead26340f3df2c.png"
+            // Foto de perfil
+            let pp = await sock.profilePictureUrl(target, "image").catch(
+                () => "https://telegra.ph/file/24fa902ead26340f3df2c.png"
             );
+
+            // Nombre del usuario
             const name = await sock.getName(target);
 
-            // Datos enviados al servidor QC
+            // ==========================
+            // 3. CUERPO PARA EL SERVIDOR QC
+            // ==========================
             const body = {
                 type: "quote",
                 format: "png",
-                backgroundColor: "#000000",
+                backgroundColor: "#00000000",
                 width: 512,
-                height: 768,
-                scale: 2,
+                height: 512,
+                scale: 3,
                 messages: [
                     {
-                        entities: [],
                         avatar: true,
                         from: {
                             id: 1,
-                            name: name,
+                            name,
                             photo: { url: pp }
                         },
-                        text: text,
+                        text: texto,
                         replyMessage: {}
                     }
                 ]
             };
 
-            // Hacer QC
+            // ==========================
+            // 4. GENERAR IMAGEN QC
+            // ==========================
             const res = await axios.post(
                 "https://bot.lyo.su/quote/generate",
                 body,
                 { headers: { "Content-Type": "application/json" } }
             );
 
-            // Convertir la imagen base64
-            const img = Buffer.from(res.data.result.image, "base64");
+            const pngBuffer = Buffer.from(res.data.result.image, "base64");
 
-            // Packname y Author dinámicos
-            let userData = global.db.data.users[msg.sender] || {};
-            let pack1 = userData.text1 || global.packsticker;
-            let pack2 = userData.text2 || global.packsticker2;
+            // ==========================
+            // 5. PACKNAME / AUTHOR
+            // ==========================
+            let userData = global.db?.data?.users?.[msg.sender] || {};
+            let pack1 = userData.text1 || global.packsticker || "Adri-BOT";
+            let pack2 = userData.text2 || global.packsticker2 || "Sticker";
 
-            // Convertir a sticker usando tu sticker.js
-            const result = await sticker(img, null, pack1, pack2);
+            // Convertir a sticker con tu script
+            const webp = await sticker(pngBuffer, null, pack1, pack2);
 
-            // Enviar sticker
+            // ==========================
+            // 6. ENVIAR STICKER
+            // ==========================
             await sock.sendMessage(
                 jid,
-                { sticker: result },
+                { sticker: webp },
                 { quoted: msg }
             );
 
         } catch (e) {
-            console.error("Error QC:", e);
+            console.error("QC ERROR:", e);
             return sock.sendMessage(
-                jid,
-                { text: "❌ Error creando el QC:\n" + e.message },
+                ctx.jid,
+                { text: "❌ Error generando el QC:\n" + e.message },
                 { quoted: msg }
             );
         }
