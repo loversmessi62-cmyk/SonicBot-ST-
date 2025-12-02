@@ -1,4 +1,4 @@
-// qc.js — AdriBOT compatible sin canvas
+// multi-qc.js — BASE ADRI-BOT COMPATIBLE
 import axios from "axios";
 import { sticker } from "../lib/sticker.js";
 
@@ -7,21 +7,26 @@ export default {
 
     async run(sock, msg, args, ctx) {
         try {
-            const { jid, sender } = ctx;
+            const jid = msg.key.remoteJid;
+            const sender = msg.key.participant || msg.key.remoteJid;
 
-            // Texto
             const text = args.join(" ").trim();
             if (!text) {
                 return sock.sendMessage(jid, { text: "⚠️ Escribe texto.\nEj: .qc Hola" });
             }
 
-            // Obtener nombre y foto reales del usuario
-            const name = await sock.getName(sender) || "Usuario";
+            // Nombre real del usuario según tu base
+            const name = ctx.name || "Usuario";
 
-            const pfp = await sock.profilePictureUrl(sender)
-                .catch(() => "https://telegra.ph/file/24fa902ead26340f3df2c.png");
+            // Foto del usuario
+            let pfp;
+            try {
+                pfp = await sock.profilePictureUrl(sender, "image");
+            } catch {
+                pfp = "https://telegra.ph/file/24fa902ead26340f3df2c.png";
+            }
 
-            // Estructura QC
+            // Generar QC
             const body = {
                 type: "quote",
                 format: "png",
@@ -43,7 +48,6 @@ export default {
                 ]
             };
 
-            // Generar imagen
             const res = await axios.post(
                 "https://bot.lyo.su/quote/generate",
                 body,
@@ -52,21 +56,21 @@ export default {
 
             const img = Buffer.from(res.data.result.image, "base64");
 
-            // Pack dinámico
-            let userData = global.db?.data?.users?.[sender] || {};
-            const pack1 = userData.text1 || "AdriPack";
-            const pack2 = userData.text2 || "AdriBot";
+            // Datos del pack
+            const userData = global.db?.data?.users?.[sender] || {};
+            const pack = userData.text1 || "AdriPack";
+            const author = userData.text2 || "AdriBot";
 
             // Convertir a sticker
-            const result = await sticker(img, null, pack1, pack2);
+            const final = await sticker(img, null, pack, author);
 
-            // Enviar sticker
-            return await sock.sendMessage(jid, { sticker: result });
+            // Enviar
+            return await sock.sendMessage(jid, { sticker: final });
 
-        } catch (e) {
-            console.error("QC ERROR:", e);
-            return sock.sendMessage(jid, {
-                text: "❌ Error creando el QC.\n" + e.message
+        } catch (err) {
+            console.error("QC ERROR:", err);
+            return sock.sendMessage(msg.key.remoteJid, {
+                text: "❌ Error creando el QC."
             });
         }
     }
