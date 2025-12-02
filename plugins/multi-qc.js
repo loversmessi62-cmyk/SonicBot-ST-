@@ -1,72 +1,82 @@
-import Jimp from "jimp";
+import fs from "fs";
+import path from "path";
+import axios from "axios";
 
 export default {
-    commands: ["qc", "quote"],
-    category: "multi",
-    admin: false,
-    description: "Genera un sticker estilo QC sin usar APIs.",
+  commands: ["qc"],
+  category: "fun",
 
-    async run(sock, msg, args, ctx) {
-        const { jid, download } = ctx;
+  async run(sock, msg, args, ctx) {
+    try {
+      const text = args.join(" ") || "Sin texto";
+      const jid = msg.key.remoteJid;
+      const sender = msg.key.participant || msg.key.remoteJid;
 
-        if (!args.length)
-            return sock.sendMessage(jid, { text: "✏️ Escribe el texto del QC.\nEjemplo:\n.qc Hola bro" }, { quoted: msg });
+      // ---------------------------
+      // OBTENER FOTO DE PERFIL
+      // ---------------------------
+      let profilePic;
 
-        const text = args.join(" ");
+      try {
+        profilePic = await sock.profilePictureUrl(sender, "image");
+      } catch {
+        // Si NO tiene foto → usar la tuya por defecto
+        profilePic = "./media/qc_default.jpg";
+      }
 
-        let buffer;
-        try {
-            buffer = await download();
-        } catch {
-            return sock.sendMessage(jid, { text: "❌ Envía o responde una imagen." }, { quoted: msg });
-        }
+      // Si viene URL → descargarla
+      let avatarBuffer;
+      if (profilePic.startsWith("http")) {
+        const res = await axios.get(profilePic, { responseType: "arraybuffer" });
+        avatarBuffer = Buffer.from(res.data);
+      } else {
+        avatarBuffer = fs.readFileSync(profilePic);
+      }
 
-        try {
-            // ────────────────
-            // Cargar imagen
-            // ────────────────
-            const img = await Jimp.read(buffer);
+      // ---------------------------
+      // CREAR IMAGEN TIPO QC
+      // ---------------------------
+      const { createCanvas, loadImage } = await import("canvas");
 
-            // Efecto QC
-            img.blur(10).brightness(-0.1);
+      const canvas = createCanvas(800, 400);
+      const ctx2 = canvas.getContext("2d");
 
-            // Tamaño estándar
-            img.resize(512, 512);
+      // Fondo negro
+      ctx2.fillStyle = "#000";
+      ctx2.fillRect(0, 0, 800, 400);
 
-            // Marco negro
-            const borderSize = 10;
-            const bordered = new Jimp(img.bitmap.width + borderSize * 2, img.bitmap.height + borderSize * 2, "#000000");
-            bordered.composite(img, borderSize, borderSize);
+      // Foto usuario
+      const avatar = await loadImage(avatarBuffer);
+      ctx2.save();
+      ctx2.beginPath();
+      ctx2.arc(150, 200, 120, 0, Math.PI * 2);
+      ctx2.closePath();
+      ctx2.clip();
+      ctx2.drawImage(avatar, 30, 80, 240, 240);
+      ctx2.restore();
 
-            // Banda negra abajo
-            const bandHeight = 80;
-            const finalImg = new Jimp(512, 512 + bandHeight, "#000000");
-            finalImg.composite(bordered, 0, 0);
+      // Nombre
+      ctx2.fillStyle = "#ffa646";
+      ctx2.font = "bold 80px Sans-serif";
+      ctx2.fillText(ctx.pushName || "Usuario", 320, 180);
 
-            // Cargar fuente
-            const font = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+      // Texto debajo
+      ctx2.fillStyle = "#fff";
+      ctx2.font = "70px Sans-serif";
+      ctx2.fillText(text, 320, 280);
 
-            // Escribir texto centered
-            finalImg.print(
-                font,
-                0,
-                512 + 20,
-                {
-                    text,
-                    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
-                    alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE
-                },
-                512,
-                bandHeight
-            );
+      const output = canvas.toBuffer();
 
-            const stickerBuffer = await finalImg.getBufferAsync(Jimp.MIME_PNG);
+      // ---------------------------
+      // ENVIAR IMAGEN FINAL
+      // ---------------------------
+      await sock.sendMessage(jid, { image: output });
 
-            await sock.sendMessage(jid, { sticker: stickerBuffer }, { quoted: msg });
-
-        } catch (err) {
-            console.log(err);
-            return sock.sendMessage(jid, { text: "⚠️ Error al generar el QC local." }, { quoted: msg });
-        }
+    } catch (e) {
+      console.error(e);
+      return sock.sendMessage(msg.key.remoteJid, {
+        text: "❌ Error generando la QC.",
+      });
     }
+  }
 };
