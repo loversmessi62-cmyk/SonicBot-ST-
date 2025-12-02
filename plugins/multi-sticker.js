@@ -4,7 +4,7 @@ import path from "path";
 
 export default {
     commands: ["sticker", "s"],
-    category: "multi",
+    category: "admin",
     admin: false,
     description: "Convierte una imagen en sticker.",
 
