@@ -1,66 +1,76 @@
-import { store } from "../handler.js";
-
 export default {
-    commands: ["fantasmas"],
-    category: "group",
-    admin: true, // solo admins
-    description: "Menciona a los inactivos del grupo basándose en sus mensajes enviados.",
+    commands: ["fantasmas", "kickfantasmas"],
+    admin: true,
+    category: "grupo",
 
     async run(sock, msg, args, ctx) {
-        const { jid, groupMetadata, participants } = ctx;
+
+        const jid = msg.key.remoteJid;
 
         if (!ctx.isGroup) {
-            return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+            return sock.sendMessage(jid, { text: "❌ Solo funciona en grupos." });
         }
 
-        const chatId = jid;
+        // OBTENER MIEMBROS DEL GRUPO
+        const group = await sock.groupMetadata(jid);
+        const participantes = group.participants.map(p => p.id);
 
-        // Asegurar que el grupo tenga registro
-        if (!store.chats[chatId]) {
-            store.chats[chatId] = {};
+        // OBTENER HISTORIAL RECIENTE DEL GRUPO
+        // entre 200-300 mensajes es lo ideal para máxima precisión
+        const chatHistory = await sock.fetchMessages(jid, { limit: 250 });
+
+        // OBTENER QUIÉNES HAN ESCRITO RECIENTEMENTE
+        const activos = new Set();
+
+        for (const m of chatHistory) {
+            const author =
+                m.key?.participant ||
+                m.participant ||
+                m.key?.remoteJid;
+
+            if (author) activos.add(author.replace(/:[0-9]+/g, ""));
         }
 
-        // Cuenta de mensajes del grupo
-        const messageCount = store.chats[chatId];
+        // FILTRAR A LOS QUE NO HAN ESCRITO
+        const fantasmas = participantes.filter(u => !activos.has(u));
 
-        // Convertir lista de participantes en datos útiles
-        let lista = participants.map(p => {
-            const id = p.id || p.jid;
-            const count = messageCount[id] || 0;
+        // ========= COMANDO: .fantasmas ==========
+        if (msg.body.startsWith(".fantasmas")) {
 
-            return {
-                id,
-                count
-            };
-        });
+            if (fantasmas.length === 0) {
+                return sock.sendMessage(jid, { text: "✨ No hay fantasmas, todos están activos." });
+            }
 
-        // Ordenar de menor a mayor mensajes (FANTASMAS arriba)
-        lista.sort((a, b) => a.count - b.count);
+            const texto = `👻 *Lista de fantasmas detectados*\n\n` +
+                fantasmas.map(u => `@${u.split('@')[0]}`).join("\n");
 
-        // Detectar fantasmas (0 mensajes o muy pocos)
-        const fantasmas = lista.filter(u => u.count <= 1);
+            return sock.sendMessage(
+                jid,
+                { text: texto, mentions: fantasmas }
+            );
+        }
 
-        if (fantasmas.length === 0) {
-            return sock.sendMessage(jid, {
-                text: "✨ No hay fantasmas, todos han hablado recientemente."
+        // ========= COMANDO: .kickfantasmas ==========
+        if (msg.body.startsWith(".kickfantasmas")) {
+
+            if (!ctx.isAdmin) {
+                return sock.sendMessage(jid, { text: "❌ Solo admins pueden expulsar." });
+            }
+
+            if (fantasmas.length === 0) {
+                return sock.sendMessage(jid, { text: "✨ No hay fantasmas para expulsar." });
+            }
+
+            await sock.sendMessage(jid, {
+                text: `👢 *Expulsando fantasmas...*\n\n${fantasmas.map(u => "@" + u.split("@")[0]).join("\n")}`,
+                mentions: fantasmas
             });
+
+            for (const user of fantasmas) {
+                await sock.groupParticipantsUpdate(jid, [user], "remove");
+                await new Promise(res => setTimeout(res, 500)); // evita bloqueo
+            }
+
         }
-
-        // Construir mensaje
-        let texto = `👻 *FANTASMAS DEL GRUPO*\n`;
-        texto += `Los siguientes usuarios tienen *0 a 1 mensajes enviados*:\n\n`;
-
-        let mentions = [];
-
-        for (let u of fantasmas) {
-            const num = u.id.split("@")[0];
-            texto += `• @${num} → ${u.count} mensajes\n`;
-            mentions.push(u.id);
-        }
-
-        await sock.sendMessage(jid, {
-            text: texto,
-            mentions
-        });
     }
 };
