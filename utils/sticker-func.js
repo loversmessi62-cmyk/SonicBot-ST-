@@ -2,15 +2,16 @@ import fs from "fs";
 import { exec } from "child_process";
 import { createRequire } from "module";
 
-// 🔥 ACTIVAR require dentro de un archivo ESM
+// 🔥 ACTIVAR require en proyectos con "type": "module"
 const require = createRequire(import.meta.url);
 
-// Cargar node-webpmux con require
+// 🔥 CARGAR node-webpmux (funciona 100%)
 const webp = require("node-webpmux");
 
 export async function makeSticker(buffer, packname = "ADRI-BOT", author = "Adri") {
     return new Promise((resolve, reject) => {
         try {
+
             const time = Date.now();
             const input = `/sdcard/Download/input_${time}.tmp`;
             const output = `/sdcard/Download/output_${time}.webp`;
@@ -22,14 +23,8 @@ export async function makeSticker(buffer, packname = "ADRI-BOT", author = "Adri"
             exec(cmd, async (err) => {
                 fs.unlinkSync(input);
 
-                if (err) {
-                    console.log("❌ Error FFmpeg:", err);
-                    return reject(err);
-                }
-
-                if (!fs.existsSync(output)) {
-                    return reject("No se generó el sticker.");
-                }
+                if (err) return reject(err);
+                if (!fs.existsSync(output)) return reject("No se generó el sticker.");
 
                 let sticker = fs.readFileSync(output);
                 fs.unlinkSync(output);
