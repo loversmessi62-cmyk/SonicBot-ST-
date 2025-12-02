@@ -1,39 +1,38 @@
 import axios from "axios";
-import { writeExifImg } from "../lib/sticker.js";
+import { sticker } from "../lib/sticker.js";
 
 export default {
-    commands: ["qc", "quote"],
+    commands: ["qc"],
     category: "stickers",
 
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
+        // Texto de QC
         let texto = args.join(" ").trim();
         const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
         if (!texto && quoted?.conversation) texto = quoted.conversation;
-        if (!texto) return sock.sendMessage(jid, { text: "🚩 *Te faltó el texto!*" });
+        if (!texto) return sock.sendMessage(jid, { text: "⚠️ Te faltó escribir algo." });
 
         if (texto.length > 80)
-            return sock.sendMessage(jid, { text: "🚩 Máximo 80 caracteres." });
+            return sock.sendMessage(jid, { text: "⚠️ Máximo 80 caracteres." });
 
-        const who = ctx.sender;
-
-        // FOTO DE PERFIL SEGURA
-        let pfp;
+        // Foto de perfil
+        let pp;
         try {
-            pfp = await sock.profilePictureUrl(who, "image");
+            pp = await sock.profilePictureUrl(ctx.sender, "image");
         } catch {
-            pfp = "https://telegra.ph/file/24fa902ead26340f3df2c.png";
+            pp = "https://telegra.ph/file/24fa902ead26340f3df2c.png";
         }
 
-        const nombre = (ctx.pushName || "Usuario").slice(0, 24);
+        const nombre = (ctx.pushName || "Usuario").slice(0, 20);
 
-        // OBJETO DEL SERVIDOR DE QUOTES
+        // Objeto QC
         const obj = {
             type: "quote",
             format: "png",
-            backgroundColor: "00000000",
+            backgroundColor: "#00000000",
             width: 512,
             height: 768,
             scale: 2,
@@ -44,7 +43,7 @@ export default {
                     from: {
                         id: 1,
                         name: nombre,
-                        photo: { url: pfp }
+                        photo: { url: pp }
                     },
                     text: texto,
                     replyMessage: {}
@@ -52,15 +51,18 @@ export default {
             ]
         };
 
-        // GENERAR PNG BASE64
-        const json = await axios.post("https://bot.lyo.su/quote/generate", obj, {
-            headers: { "Content-Type": "application/json" }
-        });
+        // API QC
+        const json = await axios.post(
+            "https://bot.lyo.su/quote/generate",
+            obj,
+            { headers: { "Content-Type": "application/json" } }
+        );
 
-        const buffer = Buffer.from(json.data.result.image, "base64");
+        const bufferPNG = Buffer.from(json.data.result.image, "base64");
 
-        // ⭐⭐⭐ STICKER SIN RECORTE ⭐⭐⭐
-        const stickerFinal = await writeExifImg(buffer, {
+        // 🟩 AQUÍ VIENE LA MAGIA → sticker sin recorte
+        const stickerFinal = await sticker(bufferPNG, {
+            type: "full",
             packname: "AdriBot 5.0",
             author: "Adri"
         });
