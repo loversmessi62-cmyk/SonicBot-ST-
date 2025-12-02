@@ -1,8 +1,10 @@
+
 {
   "name": "ADRIBOT",
   "version": "1.0.0",
   "description": "Bot WhatsApp Multi-Device estilo plugins",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
