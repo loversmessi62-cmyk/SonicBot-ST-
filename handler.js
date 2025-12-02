@@ -3,6 +3,24 @@ import path from "path";
 import { getState } from "./utils/cdmtoggle.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
+// =========================================================
+//                   📌 STORE GLOBAL
+// =========================================================
+export const store = {
+    chats: {}, // jid → { user → count }
+};
+
+// Guardar store en disco (opcional)
+const saveStore = () => {
+    fs.writeFileSync("./store.json", JSON.stringify(store, null, 2));
+};
+
+// Cargar store si existe
+if (fs.existsSync("./store.json")) {
+    const old = JSON.parse(fs.readFileSync("./store.json"));
+    Object.assign(store, old);
+}
+
 // ============================================
 //              SISTEMA DE PLUGINS
 // ============================================
@@ -47,7 +65,6 @@ export const handleMessage = async (sock, msg) => {
         const jid = msg.key.remoteJid;
         const isGroup = jid.endsWith("@g.us");
 
-        // Sender real
         const sender = msg.key.participant || msg.key.remoteJid;
         let realSender = sender;
 
@@ -57,7 +74,7 @@ export const handleMessage = async (sock, msg) => {
         let isBotAdmin = false;
 
         // =====================================
-        //           SISTEMA DE ADMINS (NO TOCADO)
+        //           SISTEMA DE ADMINS
         // =====================================
         if (isGroup) {
             metadata = await sock.groupMetadata(jid);
@@ -83,9 +100,21 @@ export const handleMessage = async (sock, msg) => {
             msg.message?.imageMessage?.caption ||
             "";
 
-        // ==========================================
+        // =========================================================
+        //           📌 CONTADOR DE MENSAJES (PARA FANTASMAS)
+        // =========================================================
+        if (isGroup) {
+            if (!store.chats[jid]) store.chats[jid] = {};
+
+            store.chats[jid][realSender] =
+                (store.chats[jid][realSender] || 0) + 1;
+
+            saveStore();
+        }
+
+        // =========================================================
         //              SISTEMA ANTILINK
-        // ==========================================
+        // =========================================================
         if (isGroup && getState("antilink")) {
             const linkRegex = /(https?:\/\/[^\s]+)/gi;
 
@@ -140,69 +169,65 @@ export const handleMessage = async (sock, msg) => {
         const plugin = plugins[command];
 
         // -----------------------------------------------------
-        //           DETECCIÓN REAL DE MEDIA (MEGA FIX)
+        //           DETECCIÓN REAL DE MEDIA  
         // -----------------------------------------------------
-       function getMediaMessage(m) {
+        function getMediaMessage(m) {
 
-    if (!m?.message) return null;
+            if (!m?.message) return null;
 
-    const msg = m.message;
+            const msg = m.message;
 
-    // ------------------ DIRECT MEDIA ------------------
-    const direct = msg.imageMessage ||
-                   msg.videoMessage ||
-                   msg.stickerMessage ||
-                   msg.documentMessage ||
-                   msg.audioMessage;
+            const direct = msg.imageMessage ||
+                msg.videoMessage ||
+                msg.stickerMessage ||
+                msg.documentMessage ||
+                msg.audioMessage;
 
-    if (direct) {
-        return [
-            direct.mimetype?.split("/")[0] || "file",
-            direct
-        ];
-    }
+            if (direct) {
+                return [
+                    direct.mimetype?.split("/")[0] || "file",
+                    direct
+                ];
+            }
 
-    // ------------------ VIEW ONCE ------------------
-    const vo = msg.viewOnceMessageV2?.message || msg.viewOnceMessage?.message;
-    if (vo) {
-        const voMedia = vo.imageMessage || vo.videoMessage;
-        if (voMedia) {
-            return [
-                voMedia.mimetype?.split("/")[0] || "file",
-                voMedia
-            ];
-        }
-    }
+            const vo = msg.viewOnceMessageV2?.message || msg.viewOnceMessage?.message;
+            if (vo) {
+                const voMedia = vo.imageMessage || vo.videoMessage;
+                if (voMedia) {
+                    return [
+                        voMedia.mimetype?.split("/")[0] || "file",
+                        voMedia
+                    ];
+                }
+            }
 
-    // ------------------ QUOTED (UNIVERSAL FIX) ------------------
-    const ctx = msg?.extendedTextMessage?.contextInfo ||
+            const ctx = msg?.extendedTextMessage?.contextInfo ||
                 msg?.imageMessage?.contextInfo ||
                 msg?.videoMessage?.contextInfo ||
                 msg?.documentMessage?.contextInfo ||
                 msg?.stickerMessage?.contextInfo ||
                 msg?.audioMessage?.contextInfo;
 
-    const quoted = ctx?.quotedMessage;
-    if (quoted) {
+            const quoted = ctx?.quotedMessage;
+            if (quoted) {
 
-        const qMedia =
-            quoted.imageMessage ||
-            quoted.videoMessage ||
-            quoted.stickerMessage ||
-            quoted.documentMessage ||
-            quoted.audioMessage;
+                const qMedia =
+                    quoted.imageMessage ||
+                    quoted.videoMessage ||
+                    quoted.stickerMessage ||
+                    quoted.documentMessage ||
+                    quoted.audioMessage;
 
-        if (qMedia) {
-            return [
-                qMedia.mimetype?.split("/")[0] || "file",
-                qMedia
-            ];
+                if (qMedia) {
+                    return [
+                        qMedia.mimetype?.split("/")[0] || "file",
+                        qMedia
+                    ];
+                }
+            }
+
+            return null;
         }
-    }
-
-    return null;
-}
-
 
         // ===============================
         //      CONTEXTO (ctx)
@@ -221,7 +246,8 @@ export const handleMessage = async (sock, msg) => {
             participants: metadata?.participants || [],
             groupAdmins: admins,
 
-            // 🔥 SUPER FIX PARA .HD Y OTROS COMANDOS DE DESCARGA
+            store, // 📌 AÑADIDO PARA plugins (.fantasmas)
+
             download: async () => {
                 try {
                     const detected = getMediaMessage(msg);
@@ -243,9 +269,9 @@ export const handleMessage = async (sock, msg) => {
             }
         };
 
-        // ===============================
-        //       SISTEMA ON/OFF
-        // ===============================
+        // =====================================================
+        //              SISTEMA ON/OFF
+        // =====================================================
         try {
             const state = getState(command);
             if (state === false) {
