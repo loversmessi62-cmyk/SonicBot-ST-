@@ -1,63 +1,51 @@
 import Jimp from "jimp";
+import path from "path";
 
 export default {
     commands: ["qc"],
     async run(sock, msg, args, ctx) {
 
-        const jid = msg.key.remoteJid;
-        const sender = msg.pushName || "Usuario";
-        const texto = args.join(" ") || "Sin mensaje";
+        const texto = args.join(" ");
+        const user = ctx.pushName || "Usuario";
 
-        // Tamaño tipo sticker
-        const size = 512;
+        if (!texto)
+            return sock.sendMessage(ctx.chat, { text: "❌ Ingresa un mensaje\nEj: .qc hola" });
 
-        // Crear fondo negro
-        const img = new Jimp(size, size, "#000000");
+        // ================================
+        //   Cargar fuentes personalizadas
+        // ================================
+        const fontHeader = await Jimp.loadFont("./fonts/wh-naranja.fnt");
+        const fontBody = await Jimp.loadFont("./fonts/wh-blanca.fnt");
 
-        // Hacer esquinas redondeadas (bordes 50px)
-        const radius = 90;
-        img.scan(0, 0, img.bitmap.width, img.bitmap.height, function (x, y, idx) {
-            const dx = x < radius ? radius - x : x > this.bitmap.width - radius ? x - (this.bitmap.width - radius) : 0;
-            const dy = y < radius ? radius - y : y > this.bitmap.height - radius ? y - (this.bitmap.height - radius) : 0;
-            if (dx * dx + dy * dy > radius * radius) this.bitmap.data[idx + 3] = 0;
+        // ================================
+        //     Crear imagen 512x512
+        // ================================
+        const img = new Jimp(512, 512, "#000000");
+
+        // ================================
+        //     Escribir texto
+        // ================================
+        img.print(fontHeader, 30, 40, `Usuario: ${user}`);
+        img.print(fontBody, 30, 150, texto, 450);
+
+        // ================================
+        //     Guardar temporal
+        // ================================
+        const out = "./temp/qc-" + Date.now() + ".png";
+        await img.writeAsync(out);
+
+        // ================================
+        //     Enviar como sticker
+        // ================================
+        await sock.sendMessage(ctx.chat, {
+            sticker: { url: out }
         });
 
-        // Fuentes
-        const fontOrange = await Jimp.loadFont(Jimp.FONT_SANS_64_ORANGE);
-        const fontWhite = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
-
-        // Texto
-        img.print(
-            fontOrange,
-            40,
-            120,
-            {
-                text: sender,
-                alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
-                alignmentY: Jimp.VERTICAL_ALIGN_TOP
-            },
-            size - 80,
-            100
-        );
-
-        img.print(
-            fontWhite,
-            40,
-            240,
-            {
-                text: texto,
-                alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
-                alignmentY: Jimp.VERTICAL_ALIGN_TOP
-            },
-            size - 80,
-            200
-        );
-
-        // Convertir a WebP para sticker
-        const buffer = await img.getBufferAsync("image/webp");
-
-        await sock.sendMessage(jid, {
-            sticker: buffer
-        });
+        // ================================
+        //     Borrar archivo temporal
+        // ================================
+        setTimeout(() => {
+            try { fs.unlinkSync(out); } catch {}
+        }, 3000);
     }
 };
