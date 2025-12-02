@@ -1,6 +1,6 @@
 import axios from "axios";
 import fs from "fs";
-import { sticker } from "./multi-sticker.js"; // <-- usa tu propio sistema de stickers
+import stickerPlugin from "./multi-sticker.js";  // <-- usa tu propio sistema de stickers
 
 export default {
   commands: ["qc"],
