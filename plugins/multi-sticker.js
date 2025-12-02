@@ -8,7 +8,6 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
-        // Descargar archivo
         let buffer;
         try {
             buffer = await ctx.download();
@@ -18,16 +17,20 @@ export default {
             }, { quoted: msg });
         }
 
-        // Paths temporales
         const input = path.join(process.cwd(), `input_${Date.now()}.jpg`);
         const output = path.join(process.cwd(), `sticker_${Date.now()}.webp`);
+
         fs.writeFileSync(input, buffer);
 
-        // FFmpeg → convertir a WebP (como sticker)
         await new Promise((resolve, reject) => {
             const ff = spawn("ffmpeg", [
                 "-i", input,
-                "-vf", "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=0x00000000",
+
+                // ⬇️ Medidas optimizadas
+                "-vf",
+                "scale=512:512:force_original_aspect_ratio=decrease," +
+                "pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+
                 "-vcodec", "libwebp",
                 "-lossless", "0",
                 "-qscale", "70",
@@ -45,10 +48,8 @@ export default {
 
         const stickerBuffer = fs.readFileSync(output);
 
-        // Enviar sticker
         await sock.sendMessage(jid, { sticker: stickerBuffer }, { quoted: msg });
 
-        // Borrar temporales
         fs.unlinkSync(input);
         fs.unlinkSync(output);
     }
