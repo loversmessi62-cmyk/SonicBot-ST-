@@ -1,38 +1,38 @@
-export default {
-    commands: ["s", "sticker"],
-    category: "stickers",
+const quoted = msg.message?.extendedTextMessage?.contextInfo;
+const mimeQ = quoted?.quotedMessage?.imageMessage
+    ? "image"
+    : quoted?.quotedMessage?.videoMessage
+    ? "video"
+    : null;
 
-    async run(sock, msg, args, ctx) {
-        const { jid } = ctx;
+// SI NO HAY QUOTED (RESPONDIDO), REVISAMOS SI ÉL MANDÓ LA IMAGEN DIRECTAMENTE
+let mtype;
+if (mimeQ) {
+    // Imagen o video citado
+    mtype = mimeQ;
+} else if (msg.message?.imageMessage) {
+    mtype = "image";
+} else if (msg.message?.videoMessage) {
+    mtype = "video";
+} else {
+    return sock.sendMessage(jid, { text: "⚠️ Responde a una imagen o video con .s" }, { quoted: msg });
+}
 
-        // Verifica que haya imagen
-        if (!msg.message.imageMessage && !msg.message.videoMessage) {
-            return sock.sendMessage(jid, {
-                text: "⚠️ Envía o responde a una imagen/video con:\n.s"
-            }, { quoted: msg });
+let buffer;
+
+// SI ES QUOTED
+if (mimeQ) {
+    buffer = await sock.downloadMediaMessage({
+        message: quoted.quotedMessage,
+        key: {
+            remoteJid: msg.key.remoteJid,
+            id: msg.key.id,
+            fromMe: false
         }
+    });
+} else {
+    // SI ES DIRECTO (no respondido)
+    buffer = await sock.downloadMediaMessage(msg);
+}
 
-        try {
-            // Descargar la imagen/video
-            const buffer = await ctx.download();
-
-            // Enviar como sticker nativo
-            await sock.sendMessage(
-                jid,
-                { 
-                    sticker: buffer, 
-                    mimetype: "image/webp" 
-                },
-                { quoted: msg }
-            );
-
-        } catch (err) {
-            console.log("Error sticker:", err);
-            return sock.sendMessage(
-                jid,
-                { text: "❌ Error creando el sticker." },
-                { quoted: msg }
-            );
-        }
-    }
-};
+await sock.sendMessage(jid, { sticker: buffer }, { quoted: msg });
