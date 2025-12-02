@@ -19,9 +19,6 @@ async function startBot() {
 
     console.log("🚀 Iniciando ADRIBOT...");
 
-    // --------------------
-    // SESIONES
-    // --------------------
     const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
     const sock = makeWASocket({
@@ -33,16 +30,12 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    // --------------------
-    // LOG de Bot conectado
-    // --------------------
     sock.ev.on("connection.update", async update => {
         const { connection, lastDisconnect } = update;
 
         if (connection === "open") {
             console.log("✅ ADRIBOT CONECTADO");
 
-            // 👉 Cargar plugins AQUÍ
             await loadPlugins();
             console.log("🔥 Plugins cargados correctamente.");
         }
@@ -59,32 +52,21 @@ async function startBot() {
         }
     });
 
-    // =====================================================
-    //       🔥 MANEJO DE MENSAJES (ANTI-DUPLICADO)
-    // =====================================================
-
-    const cache = new Set(); // evita duplicados
+    const cache = new Set();
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
         try {
             const msg = messages[0];
             if (!msg?.message) return;
 
-            // ❌ ignorar mensajes del propio bot
             if (msg.key.fromMe) return;
-
-            // ❌ ignorar mensajes de sistema
             if (msg.message.protocolMessage) return;
             if (msg.message.senderKeyDistributionMessage) return;
-
-            // ❌ ignorar estados
             if (msg.key.remoteJid === "status@broadcast") return;
 
-            // ❌ evitar procesar dos veces el mismo mensaje
             if (cache.has(msg.key.id)) return;
             cache.add(msg.key.id);
 
-            // LOG del mensaje
             const texto =
                 msg.message.conversation ||
                 msg.message.extendedTextMessage?.text ||
@@ -93,7 +75,6 @@ async function startBot() {
 
             console.log(`[MSJ] ${msg.key.remoteJid} -> ${texto}`);
 
-            // ejecutar handler
             await handleMessage(sock, msg);
 
         } catch (e) {
