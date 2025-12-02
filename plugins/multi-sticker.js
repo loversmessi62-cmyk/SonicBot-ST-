@@ -1,41 +1,38 @@
-import { Sticker, StickerTypes } from "wa-sticker-formatter";
-
 export default {
-    commands: ["s", "sticker", "stiker"],
-    alias: ["st"],
+    commands: ["s", "sticker"],
     category: "stickers",
 
-    async run(sock, msg, args) {
+    async run(sock, msg, args, ctx) {
+        const { jid } = ctx;
+
+        // Verifica que haya imagen
+        if (!msg.message.imageMessage && !msg.message.videoMessage) {
+            return sock.sendMessage(jid, {
+                text: "⚠️ Envía o responde a una imagen/video con:\n.s"
+            }, { quoted: msg });
+        }
+
         try {
-            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+            // Descargar la imagen/video
+            const buffer = await ctx.download();
 
-            const mime = quoted?.imageMessage
-                ? "image"
-                : quoted?.videoMessage
-                ? "video"
-                : null;
+            // Enviar como sticker nativo
+            await sock.sendMessage(
+                jid,
+                { 
+                    sticker: buffer, 
+                    mimetype: "image/webp" 
+                },
+                { quoted: msg }
+            );
 
-            if (!mime)
-                return sock.sendMessage(msg.key.remoteJid, { text: "❌ Responde una imagen o video." });
-
-            const buffer = await sock.downloadMediaMessage({
-                message: quoted
-            });
-
-            const sticker = new Sticker(buffer, {
-                type: StickerTypes.FULL,
-                quality: 70,           // evitar gris
-                pack: "",              // evitar errores EXIF
-                author: "",            // evitar errores EXIF
-            });
-
-            await sock.sendMessage(msg.key.remoteJid, { 
-                sticker: await sticker.build()
-            });
-
-        } catch (e) {
-            console.log("STICKER ERROR:", e);
-            sock.sendMessage(msg.key.remoteJid, { text: "❌ Falló el sticker." });
+        } catch (err) {
+            console.log("Error sticker:", err);
+            return sock.sendMessage(
+                jid,
+                { text: "❌ Error creando el sticker." },
+                { quoted: msg }
+            );
         }
     }
 };
