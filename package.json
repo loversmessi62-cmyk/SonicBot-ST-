@@ -1,17 +1,25 @@
 {
-  "name": "ADRIBOT",
+  "name": "adribot",
   "version": "1.0.0",
-  "description": "Bot WhatsApp Multi-Device estilo plugins",
+  "description": "Bot de WhatsApp profesional por Adri",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "github:GataNina-Li/Baileys",
-    "pino": "^8.0.0",
-    "qrcode-terminal": "^0.12.0",
+    "@whiskeysockets/baileys": "github:WhiskeySockets/Baileys",
     "axios": "^1.6.0",
-    "moment-timezone": "^0.5.43",
-    "jimp": "^0.16.13"
+    "form-data": "^4.0.0",
+
+    "sharp": "^0.33.0",
+    "node-webpmux": "^4.0.0",
+
+    "pino": "^8.0.0",
+    "qrcode": "^1.5.0",
+
+    "node-fetch": "^3.3.2",
+    "file-type": "^18.5.0",
+    "mime-types": "^2.1.35"
   }
 }
