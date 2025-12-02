@@ -1,48 +1,53 @@
-import axios from "axios";
+import { sticker } from "../lib/sticker.js";
 
 export default {
     commands: ["s", "sticker", "stick"],
     category: "tools",
 
     async run(sock, msg, args, ctx) {
-        const { jid, download, type } = ctx;
+        const { jid, download } = ctx;
 
         try {
+            // Descargar archivo enviado o citado
             const buffer = await download();
             if (!buffer) {
-                return sock.sendMessage(jid, { 
-                    text: "❌ Envía o responde una *imagen, video o gif* para crear sticker." 
-                }, { quoted: msg });
+                return sock.sendMessage(
+                    jid,
+                    { text: "❌ Envía o responde una *imagen, video o gif* para crear sticker." },
+                    { quoted: msg }
+                );
             }
 
-            // === Cargar archivo recibido ===
-            const mime = type || "image";
-            const form = new FormData();
-            form.append("file", buffer, "media");
+            // Crear sticker usando tu librería profesional
+            const webp = await sticker(
+                buffer,
+                null,
+                "ADRIBOT",        // Packname
+                "Hecho por Adri"  // Author
+            );
 
-            // === API que convierte todo a sticker ===
-            const api = "https://api.tiodev.my.id/api/sticker";  // FUNCIONA PERFECTO
+            if (!webp) {
+                return sock.sendMessage(
+                    jid,
+                    { text: "⚠️ No se pudo generar el sticker." },
+                    { quoted: msg }
+                );
+            }
 
-            const { data } = await axios.post(api, form, {
-                headers: form.getHeaders(),
-                responseType: "arraybuffer"
-            });
-
+            // Enviar sticker
             await sock.sendMessage(
                 jid,
-                {
-                    sticker: data,
-                    packname: "ADRIBOT",
-                    author: "Hecho por Adri"
-                },
+                { sticker: webp },
                 { quoted: msg }
             );
 
         } catch (e) {
-            console.error("Error multi-sticker:", e);
-            await sock.sendMessage(jid, {
-                text: "⚠️ Error creando el sticker."
-            }, { quoted: msg });
+            console.error("Error multi-sticker (local):", e);
+            await sock.sendMessage(
+                jid,
+                { text: "⚠️ Error creando el sticker." },
+                { quoted: msg }
+            );
         }
     }
 };
