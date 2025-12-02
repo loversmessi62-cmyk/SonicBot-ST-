@@ -8,60 +8,56 @@ export default {
 
     async run(sock, msg, args, ctx) {
 
-        const jid = msg.key.remoteJid;
+        const { jid } = ctx;
 
-        if (!ctx || !ctx.isGroup)
-            return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
-
-        const opt = args[0];
+        const opt = (args[0] || "").toLowerCase();
 
         if (opt === "on") {
-            setState(jid, "antilink", true);
-            return sock.sendMessage(jid, { text: "🟢 *Antilink activado correctamente.*" });
+            setState("antilink", true, jid); // 🔥 GUARDAR POR GRUPO
+            return sock.sendMessage(jid, { text: "🟢 *Antilink activado en este grupo.*" });
         }
 
         if (opt === "off") {
-            setState(jid, "antilink", false);
-            return sock.sendMessage(jid, { text: "🔴 *Antilink desactivado.*" });
+            setState("antilink", false, jid); // 🔥 DESACTIVAR SOLO ESTE GRUPO
+            return sock.sendMessage(jid, { text: "🔴 *Antilink desactivado en este grupo.*" });
         }
 
+        const estado = getState("antilink", jid);
+
         return sock.sendMessage(jid, { 
-            text: `⚙️ *ANTILINK*\nEstado: ${getState(jid, "antilink") ? "🟢 ON" : "🔴 OFF"}\n\nUsa:\n.antilink on\n.antilink off`
+            text: `⚙️ *ANTILINK*\n\nEstado en este grupo: ${estado ? "🟢 ON" : "🔴 OFF"}\n\nUsa:\n.antilink on\n.antilink off`
         });
     },
 
     async onMessage(sock, msg, ctx) {
-        // PREVENIR CRASH
-        if (!ctx || !ctx.isGroup) return;
 
-        const jid = msg.key.remoteJid;
+        const { jid, isGroup, isAdmin, sender } = ctx;
+        if (!isGroup) return;
 
-        if (!getState(jid, "antilink")) return;
+        // Si en este grupo NO está activado → ignorar
+        if (!getState("antilink", jid)) return;
 
-        const body = msg.body || "";
+        const text =
+            msg.message?.conversation ||
+            msg.message?.extendedTextMessage?.text ||
+            msg.message?.imageMessage?.caption ||
+            "";
 
-        if (/(https?:\/\/)?chat\.whatsapp\.com\//i.test(body)) {
+        // Detectar links de grupos
+        if (!/(https?:\/\/)?chat\.whatsapp\.com\//i.test(text)) return;
 
-            // Obtener info del remitente
-            const user = msg.sender;
+        if (isAdmin)
+            return; // Admin no se expulsa
 
-            // Si es admin, ignorar
-            if (ctx.isAdmin(user)) return;
+        await sock.sendMessage(jid, {
+            text: `🚫 *Link detectado*\n@${sender.split("@")[0]} no se permiten links.`,
+            mentions: [sender]
+        });
 
-            await sock.sendMessage(jid, { 
-                text: `🚫 *Enlace detectado*\n@${user.split("@")[0]} no se permiten links aquí.`,
-                mentions: [user]
-            });
-
-            try {
-                await sock.groupParticipantsUpdate(
-                    jid,
-                    [user],
-                    "remove"
-                );
-            } catch (err) {
-                console.log("Error al expulsar:", err);
-            }
+        try {
+            await sock.groupParticipantsUpdate(jid, [sender], "remove");
+        } catch (e) {
+            console.log("Error expulsando:", e);
         }
     }
 };
