@@ -9,42 +9,45 @@ export default {
     if (!text)
       return sock.sendMessage(
         ctx.jid,
-        { text: "✏️ Escribe un texto.\nEjemplo:\n.qc Hola soy AdriBot" },
+        { text: "✏️ Escribe un texto.\nEjemplo:\n.qc Hola soy ADRIBOT" },
         { quoted: msg }
       );
 
     const sender = msg.key.participant || msg.key.remoteJid;
 
-    // Obtener foto
-    let pfp;
+    // FOTO DE PERFIL
+    let avatar;
     try {
-      pfp = await sock.profilePictureUrl(sender, "image");
+      avatar = await sock.profilePictureUrl(sender, "image");
     } catch {
-      pfp = "https://files.catbox.moe/k98we9.jpeg";
+      avatar = "https://files.catbox.moe/k98we9.jpeg";
     }
 
     try {
-      // Llamada a API QC
-      const url = `https://yokobot.xyz/api/quote?avatar=${encodeURIComponent(
-        pfp
+      // API estable (x0)
+      const api = `https://x0.yourapi.pro/quote?avatar=${encodeURIComponent(
+        avatar
       )}&name=${encodeURIComponent(
         ctx.pushName || "Usuario"
-      )}&text=${encodeURIComponent(text)}&wm=${encodeURIComponent(
-        "Hecho por ADRIBOT"
-      )}`;
+      )}&text=${encodeURIComponent(
+        text
+      )}&wm=${encodeURIComponent("Hecho por ADRIBOT")}`;
 
-      const res = await axios.get(url, { responseType: "arraybuffer" });
+      const { data } = await axios.get(api, { responseType: "arraybuffer" });
 
       await sock.sendMessage(
         ctx.jid,
-        { sticker: res.data },
+        { sticker: data },
         { quoted: msg }
       );
+
     } catch (e) {
-      console.log("QC error:", e);
-      return sock.sendMessage(ctx.jid, {
-        text: "❌ Error generando QC."
-      });
+      console.error("QC error:", e);
+      return sock.sendMessage(
+        ctx.jid,
+        { text: "❌ Error generando QC (API no respondió)." },
+        { quoted: msg }
+      );
     }
   }
 };
