@@ -1,66 +1,50 @@
-import axios from "axios";
-import fs from "fs";
+import Jimp from "jimp";
 
 export default {
     commands: ["qc"],
+    category: "stickers",
 
     async run(sock, msg, args, ctx) {
         try {
+            const jid = msg.key.remoteJid;
+            const sender = msg.key.participant || msg.key.remoteJid;
+            const username = ctx.pushName || "Usuario";
+
             const text = args.join(" ");
-            if (!text) return sock.sendMessage(ctx.jid, { text: "❌ Ingresa un texto\n\nEjemplo: *.qc hola*" });
+            if (!text) return sock.sendMessage(jid, { text: "✏️ Escribe algo\nEjemplo: *.qc Hola*" });
 
-            // Nombre real del usuario
-            const name = msg.pushName || "Sin Nombre";
+            // Foto del usuario
+            const ppUrl = await sock.profilePictureUrl(sender, "image").catch(() => null);
+            const userPfp = ppUrl ? await Jimp.read(ppUrl) : await Jimp.read("https://i.imgur.com/TrcVn5E.png");
 
-            // Foto de perfil real
-            let pfp;
-            try {
-                pfp = await sock.profilePictureUrl(ctx.sender, "image");
-            } catch {
-                pfp = "https://i.ibb.co/6BRf4Rc/avatar.png";
-            }
+            userPfp.resize(200, 200).circle(); // foto redonda
 
-            // Body del QC CUADRADO
-            const body = {
-                type: "quote",
-                format: "png",
-                backgroundColor: "#000000",
-                width: 512,
-                height: 512,
-                scale: 3,
-                padding: 0,
-                radius: 30,
+            // Lienzo base
+            const img = new Jimp(800, 400, "#00000000"); // transparente
 
-                messages: [
-                    {
-                        avatar: true,
-                        from: {
-                            id: 1,
-                            name: name,       // ← AQUÍ VA TU NOMBRE REAL
-                            photo: { url: pfp }
-                        },
-                        text: text,
-                        replyMessage: {}
-                    }
-                ]
-            };
+            const font = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
 
-            // Petición a la API
-            const { data } = await axios.post(
-                "https://quotly.net/api/generate",
-                body,
-                { responseType: "arraybuffer" }
-            );
+            // Escribir nombre
+            img.print(font, 230, 40, username);
 
-            // Enviar como sticker
-            await sock.sendMessage(ctx.jid, {
-                sticker: data,
-                mimetype: "image/webp"
+            // Escribir texto
+            img.print(font, 230, 120, text, 520);
+
+            // Poner foto
+            img.composite(userPfp, 20, 20);
+
+            // Ajusta los bordes detectando contenido real
+            img.autocrop({ leaveBorder: 20 });
+
+            const buffer = await img.getBufferAsync("image/webp");
+
+            await sock.sendMessage(jid, {
+                sticker: buffer
             });
 
-        } catch (err) {
-            console.log("QC ERROR:", err);
-            sock.sendMessage(ctx.jid, { text: "❌ No se pudo generar el QC." });
+        } catch (e) {
+            console.log(e);
+            sock.sendMessage(msg.key.remoteJid, { text: "❌ Error en .qc" });
         }
-    },
+    }
 };
