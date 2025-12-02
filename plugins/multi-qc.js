@@ -1,6 +1,6 @@
 import axios from "axios";
 import fs from "fs";
-import stickerPlugin from "./multi-sticker.js";  // <-- usa tu propio sistema de stickers
+import { makeSticker } from "../utils/sticker-func.js";   // ✔ IMPORT CORRECTO
 
 export default {
   commands: ["qc"],
@@ -8,6 +8,7 @@ export default {
 
   async run(sock, msg, args, ctx) {
     try {
+
       const text = args.join(" ") || "Sin texto";
       const { jid } = ctx;
 
@@ -27,7 +28,7 @@ export default {
       const avatarBuffer = Buffer.from(res.data);
 
       // ============================
-      //     CREAR IMAGEN QC
+      //     CREAR LIENZO QC
       // ============================
       const { createCanvas, loadImage } = await import("canvas");
 
@@ -38,7 +39,7 @@ export default {
       ctx2.fillStyle = "#000";
       ctx2.fillRect(0, 0, 800, 400);
 
-      // Foto en círculo
+      // Foto circular
       const avatar = await loadImage(avatarBuffer);
       ctx2.save();
       ctx2.beginPath();
@@ -48,12 +49,12 @@ export default {
       ctx2.drawImage(avatar, 30, 80, 240, 240);
       ctx2.restore();
 
-      // Nombre del usuario
+      // Nombre
       ctx2.fillStyle = "#ffa646";
       ctx2.font = "bold 80px Sans-serif";
       ctx2.fillText(ctx.pushName || "Usuario", 320, 180);
 
-      // Texto debajo
+      // Texto ingresado
       ctx2.fillStyle = "#fff";
       ctx2.font = "70px Sans-serif";
       ctx2.fillText(text, 320, 280);
@@ -63,7 +64,7 @@ export default {
       // ============================
       //     CONVERTIR A STICKER
       // ============================
-      const stickerFinal = await sticker(finalImage);
+      const stickerFinal = await makeSticker(finalImage);
 
       await sock.sendMessage(
         jid,
