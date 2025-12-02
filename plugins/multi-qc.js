@@ -1,6 +1,6 @@
 // multi-qc.js — Adri-BOT
 import axios from "axios"
-import { createSticker } from "../lib/multi-sticker.js"
+import { createSticker } from "./multi-sticker.js";
 
 export default {
     commands: ["qc", "multiqc", "quote"],
