@@ -26,14 +26,14 @@ export default {
             const ff = spawn("ffmpeg", [
                 "-i", input,
 
-                // ⬇️ Medidas optimizadas
+                // 🔥 RELLENA COMPLETO SIN BORDES (FULL COVER)
                 "-vf",
-                "scale=512:512:force_original_aspect_ratio=decrease," +
-                "pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+                "scale=512:512:force_original_aspect_ratio=increase," +
+                "crop=512:512",
 
                 "-vcodec", "libwebp",
                 "-lossless", "0",
-                "-qscale", "70",
+                "-quality", "70",
                 "-preset", "default",
                 "-an",
                 "-vsync", "0",
