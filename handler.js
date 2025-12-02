@@ -100,17 +100,42 @@ export const handleMessage = async (sock, msg) => {
             msg.message?.imageMessage?.caption ||
             "";
         // =========================================================
-        // CONTADOR DE MENSAJES (PARA FANTASMAS)
+        //       📌 CONTADOR REAL DE ACTIVIDAD (MEGA PRECISO)
         // =========================================================
-     
 if (isGroup) {
+
     if (!store.chats[jid]) store.chats[jid] = {};
 
-    store.chats[jid][realSender] =
-        (store.chats[jid][realSender] || 0) + 1;
+    const chat = store.chats[jid];
 
-    saveStore();
+    // SIEMPRE inicializar
+    if (!chat[realSender]) chat[realSender] = 0;
+
+    const m = msg.message || {};
+
+    // ===== ACTIVIDAD VÁLIDA =====
+
+    const hizoAlgo =
+        m.conversation ||
+        m.extendedTextMessage ||
+        m.imageMessage ||
+        m.videoMessage ||
+        m.stickerMessage ||
+        m.documentMessage ||
+        m.audioMessage ||
+        m.contactMessage ||
+        m.locationMessage ||
+        m.liveLocationMessage ||
+        m.viewOnceMessage ||
+        m.viewOnceMessageV2 ||
+        m.reactionMessage; // ✔ reacciones
+
+    if (hizoAlgo) {
+        chat[realSender]++; // Aumenta si hizo ALGO
+        saveStore();
+    }
 }
+
 
         // =========================================================
         //              SISTEMA ANTILINK
