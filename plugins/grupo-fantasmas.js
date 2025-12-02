@@ -1,34 +1,66 @@
-import { store } from "../index.js";
+import { store } from "../handler.js";
 
 export default {
-    commands: ["fantasmas", "inactivos"],
-    category: "grupos",
+    commands: ["fantasmas"],
+    category: "group",
+    admin: true, // solo admins
+    description: "Menciona a los inactivos del grupo basándose en sus mensajes enviados.",
 
-    async run(sock, msg) {
-        const jid = msg.key.remoteJid;
+    async run(sock, msg, args, ctx) {
+        const { jid, groupMetadata, participants } = ctx;
 
-        const metadata = await sock.groupMetadata(jid);
-        const participantes = metadata.participants.map(p => p.id);
+        if (!ctx.isGroup) {
+            return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+        }
 
-        await store.loadMessages(jid, 200);
+        const chatId = jid;
 
-        const msgs = store.messages[jid] || {};
+        // Asegurar que el grupo tenga registro
+        if (!store.chats[chatId]) {
+            store.chats[chatId] = {};
+        }
 
-        const inactivos = participantes.filter(p => !msgs[p]);
+        // Cuenta de mensajes del grupo
+        const messageCount = store.chats[chatId];
 
-        let texto = "👻 *MIEMBROS INACTIVOS*\n\n";
+        // Convertir lista de participantes en datos útiles
+        let lista = participants.map(p => {
+            const id = p.id || p.jid;
+            const count = messageCount[id] || 0;
 
-        if (inactivos.length === 0) {
-            texto += "✨ No hay fantasmas en este grupo";
-        } else {
-            for (let u of inactivos) {
-                texto += `• @${u.split("@")[0]}\n`;
-            }
+            return {
+                id,
+                count
+            };
+        });
+
+        // Ordenar de menor a mayor mensajes (FANTASMAS arriba)
+        lista.sort((a, b) => a.count - b.count);
+
+        // Detectar fantasmas (0 mensajes o muy pocos)
+        const fantasmas = lista.filter(u => u.count <= 1);
+
+        if (fantasmas.length === 0) {
+            return sock.sendMessage(jid, {
+                text: "✨ No hay fantasmas, todos han hablado recientemente."
+            });
+        }
+
+        // Construir mensaje
+        let texto = `👻 *FANTASMAS DEL GRUPO*\n`;
+        texto += `Los siguientes usuarios tienen *0 a 1 mensajes enviados*:\n\n`;
+
+        let mentions = [];
+
+        for (let u of fantasmas) {
+            const num = u.id.split("@")[0];
+            texto += `• @${num} → ${u.count} mensajes\n`;
+            mentions.push(u.id);
         }
 
         await sock.sendMessage(jid, {
             text: texto,
-            mentions: inactivos
-        }, { quoted: msg });
+            mentions
+        });
     }
 };
