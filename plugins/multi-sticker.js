@@ -2,6 +2,12 @@ import fs from "fs";
 import { exec } from "child_process";
 
 // ======================================
+//           PACK SUPER PRO
+// ======================================
+const PACKNAME = "⚡ ADRI-BOT ⚡";
+const AUTHOR = "👑 Adri DH";
+
+// ======================================
 //     FUNCIÓN PARA GENERAR CUALQUIER STICKER
 // ======================================
 export async function sticker(buffer, isVideo = false) {
@@ -13,22 +19,18 @@ export async function sticker(buffer, isVideo = false) {
 
             fs.writeFileSync(input, buffer);
 
-            // Comando para IMAGEN o WEBP
-            const cmdImage = `ffmpeg -i "${input}" -vf scale=512:512:force_original_aspect_ratio=decrease -vcodec libwebp -lossless 1 -qscale 1 -preset picture -an -vsync 0 "${output}"`;
+            // FFMPEG PARA IMÁGENES
+            const cmdImage = `ffmpeg -i "${input}" -vf scale=512:512:force_original_aspect_ratio=decrease -vcodec libwebp -lossless 1 -qscale 1 -preset picture -an -vsync 0 -metadata title="${PACKNAME}" -metadata author="${AUTHOR}" "${output}"`;
 
-            // Comando para VIDEO/GIF (STICKER ANIMADO)
-            const cmdVideo = `ffmpeg -i "${input}" -vcodec libwebp -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15" -loop 0 -preset default -an -vsync 0 "${output}"`;
+            // FFMPEG PARA VIDEOS / GIFS
+            const cmdVideo = `ffmpeg -i "${input}" -vcodec libwebp -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15" -loop 0 -preset default -an -vsync 0 -metadata title="${PACKNAME}" -metadata author="${AUTHOR}" "${output}"`;
 
-            const finalCmd = isVideo ? cmdVideo : cmdImage;
-
-            exec(finalCmd, (err) => {
-                // borrar input siempre
+            exec(isVideo ? cmdVideo : cmdImage, (err) => {
                 if (fs.existsSync(input)) fs.unlinkSync(input);
 
                 if (err) return reject(err);
 
                 const stickerBuffer = fs.readFileSync(output);
-
                 if (fs.existsSync(output)) fs.unlinkSync(output);
 
                 resolve(stickerBuffer);
@@ -47,7 +49,7 @@ export default {
     commands: ["sticker", "s"],
     category: "sticker",
     admin: false,
-    description: "Convierte imagen/video/gif/webp a sticker.",
+    description: "Convierte imagen/video/gif/webp a sticker PRO.",
 
     async run(sock, msg, args, ctx) {
         const { jid, mime, download } = ctx;
@@ -63,11 +65,11 @@ export default {
             );
         }
 
-        // Detectar si es video/gif
+        // Detectar si es video/gif/webp animado
         const isVideo =
             mime?.includes("video") ||
             mime?.includes("gif") ||
-            mime?.includes("webp") && !mime.includes("image");
+            (mime?.includes("webp") && !mime.includes("image"));
 
         try {
             const stickerResult = await sticker(buffer, isVideo);
