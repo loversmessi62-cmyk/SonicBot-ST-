@@ -1,31 +1,44 @@
+import Jimp from "jimp";
+
 export default {
     commands: ["qc"],
     async run(sock, msg, args, ctx) {
+
         const jid = msg.key.remoteJid;
         const sender = msg.pushName || "Usuario";
+        const texto = args.join(" ") || "Sin mensaje";
 
-        if (!args.length)
-            return sock.sendMessage(jid, { text: "✨ Escribe un texto.\nEj: .qc Hola" });
+        // Crear imagen 600x600 blanca
+        const img = new Jimp(600, 600, "#ffffff");
 
-        const texto = args.join(" ");
+        // Fuente
+        const font = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK);
 
-        // ======== IMAGEN BASE 600x600 (PNG en blanco) ============
-        const blankPng = Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAlgAAAJYCAYAAAA8AXHiAAAABmJLR0QA/wD/AP+gvaeTAAACQElEQVR4nO3QQREAAAgEIE1u9Fh7hA8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgN8BMAABYyqnKAAAAAElFTkSuQmCC",
-            "base64"
+        // Texto del QC
+        const mensaje = 
+`✨ QC DE: ${sender}
+💬 MENSAJE: ${texto}`;
+
+        // Escribir el texto centrado
+        img.print(
+            font,
+            20,
+            20,
+            {
+                text: mensaje,
+                alignmentX: Jimp.HORIZONTAL_ALIGN_LEFT,
+                alignmentY: Jimp.VERTICAL_ALIGN_TOP
+            },
+            560,
+            560
         );
 
-        // =================== TEXTO BONITO ===================
-        const content =
-`┏━━━━━━━━━━━━━━━━━━┓
-✨ *QC DE:* ${sender}
-💬 *MENSAJE:* ${texto}
-┗━━━━━━━━━━━━━━━━━━┛`;
+        // Convertir a buffer PNG
+        const buffer = await img.getBufferAsync(Jimp.MIME_PNG);
 
-        // =================== CONVERTIR A STICKER ===================
+        // Enviar como sticker
         await sock.sendMessage(jid, {
-            sticker: blankPng,
-            caption: content
+            sticker: buffer
         });
 
     }
