@@ -1,83 +1,90 @@
-import { store } from "../index.js"; // AJUSTA si tu store está en otro archivo
-
 export default {
     commands: ["fantasmas", "kickfantasmas"],
-    admin: true,
+    admin: true, // solo admins
     category: "grupo",
 
     async run(sock, msg, args, ctx) {
-
-        const jid = ctx.jid;
+        const { jid, groupMetadata, store, isBotAdmin, sock: client } = ctx;
 
         if (!ctx.isGroup)
-            return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+            return client.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
 
-        const command = ctx.args?.length >= 0
-            ? msg.message.conversation?.slice(1).split(" ")[0].toLowerCase()
-            : "";
+        if (!isBotAdmin)
+            return client.sendMessage(jid, { text: "❌ Necesito ser administrador para usar esto." });
 
-        // Obtener participantes reales
-        const group = await sock.groupMetadata(jid);
-        const participantes = group.participants.map(p => p.id);
+        const participantes = groupMetadata.participants;
+        const registros = store.chats[jid] || {};
 
-        // Mensajes guardados del store
-        const mensajesGrupo = store.messages.get(jid) || [];
+        // =============================================
+        //                COMANDO: .fantasmas
+        // =============================================
+        if (ctx.command === "fantasmas") {
+            let inactivos = [];
 
-        const activos = new Set();
+            for (let user of participantes) {
+                const id = user.id;
+                const msgs = registros[id] || 0;
 
-        for (const m of mensajesGrupo) {
-            const autor =
-                m.key.participant ||
-                m.participant ||
-                m.key.remoteJid;
-
-            if (autor)
-                activos.add(autor.replace(/:[0-9]+/g, ""));
-        }
-
-        // Filtrar inactivos
-        const fantasmas = participantes.filter(u => !activos.has(u));
-
-        // ============================
-        //   .fantasmas
-        // ============================
-        if (ctx.msg.message.conversation?.startsWith(".fantasmas") ||
-            ctx.msg.message?.extendedTextMessage?.text?.startsWith(".fantasmas")) {
-
-            if (fantasmas.length === 0)
-                return sock.sendMessage(jid, { text: "✨ No hay usuarios inactivos." });
-
-            return sock.sendMessage(jid, {
-                text:
-                    "👻 *Usuarios inactivos:*\n\n" +
-                    fantasmas.map(u => `@${u.split("@")[0]}`).join("\n"),
-                mentions: fantasmas
-            });
-        }
-
-        // ============================
-        //   .kickfantasmas
-        // ============================
-        if (ctx.msg.message.conversation?.startsWith(".kickfantasmas") ||
-            ctx.msg.message?.extendedTextMessage?.text?.startsWith(".kickfantasmas")) {
-
-            if (!ctx.isAdmin)
-                return sock.sendMessage(jid, { text: "❌ Solo admins pueden expulsar." });
-
-            if (fantasmas.length === 0)
-                return sock.sendMessage(jid, { text: "✨ No hay fantasmas que expulsar." });
-
-            await sock.sendMessage(jid, {
-                text:
-                    "👢 *Expulsando fantasmas:*\n\n" +
-                    fantasmas.map(u => `@${u.split("@")[0]}`).join("\n"),
-                mentions: fantasmas
-            });
-
-            for (const user of fantasmas) {
-                await sock.groupParticipantsUpdate(jid, [user], "remove");
-                await new Promise(res => setTimeout(res, 350));
+                if (msgs < 5) { // 🔥 menos de 5 mensajes = fantasma
+                    inactivos.push(id);
+                }
             }
+
+            if (inactivos.length === 0) {
+                return client.sendMessage(jid, { text: "🟢 No hay fantasmas. Todos están activos." });
+            }
+
+            const lista = inactivos
+                .map(u => `• @${u.split("@")[0]}`)
+                .join("\n");
+
+            return client.sendMessage(jid, {
+                text:
+`👻 *FANTASMAS DETECTADOS*
+Usuarios con muy poca actividad:
+
+${lista}
+
+Usa *.kickfantasmas* para expulsarlos.`,
+                mentions: inactivos
+            });
+        }
+
+        // =============================================
+        //             COMANDO: .kickfantasmas
+        // =============================================
+        if (ctx.command === "kickfantasmas") {
+
+            let inactivos = [];
+
+            for (let user of participantes) {
+                const id = user.id;
+                const msgs = registros[id] || 0;
+
+                if (msgs < 5) {
+                    inactivos.push(id);
+                }
+            }
+
+            if (inactivos.length === 0) {
+                return client.sendMessage(jid, { text: "🟢 No hay fantasmas para expulsar." });
+            }
+
+            await client.sendMessage(jid, {
+                text: `👻 Expulsando a ${inactivos.length} fantasmas...`
+            });
+
+            for (let user of inactivos) {
+                try {
+                    await client.groupParticipantsUpdate(jid, [user], "remove");
+                } catch (e) {
+                    console.log("No se pudo expulsar:", user);
+                }
+            }
+
+            return client.sendMessage(jid, {
+                text: "✅ *Fantasmas expulsados correctamente.*"
+            });
         }
     }
 };
