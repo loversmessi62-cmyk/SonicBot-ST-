@@ -33,21 +33,21 @@ export const loadPlugins = async () => {
 
         for (let file of files) {
             try {
-                console.log(`🔎 Cargando plugin: ${file}`);
+                console.log(🔎 Cargando plugin: ${file});
 
-                const module = await import("file://" + path.resolve(`./plugins/${file}`));
+                const module = await import("file://" + path.resolve(./plugins/${file}));
                 const cmds = module.default.commands || module.default.command;
 
                 if (!cmds) {
-                    console.warn(`⚠️ ${file} no tiene "command" ni "commands"`);
+                    console.warn(⚠️ ${file} no tiene "command" ni "commands");
                     continue;
                 }
 
                 cmds.forEach(cmd => plugins[cmd] = module.default);
-                console.log(`🔥 Plugin cargado: ${file}`);
+                console.log(🔥 Plugin cargado: ${file});
 
             } catch (err) {
-                console.error(`❌ Error en plugin ${file}:`, err);
+                console.error(❌ Error en plugin ${file}:, err);
             }
         }
     } catch (e) {
@@ -156,7 +156,7 @@ if (isGroup) {
                 catch (e) { console.log("❌ No se pudo borrar mensaje:", e); }
 
                 await sock.sendMessage(jid, {
-                    text: `🚫 Link detectado, expulsando a @${realSender.split("@")[0]}`,
+                    text: 🚫 Link detectado, expulsando a @${realSender.split("@")[0]},
                     mentions: [realSender]
                 });
 
@@ -301,7 +301,7 @@ if (isGroup) {
             const state = getState(command);
             if (state === false) {
                 return sock.sendMessage(jid, {
-                    text: `⚠️ El comando *.${command}* está desactivado.`
+                    text: ⚠️ El comando *.${command}* está desactivado.
                 });
             }
         } catch (e) {
