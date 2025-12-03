@@ -33,21 +33,21 @@ export const loadPlugins = async () => {
 
         for (let file of files) {
             try {
-                console.log(🔎 Cargando plugin: ${file});
+                console.log(`🔎 Cargando plugin: ${file}`);
 
-                const module = await import("file://" + path.resolve(./plugins/${file}));
+                const module = await import("file://" + path.resolve(`./plugins/${file}`));
                 const cmds = module.default.commands || module.default.command;
 
                 if (!cmds) {
-                    console.warn(⚠️ ${file} no tiene "command" ni "commands");
+                    console.warn(`⚠️ ${file} no tiene "command" ni "commands"`);
                     continue;
                 }
 
                 cmds.forEach(cmd => plugins[cmd] = module.default);
-                console.log(🔥 Plugin cargado: ${file});
+                console.log(`🔥 Plugin cargado: ${file}`);
 
             } catch (err) {
-                console.error(❌ Error en plugin ${file}:, err);
+                console.error(`❌ Error en plugin ${file}:`, err);
             }
         }
     } catch (e) {
@@ -59,7 +59,6 @@ export const loadPlugins = async () => {
 // =====================================================
 //               ⚡ HANDLER PRINCIPAL FIX ⚡
 // =====================================================
-
 export const handleMessage = async (sock, msg) => {
     try {
         const jid = msg.key.remoteJid;
@@ -99,43 +98,41 @@ export const handleMessage = async (sock, msg) => {
             msg.message?.extendedTextMessage?.text ||
             msg.message?.imageMessage?.caption ||
             "";
+
         // =========================================================
-        //       📌 CONTADOR REAL DE ACTIVIDAD (MEGA PRECISO)
+        //       📌 CONTADOR REAL DE ACTIVIDAD
         // =========================================================
-if (isGroup) {
+        if (isGroup) {
 
-    if (!store.chats[jid]) store.chats[jid] = {};
+            if (!store.chats[jid]) store.chats[jid] = {};
 
-    const chat = store.chats[jid];
+            const chat = store.chats[jid];
 
-    // SIEMPRE inicializar
-    if (!chat[realSender]) chat[realSender] = 0;
+            // Inicializar
+            if (!chat[realSender]) chat[realSender] = 0;
 
-    const m = msg.message || {};
+            const m = msg.message || {};
 
-    // ===== ACTIVIDAD VÁLIDA =====
+            const hizoAlgo =
+                m.conversation ||
+                m.extendedTextMessage ||
+                m.imageMessage ||
+                m.videoMessage ||
+                m.stickerMessage ||
+                m.documentMessage ||
+                m.audioMessage ||
+                m.contactMessage ||
+                m.locationMessage ||
+                m.liveLocationMessage ||
+                m.viewOnceMessage ||
+                m.viewOnceMessageV2 ||
+                m.reactionMessage;
 
-    const hizoAlgo =
-        m.conversation ||
-        m.extendedTextMessage ||
-        m.imageMessage ||
-        m.videoMessage ||
-        m.stickerMessage ||
-        m.documentMessage ||
-        m.audioMessage ||
-        m.contactMessage ||
-        m.locationMessage ||
-        m.liveLocationMessage ||
-        m.viewOnceMessage ||
-        m.viewOnceMessageV2 ||
-        m.reactionMessage; // ✔ reacciones
-
-    if (hizoAlgo) {
-        chat[realSender]++; // Aumenta si hizo ALGO
-        saveStore();
-    }
-}
-
+            if (hizoAlgo) {
+                chat[realSender]++;
+                saveStore();
+            }
+        }
 
         // =========================================================
         //              SISTEMA ANTILINK
@@ -156,7 +153,7 @@ if (isGroup) {
                 catch (e) { console.log("❌ No se pudo borrar mensaje:", e); }
 
                 await sock.sendMessage(jid, {
-                    text: 🚫 Link detectado, expulsando a @${realSender.split("@")[0]},
+                    text: `🚫 Link detectado, expulsando a @${realSender.split("@")[0]}`,
                     mentions: [realSender]
                 });
 
@@ -193,16 +190,15 @@ if (isGroup) {
 
         const plugin = plugins[command];
 
-        // -----------------------------------------------------
-        //           DETECCIÓN REAL DE MEDIA  
-        // -----------------------------------------------------
+        // ============= DETECTAR MEDIA CORRECTAMENTE =============
         function getMediaMessage(m) {
 
             if (!m?.message) return null;
 
             const msg = m.message;
 
-            const direct = msg.imageMessage ||
+            const direct =
+                msg.imageMessage ||
                 msg.videoMessage ||
                 msg.stickerMessage ||
                 msg.documentMessage ||
@@ -216,6 +212,7 @@ if (isGroup) {
             }
 
             const vo = msg.viewOnceMessageV2?.message || msg.viewOnceMessage?.message;
+
             if (vo) {
                 const voMedia = vo.imageMessage || vo.videoMessage;
                 if (voMedia) {
@@ -226,7 +223,8 @@ if (isGroup) {
                 }
             }
 
-            const ctx = msg?.extendedTextMessage?.contextInfo ||
+            const ctx =
+                msg?.extendedTextMessage?.contextInfo ||
                 msg?.imageMessage?.contextInfo ||
                 msg?.videoMessage?.contextInfo ||
                 msg?.documentMessage?.contextInfo ||
@@ -271,7 +269,7 @@ if (isGroup) {
             participants: metadata?.participants || [],
             groupAdmins: admins,
 
-            store, // 📌 AÑADIDO PARA plugins (.fantasmas)
+            store,
 
             download: async () => {
                 try {
@@ -301,7 +299,7 @@ if (isGroup) {
             const state = getState(command);
             if (state === false) {
                 return sock.sendMessage(jid, {
-                    text: ⚠️ El comando *.${command}* está desactivado.
+                    text: `⚠️ El comando *.${command}* está desactivado.`
                 });
             }
         } catch (e) {
