@@ -1,11 +1,13 @@
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
+
 export default {
     commands: ["ver"],
-    category: "admin",
+    category: "tools",
 
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
-        // Debe responder a un mensaje
+        // Revisa si es respuesta
         const quoted = msg.message?.extendedTextMessage?.contextInfo;
         if (!quoted?.quotedMessage) {
             return sock.sendMessage(jid, { text: "⚠️ Responde a una imagen o video." });
@@ -13,33 +15,36 @@ export default {
 
         const qm = quoted.quotedMessage;
 
-        // ===== IMAGEN =====
+        // Función para descargar media
+        const getBuffer = async (media) => {
+            const type = Object.keys(media)[0];
+            const stream = await downloadContentFromMessage(media[type], type.replace("Message", ""));
+            let buffer = Buffer.from([]);
+
+            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+            return buffer;
+        };
+
+        // --------- IMAGEN ----------
         if (qm.imageMessage) {
-            const buffer = await sock.downloadMediaMessage({
-                message: qm,
-                key: { remoteJid: jid, id: msg.key.id }
-            });
+            const buffer = await getBuffer(qm);
 
-            return sock.sendMessage(
-                jid,
-                { image: buffer } // sin caption, sin citar
-            );
+            return sock.sendMessage(jid, {
+                image: buffer,
+            });
         }
 
-        // ===== VIDEO =====
+        // --------- VIDEO ----------
         if (qm.videoMessage) {
-            const buffer = await sock.downloadMediaMessage({
-                message: qm,
-                key: { remoteJid: jid, id: msg.key.id }
-            });
+            const buffer = await getBuffer(qm);
 
-            return sock.sendMessage(
-                jid,
-                { video: buffer } // sin caption, sin citar
-            );
+            return sock.sendMessage(jid, {
+                video: buffer,
+            });
         }
 
-        // Si no es imagen o video
-        return sock.sendMessage(jid, { text: "❌ Solo funciona con imágenes o videos." });
+        return sock.sendMessage(jid, {
+            text: "❌ Solo funciona con imágenes o videos.",
+        });
     },
 };
