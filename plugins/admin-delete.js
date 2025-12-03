@@ -1,26 +1,27 @@
 export default {
     commands: ["del", "delete"],
-    admin: true,
     category: "admin",
+    admin: true, // solo admins
 
     async run(sock, msg, args, ctx) {
+        const jid = ctx.jid;
 
-        const jid = msg.key.remoteJid;
-
+        // SOLO FUNCIONA EN GRUPOS
         if (!ctx.isGroup) {
             return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
         }
 
-        // usuario admin
+        // USUARIO DEBE SER ADMIN
         if (!ctx.isAdmin) {
-            return sock.sendMessage(jid, { text: "❌ Solo los administradores pueden usar .del" });
+            return sock.sendMessage(jid, { text: "❌ Solo administradores pueden usar .del" });
         }
 
-        // BOT ADMIN (tu handler no usa ctx.isBotAdmin, usa ctx.botAdmin)
-        if (!ctx.botAdmin) {
-            return sock.sendMessage(jid, { text: "❌ Necesito ser administrador para borrar mensajes." });
+        // BOT DEBE SER ADMIN
+        if (!ctx.isBotAdmin) {
+            return sock.sendMessage(jid, { text: "❌ Necesito ser admin para borrar mensajes." });
         }
 
+        // VERIFICAR SI RESPONDISTE UN MENSAJE
         const quoted = msg.message?.extendedTextMessage?.contextInfo;
         if (!quoted?.stanzaId) {
             return sock.sendMessage(jid, { text: "⚠️ Debes responder al mensaje que quieres borrar." });
@@ -31,12 +32,12 @@ export default {
                 delete: {
                     id: quoted.stanzaId,
                     remoteJid: jid,
-                    participant: quoted.participant || undefined
+                    participant: quoted.participant || quoted.participant || undefined
                 }
             });
         } catch (e) {
             console.error(e);
-            await sock.sendMessage(jid, { text: "❌ No pude eliminar ese mensaje." });
+            return sock.sendMessage(jid, { text: "❌ No pude borrar ese mensaje." });
         }
     }
 };
