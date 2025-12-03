@@ -1,5 +1,8 @@
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
+// Guardamos último media del chat
+const lastMedia = {}; // jid → { type, message }
+
 export default {
     commands: ["ver"],
     category: "admin",
@@ -7,44 +10,76 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
-        // Revisa si es respuesta
+        // Si responde a un mensaje → usar ese
         const quoted = msg.message?.extendedTextMessage?.contextInfo;
-        if (!quoted?.quotedMessage) {
-            return sock.sendMessage(jid, { text: "⚠️ Responde a una imagen o video." });
+        let target = null;
+
+        if (quoted?.quotedMessage) {
+            target = quoted.quotedMessage;
+        } 
+        
+        // Si NO responde → usar el último media guardado
+        else if (lastMedia[jid]) {
+            target = lastMedia[jid].message;
         }
 
-        const qm = quoted.quotedMessage;
+        if (!target) {
+            return sock.sendMessage(jid, { text: "⚠️ No hay ningún video o imagen reciente ni has respondido a uno." });
+        }
 
-        // Función para descargar media
-        const getBuffer = async (media) => {
-            const type = Object.keys(media)[0];
-            const stream = await downloadContentFromMessage(media[type], type.replace("Message", ""));
+        const getBuffer = async (media, type) => {
+            const stream = await downloadContentFromMessage(media, type);
             let buffer = Buffer.from([]);
-
             for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
             return buffer;
         };
 
-        // --------- IMAGEN ----------
-        if (qm.imageMessage) {
-            const buffer = await getBuffer(qm);
-
-            return sock.sendMessage(jid, {
-                image: buffer,
-            });
+        // ============================
+        //        FOTO
+        // ============================
+        if (target.imageMessage) {
+            const buffer = await getBuffer(target.imageMessage, "image");
+            return sock.sendMessage(jid, { image: buffer });
         }
 
-        // --------- VIDEO ----------
-        if (qm.videoMessage) {
-            const buffer = await getBuffer(qm);
+        // ============================
+        //        VIDEO
+        // ============================
+        if (target.videoMessage) {
+            let video = target.videoMessage;
 
-            return sock.sendMessage(jid, {
-                video: buffer,
-            });
+            // Si no tiene mediaKey (videos reenviados)
+            if (!video.mediaKey && quoted?.quotedMessage?.videoMessage) {
+                video = quoted.quotedMessage.videoMessage;
+            }
+
+            try {
+                const buffer = await getBuffer(video, "video");
+                return sock.sendMessage(jid, { video: buffer });
+            } catch (e) {
+                return sock.sendMessage(jid, { text: "❌ No pude procesar el video (puede ser view-once / reenviado sin media)." });
+            }
         }
 
-        return sock.sendMessage(jid, {
-            text: "❌ Solo funciona con imágenes o videos.",
-        });
+        return sock.sendMessage(jid, { text: "❌ Ese mensaje no contiene imagen ni video." });
     },
+
+    // ==========================================================
+    //   CAPTURAR CADA MENSAJE DEL CHAT Y GUARDAR SI ES MEDIA
+    // ==========================================================
+    async onMessage(msg, sock) {
+        const jid = msg.key.remoteJid;
+        if (!jid) return;
+
+        const m = msg.message;
+        if (!m) return;
+
+        if (m.imageMessage) {
+            lastMedia[jid] = { type: "image", message: m };
+        }
+
+        if (m.videoMessage) {
+            lastMedia[jid] = { type: "video", message: m };
+        }
+    }
 };
