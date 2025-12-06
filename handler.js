@@ -255,42 +255,50 @@ export const handleMessage = async (sock, msg) => {
         // ===============================
         //      CONTEXTO (ctx)
         // ===============================
-        const ctx = {
-            sock,
-            msg,
-            jid,
-            sender: realSender,
-            isAdmin,
-            isBotAdmin,
-            isGroup,
-            args,
+       const ctx = {
+    sock,
+    msg,
+    jid,
+    sender: realSender,
+    isAdmin,
+    isBotAdmin,
+    isGroup,
+    args,
 
-            groupMetadata: metadata,
-            participants: metadata?.participants || [],
-            groupAdmins: admins,
+    groupMetadata: metadata,
+    participants: metadata?.participants || [],
+    groupAdmins: admins,
 
-            store,
+    store,
 
-            download: async () => {
-                try {
-                    const detected = getMediaMessage(msg);
+    download: async () => {
+        try {
+            const detected = getMediaMessage(msg);
 
-                    if (!detected) throw new Error("NO_MEDIA_FOUND");
+            if (!detected) throw new Error("NO_MEDIA_FOUND");
 
-                    const [type, media] = detected;
-                    const stream = await downloadContentFromMessage(media, type.replace("Message", ""));
+            const [type, media] = detected;
 
-                    let buffer = Buffer.from([]);
-                    for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+            // 📌 Detectar tipo real cuando sea TXT, PDF, DOCX, etc.
+            let realType = type;
+            if (media.mimetype?.startsWith("text")) realType = "document";
+            if (media.mimetype?.includes("application")) realType = "document";
 
-                    return buffer;
+            const stream = await downloadContentFromMessage(media, realType);
 
-                } catch (e) {
-                    console.error("⛔ Error en ctx.download:", e);
-                    throw e;
-                }
+            let buffer = Buffer.from([]);
+            for await (const chunk of stream) {
+                buffer = Buffer.concat([buffer, chunk]);
             }
-        };
+
+            return buffer;
+
+        } catch (e) {
+            console.error("⛔ Error en ctx.download:", e);
+            throw e;
+        }
+    }
+};
 
         // =====================================================
         //              SISTEMA ON/OFF
