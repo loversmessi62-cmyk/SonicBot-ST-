@@ -1,70 +1,39 @@
-export default {
-    commands: ["checker", "check"],
-    category: "tools",
+document.getElementById("file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    const text = await file.text();
 
-    async run(sock, msg, args, ctx) {
-        try {
-            const media = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-            const isTxt =
-                media?.documentMessage &&
-                media.documentMessage.mimetype === "text/plain";
+    // Convertir archivo en un array de líneas limpias
+    const numbers = text
+        .split(/\r?\n/)
+        .map(n => n.replace(/\s+/g, "").trim())
+        .filter(n => n.length > 0);
 
-            if (!isTxt)
-                return sock.sendMessage(ctx.jid, {
-                    text: "📄 *Responde a un archivo TXT para analizar los números.*"
-                });
-
-            const buffer = await ctx.download();
-            const textContent = buffer.toString("utf8");
-
-            const lines = textContent.split(/\r?\n/).map(l => l.trim());
-
-            // Detectar bloques repetidos de mínimo 6 seguidos
-            const blockRegex = /(0{6,}|1{6,}|2{6,}|3{6,}|4{6,}|5{6,}|6{6,}|7{6,}|8{6,}|9{6,})/;
-
-            const results = [];
-
-            for (let line of lines) {
-                if (!line) continue;
-
-                const digits = line.replace(/\D/g, "");
-                const last8 = digits.slice(-8);
-
-                if (last8.length !== 8) continue;
-
-                const match = last8.match(blockRegex);
-
-                if (match) {
-                    results.push({
-                        original: line,
-                        block: match[0],
-                        len: match[0].length
-                    });
-                }
-            }
-
-            if (results.length === 0)
-                return sock.sendMessage(ctx.jid, {
-                    text: "❌ No se encontraron números con bloques repetidos de *mínimo 6 seguidos*."
-                });
-
-            // Ordenar por bloque más largo
-            results.sort((a, b) => b.len - a.len);
-
-            let out = "📊 *NÚMEROS CON BLOQUES REPETIDOS (mínimo 6 seguidos)*\n\n";
-
-            for (const r of results) {
-                out += `🔹 ${r.original}\n`;
-                out += `   ➤ Bloque: *${r.block}* (${r.len} seguidos)\n\n`;
-            }
-
-            await sock.sendMessage(ctx.jid, { text: out });
-
-        } catch (e) {
-            console.error("CHECKER ERROR:", e);
-            return sock.sendMessage(ctx.jid, {
-                text: "❌ Ocurrió un error procesando el TXT."
-            });
+    // Función para contar el dígito que más se repite
+    function maxRepeatedDigits(num) {
+        const counts = {};
+        for (let c of num) {
+            if (!/[0-9]/.test(c)) continue;
+            counts[c] = (counts[c] || 0) + 1;
         }
+        const max = Math.max(...Object.values(counts));
+        return max;
     }
-};
+
+    // Crear lista con repeticiones
+    const evaluated = numbers.map(num => ({
+        num,
+        repeats: maxRepeatedDigits(num)
+    }));
+
+    // Ordenar por los que más repiten
+    evaluated.sort((a, b) => b.repeats - a.repeats);
+
+    // Filtrar solo los que tengan mínimo 6 dígitos iguales
+    const filtered = evaluated.filter(e => e.repeats >= 6);
+
+    // Tomar los primeros 10
+    const top10 = filtered.slice(0, 10);
+
+    console.log("TOP 10 con más dígitos repetidos:");
+    console.table(top10);
+});
