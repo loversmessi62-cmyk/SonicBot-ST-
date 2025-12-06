@@ -4,88 +4,83 @@ export default {
 
   async run(sock, msg, args, ctx) {
     try {
-      // Detectar TXT
       const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       const selfDoc = msg.message?.documentMessage;
       const doc = quoted?.documentMessage || selfDoc;
 
-      if (!doc || !doc.mimetype.includes("text"))
-        return sock.sendMessage(ctx.jid, { text: "📄 *Responde o envía un archivo TXT.*" });
+      if (!doc) {
+        return sock.sendMessage(ctx.jid, {
+          text: "📄 *Responde a un archivo TXT o envíalo junto al comando.*"
+        });
+      }
 
       // Descargar archivo
       const buffer = await ctx.download();
       const text = buffer.toString("utf8");
 
-      // CONFIG
-      const LAST_N = 8;        // últimas 8 cifras
-      const MIN_REPEATS = 6;   // mínimo 6 dígitos repetidos
-      const TOP_N = 10;
-
-      // convertir archivo en líneas tal cual vienen
+      // Líneas tal cual vienen en el TXT
       const lines = text
         .split(/\r?\n/)
         .map(l => l.trim())
         .filter(l => l.length > 0);
 
-      const results = [];
+      const MIN_REPEATS = 6;
+      const TOP_N = 20;
 
-      // Función para contar cuántas veces se repite el dígito más repetido
-      function countRepeats(str) {
-        const map = {};
-        for (let c of str) {
-          map[c] = (map[c] || 0) + 1;
+      function countRepeats(number) {
+        const freq = {};
+        for (const digit of number) {
+          freq[digit] = (freq[digit] || 0) + 1;
         }
-        return Math.max(...Object.values(map));
+        return Math.max(...Object.values(freq));
       }
 
-      for (let line of lines) {
+      const results = [];
 
-        // Sacar SOLO los dígitos de esa línea
+      for (const line of lines) {
+        // TOMAR LA LÍNEA EXACTA como aparece en TXT
         const digits = line.replace(/\D/g, "");
 
-        // Debe tener al menos 8 cifras para evaluar
-        if (digits.length < LAST_N) continue;
+        if (digits.length < 8) continue;
 
-        // Segmento final real
-        const segment = digits.slice(-LAST_N);
+        // Usar TODO el número, no solo últimas 8
+        const repeatCount = countRepeats(digits);
 
-        // Contar repetidos dentro del segmento
-        const repeats = countRepeats(segment);
-
-        if (repeats >= MIN_REPEATS) {
+        if (repeatCount >= MIN_REPEATS) {
           results.push({
-            original: line,  // EXACTAMENTE como viene en el TXT
-            segment,
-            repeats
+            original: line,   // ← EXACTO como viene en el TXT
+            digits,
+            repeats: repeatCount
           });
         }
       }
 
       if (results.length === 0) {
         return sock.sendMessage(ctx.jid, {
-          text: `❌ No hay números con mínimo ${MIN_REPEATS} dígitos repetidos.`
+          text: `❌ No hay números con al menos ${MIN_REPEATS} dígitos repetidos.`
         });
       }
 
-      // Ordenar del que más repite al que menos
+      // Ordenarlos de mayor a menor
       results.sort((a, b) => b.repeats - a.repeats);
 
-      // Tomar los primeros 10
       const top = results.slice(0, TOP_N);
 
-      // Formar salida
-      let msgOut = `📊 *TOP ${top.length} — NÚMEROS CON MÁS REPETIDOS*\n\n`;
+      let msgOut = `📊 *TOP ${top.length} — NÚMEROS CON MÁS REPETIDOS*\n`;
+      msgOut += `📌 (mínimo ${MIN_REPEATS} dígitos repetidos)\n\n`;
 
-      for (let r of top) {
+      for (const r of top) {
         msgOut += `🔹 ${r.original}\n`;
-        msgOut += `   ➤ Últimas 8: ${r.segment} → repetidos: *${r.repeats}*\n\n`;
+        msgOut += `   ➤ Repetidos: *${r.repeats}*\n\n`;
       }
 
       await sock.sendMessage(ctx.jid, { text: msgOut });
 
-    } catch (e) {
-      console.error("CHECKER ERROR:", e);
-      await sock.sendMessage(ctx.jid, { text: "❌ Error procesando el TXT." });
+    } catch (err) {
+      console.error("CHECKER ERROR:", err);
+      return sock.sendMessage(ctx.jid, {
+        text: "❌ Error procesando el TXT."
+      });
     }
   }
 };
