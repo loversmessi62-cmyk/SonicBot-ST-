@@ -17,38 +17,55 @@ export default {
             const buffer = await ctx.download();
             const textContent = buffer.toString("utf8");
 
-            const numbers = textContent.match(/\+?\d+/g) || [];
+            // Extraer líneas completas que parezcan números
+            const lines = textContent.split(/\r?\n/).map(l => l.trim());
 
-            if (numbers.length === 0)
-                return sock.sendMessage(ctx.jid, { text: "❌ El TXT no contiene números." });
+            const results = [];
 
-            // Buscar bloques como 111, 2222, 3333, etc.
-            const blockRegex = /(0{3,}|1{3,}|2{3,}|3{3,}|4{3,}|5{3,}|6{3,}|7{3,}|8{3,}|9{3,})/;
+            for (let line of lines) {
+                if (!line) continue;
 
-            const filtered = numbers
-                .filter(num => blockRegex.test(num))
-                .map(num => {
-                    const matches = [...num.matchAll(blockRegex)].map(m => m[0]);
-                    return { num, blocks: matches };
+                // Extraer solo dígitos
+                const digits = line.replace(/\D/g, "");
+
+                // Necesitamos al menos los últimos 8 dígitos reales
+                const last8 = digits.slice(-8);
+
+                if (last8.length !== 8) continue;
+
+                // Contemos repeticiones
+                const counts = {};
+                for (let c of last8) {
+                    counts[c] = (counts[c] || 0) + 1;
+                }
+
+                // Buscar si alguna cifra se repite 5+
+                const best = Object.entries(counts)
+                    .filter(([d, c]) => c >= 5)
+                    .sort((a, b) => b[1] - a[1]); // de mayor repetición a menor
+
+                if (best.length === 0) continue;
+
+                results.push({
+                    original: line,
+                    digit: best[0][0],
+                    count: best[0][1]
                 });
+            }
 
-            if (filtered.length === 0)
+            if (results.length === 0)
                 return sock.sendMessage(ctx.jid, {
-                    text: "❌ No se encontraron números con bloques repetidos (ej: 4444, 3333, 2222)."
+                    text: "❌ No se encontraron números con *mínimo 5 cifras repetidas* en las últimas 8 cifras."
                 });
 
-            // Ordenar por el bloque más largo (primero los más repetidos)
-            filtered.sort((a, b) => {
-                const maxA = Math.max(...a.blocks.map(x => x.length));
-                const maxB = Math.max(...b.blocks.map(x => x.length));
-                return maxB - maxA;
-            });
+            // Ordenar del que tiene más repeticiones → menos
+            results.sort((a, b) => b.count - a.count);
 
-            let out = "📊 *NÚMEROS CON BLOQUES REPETIDOS (tipo 4444, 3333, 2222)*\n\n";
+            let out = "📊 *NÚMEROS CON REPETICIONES (5+ dentro de las últimas 8 cifras)*\n\n";
 
-            for (const f of filtered) {
-                out += `🔹 ${f.num}\n`;
-                out += `   ➤ Bloques: ${f.blocks.join(", ")}\n\n`;
+            for (let r of results) {
+                out += `🔹 ${r.original}\n`;
+                out += `   ➤ Repite: *${r.digit}* (${r.count} veces)\n\n`;
             }
 
             await sock.sendMessage(ctx.jid, { text: out });
