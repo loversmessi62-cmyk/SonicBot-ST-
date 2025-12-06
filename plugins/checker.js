@@ -4,7 +4,6 @@ export default {
 
     async run(sock, msg, args, ctx) {
         try {
-            // Revisar si respondió a un TXT
             const media = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
             const isTxt =
                 media?.documentMessage &&
@@ -15,46 +14,41 @@ export default {
                     text: "📄 *Responde a un archivo TXT para analizar los números.*"
                 });
 
-            // Descargar TXT
             const buffer = await ctx.download();
             const textContent = buffer.toString("utf8");
 
-            // Extraer números completos
-            const numbers = textContent.match(/\d+/g) || [];
+            const numbers = textContent.match(/\+?\d+/g) || [];
 
             if (numbers.length === 0)
-                return sock.sendMessage(ctx.jid, {
-                    text: "❌ El TXT no contiene números."
+                return sock.sendMessage(ctx.jid, { text: "❌ El TXT no contiene números." });
+
+            // Buscar bloques como 111, 2222, 3333, etc.
+            const blockRegex = /(0{3,}|1{3,}|2{3,}|3{3,}|4{3,}|5{3,}|6{3,}|7{3,}|8{3,}|9{3,})/;
+
+            const filtered = numbers
+                .filter(num => blockRegex.test(num))
+                .map(num => {
+                    const matches = [...num.matchAll(blockRegex)].map(m => m[0]);
+                    return { num, blocks: matches };
                 });
 
-            // Función para contar repeticiones
-            const countRepeats = (num) => {
-                const map = {};
-                for (let c of num) {
-                    map[c] = (map[c] || 0) + 1;
-                }
-                // Total de caracteres repetidos (solo los que se repiten)
-                return Object.values(map).filter(v => v > 1).reduce((a, b) => a + b, 0);
-            };
-
-            // Filtrar solo números con repeticiones
-            const withRepeats = numbers
-                .map(n => ({ num: n, rep: countRepeats(n) }))
-                .filter(x => x.rep > 0);
-
-            if (withRepeats.length === 0)
+            if (filtered.length === 0)
                 return sock.sendMessage(ctx.jid, {
-                    text: "❌ No hay números con cifras repetidas."
+                    text: "❌ No se encontraron números con bloques repetidos (ej: 4444, 3333, 2222)."
                 });
 
-            // Ordenar de mayor repetición → menor repetición
-            withRepeats.sort((a, b) => b.rep - a.rep);
+            // Ordenar por el bloque más largo (primero los más repetidos)
+            filtered.sort((a, b) => {
+                const maxA = Math.max(...a.blocks.map(x => x.length));
+                const maxB = Math.max(...b.blocks.map(x => x.length));
+                return maxB - maxA;
+            });
 
-            // Construir mensaje
-            let out = "📊 *CHECKER — Números con cifras repetidas*\n\n";
+            let out = "📊 *NÚMEROS CON BLOQUES REPETIDOS (tipo 4444, 3333, 2222)*\n\n";
 
-            for (let item of withRepeats) {
-                out += `🔹 ${item.num} — *${item.rep} repeticiones*\n`;
+            for (const f of filtered) {
+                out += `🔹 ${f.num}\n`;
+                out += `   ➤ Bloques: ${f.blocks.join(", ")}\n\n`;
             }
 
             await sock.sendMessage(ctx.jid, { text: out });
