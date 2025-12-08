@@ -137,35 +137,7 @@ export const handleMessage = async (sock, msg) => {
         // =========================================================
         //              SISTEMA ANTILINK
         // =========================================================
-        if (isGroup && getState("antilink")) {
-            const linkRegex = /(https?:\/\/[^\s]+)/gi;
-
-            if (linkRegex.test(text)) {
-
-                if (isAdmin) {
-                    await sock.sendMessage(jid, {
-                        text: "⚠️ Antilink activo, pero eres admin."
-                    });
-                    return;
-                }
-
-                try { await sock.sendMessage(jid, { delete: msg.key }); }
-                catch (e) { console.log("❌ No se pudo borrar mensaje:", e); }
-
-                await sock.sendMessage(jid, {
-                    text: `🚫 Link detectado, expulsando a @${realSender.split("@")[0]}`,
-                    mentions: [realSender]
-                });
-
-                try {
-                    await sock.groupParticipantsUpdate(jid, [realSender], "remove");
-                } catch (e) {
-                    console.log("❌ No se pudo expulsar:", e);
-                }
-
-                return;
-            }
-        }
+       
 
         // ==================================================
         //       SI NO ES COMANDO → ejecutar "onMessage"
