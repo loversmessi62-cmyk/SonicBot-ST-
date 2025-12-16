@@ -2,6 +2,19 @@ import fs from "fs";
 
 const FILE = "./utils/welcomestore.json";
 
+const defaultData = {
+    global: {
+        welcome: true,
+        bye: true
+    },
+    groups: {}
+};
+
+// 🔥 Crear archivo si no existe
+if (!fs.existsSync(FILE)) {
+    fs.writeFileSync(FILE, JSON.stringify(defaultData, null, 2));
+}
+
 const load = () => JSON.parse(fs.readFileSync(FILE));
 const save = (data) => fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
 
