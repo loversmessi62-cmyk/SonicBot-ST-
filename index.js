@@ -91,40 +91,74 @@ async function startBot() {
     });
 
     
-    // ==================================================
-    //   👋 WELCOME / BYE PRO (PFP + FALLBACK LINK)
-    // ==================================================
-    
+  // ==================================================
+//   👋 WELCOME / BYE PRO (PFP + FALLBACK LINK)
+// ==================================================
+const DEFAULT_WELCOME_IMG = "https://TU_LINK_AQUI.jpg";
+const DEFAULT_BYE_IMG = "https://TU_LINK_AQUI.jpg";
+
 sock.ev.on("group-participants.update", async (update) => {
-    const { id, participants, action } = update;
-    if (action !== "add") return;
-    if (!isWelcomeEnabled(id)) return;
+    try {
+        const { id, participants, action } = update;
 
-    const metadata = await sock.groupMetadata(id).catch(() => ({
-        subject: "Grupo",
-        participants: []
-    }));
-
-    for (const user of participants) {
-        const mention = user.split("@")[0];
-
-        let imageUrl = "https://files.catbox.moe/tozocs.jpeg"; // default
-
+        let metadata;
         try {
-            const pp = await sock.profilePictureUrl(user, "image");
-            if (pp) imageUrl = pp;
-        } catch {}
+            metadata = await sock.groupMetadata(id);
+        } catch {
+            return;
+        }
 
-        const text = getWelcomeText(id)
-            .replace(/@user/g, `@${mention}`)
-            .replace(/@group/g, metadata.subject)
-            .replace(/@members/g, metadata.participants.length);
+        for (const user of participants) {
+            if (user === sock.user.id) continue;
 
-        await sock.sendMessage(id, {
-            image: { url: imageUrl },
-            caption: text,
-            mentions: [user]
-        });
+            const mention = user.split("@")[0];
+            const memberCount = metadata.participants.length;
+
+            // ================== FOTO PERFIL ==================
+            let profilePic;
+            try {
+                profilePic = await sock.profilePictureUrl(user, "image");
+            } catch {
+                profilePic =
+                    action === "add"
+                        ? DEFAULT_WELCOME_IMG
+                        : DEFAULT_BYE_IMG;
+            }
+
+            // ================== WELCOME ==================
+            if (action === "add") {
+                if (!isWelcomeEnabled(id)) continue;
+
+                const text = getWelcomeText(id)
+                    .replace(/@user/g, `@${mention}`)
+                    .replace(/@group/g, metadata.subject)
+                    .replace(/@count/g, memberCount);
+
+                await sock.sendMessage(id, {
+                    image: { url: profilePic },
+                    caption: text,
+                    mentions: [user]
+                });
+            }
+
+            // ================== BYE ==================
+            if (action === "remove") {
+                if (!isByeEnabled(id)) continue;
+
+                const text = getByeText(id)
+                    .replace(/@user/g, `@${mention}`)
+                    .replace(/@group/g, metadata.subject)
+                    .replace(/@count/g, memberCount - 1);
+
+                await sock.sendMessage(id, {
+                    image: { url: profilePic },
+                    caption: text,
+                    mentions: [user]
+                });
+            }
+        }
+    } catch (err) {
+        console.error("❌ Error en welcome/bye:", err);
     }
 });
 
