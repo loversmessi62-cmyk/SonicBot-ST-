@@ -1,6 +1,6 @@
 export default {
     commands: ["cerrar"],
-    category: "admin",
+    category: "grupo",
     admin: true,
     description: "Cierra el grupo para que solo administradores escriban.",
 
