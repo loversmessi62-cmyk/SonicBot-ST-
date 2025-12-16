@@ -93,11 +93,16 @@ export const handleMessage = async (sock, msg) => {
             isBotAdmin = admins.includes(botId);
         }
 
-        const text =
-            msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text ||
-            msg.message?.imageMessage?.caption ||
-            "";
+       const text =
+    msg.message?.conversation ||
+    msg.message?.extendedTextMessage?.text ||
+    msg.message?.imageMessage?.caption ||
+    msg.message?.videoMessage?.caption ||
+    msg.message?.buttonsResponseMessage?.selectedButtonId ||
+    msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+    msg.message?.templateButtonReplyMessage?.selectedId ||
+    "";
+
 
         // =====================================
 //          📟 LOG DE MENSAJES
