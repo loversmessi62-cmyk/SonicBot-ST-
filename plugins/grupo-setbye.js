@@ -1,22 +1,21 @@
 import { setByeText } from "../utils/welcomeState.js";
 
 export default {
-  commands: ["setbye"],
-  admin: true,
-  category: "grupo",
+    commands: ["setbye"],
+    admin: true,
+    group: true,
 
-  async run(sock, msg, args, ctx) {
-    const { jid, isGroup } = ctx;
-    if (!isGroup) return sock.sendMessage(jid, { text: "❌ Solo en grupos" });
+    async run(sock, msg, args) {
+        const jid = msg.key.remoteJid;
+        const text = args.join(" ");
 
-    const text = args.join(" ");
-    if (!text)
-      return sock.sendMessage(jid, {
-        text: "Uso: .setbye texto\nUsa @user @group @members"
-      });
+        if (!text) {
+            return sock.sendMessage(jid, {
+                text: "Uso: .setbye texto"
+            });
+        }
 
-    setByeText(jid, text);
-
-    sock.sendMessage(jid, { text: "✅ Mensaje de despedida actualizado" });
-  }
+        setByeText(jid, text);
+        await sock.sendMessage(jid, { text: "✅ Bye actualizado" });
+    }
 };
