@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { getState } from "./utils/cdmtoggle.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
+import { isMuted } from "./utils/muteState.js";
 
 const groupCache = {};
 
@@ -22,6 +23,8 @@ if (fs.existsSync("./store.json")) {
     const old = JSON.parse(fs.readFileSync("./store.json"));
     Object.assign(store, old);
 }
+
+
 
 // ============================================
 //              SISTEMA DE PLUGINS
@@ -96,6 +99,24 @@ export const handleMessage = async (sock, msg) => {
             const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
             isBotAdmin = admins.includes(botId);
         }
+        // ===============================
+        // 🔇 SISTEMA MUTE REAL (CORRECTO)
+        // ===============================
+if (isGroup && isMuted(jid, realSender)) {
+    if (!isAdmin) {
+        try {
+            await sock.sendMessage(jid, {
+                delete: {
+                    remoteJid: jid,
+                    fromMe: false,
+                    id: msg.key.id,
+                    participant: realSender
+                }
+            });
+        } catch {}
+        return;
+    }
+}
 
         // ===============================
         //       TEXTO NORMALIZADO
