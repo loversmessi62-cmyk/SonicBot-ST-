@@ -1,22 +1,27 @@
-import { setWelcomeState } from "../utils/welcomeState.js";
+import { setWelcome } from "../utils/welcomeState.js";
 
 export default {
-  commands: ["welcome"],
-  admin: true,
-  category: "grupo",
+    commands: ["welcome"],
+    admin: true,
+    group: true,
 
-  async run(sock, msg, args, ctx) {
-    const { jid, isGroup } = ctx;
-    if (!isGroup) return sock.sendMessage(jid, { text: "❌ Solo en grupos" });
+    async run(sock, msg, args) {
+        const jid = msg.key.remoteJid;
 
-    const option = args[0];
-    if (!["on", "off"].includes(option))
-      return sock.sendMessage(jid, { text: "Uso: .welcome on / off" });
+        if (!args[0]) {
+            return sock.sendMessage(jid, {
+                text: "Uso: .welcome on | off"
+            });
+        }
 
-    setWelcomeState(jid, option === "on");
+        const state = args[0].toLowerCase();
 
-    sock.sendMessage(jid, {
-      text: `👋 Welcome ${option === "on" ? "activado" : "desactivado"}`
-    });
-  }
+        if (state === "on") {
+            setWelcome(jid, true);
+            await sock.sendMessage(jid, { text: "✅ Welcome ACTIVADO en este grupo" });
+        } else if (state === "off") {
+            setWelcome(jid, false);
+            await sock.sendMessage(jid, { text: "❌ Welcome DESACTIVADO en este grupo" });
+        }
+    }
 };
