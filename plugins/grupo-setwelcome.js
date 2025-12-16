@@ -3,22 +3,20 @@ import { setWelcomeText } from "../utils/welcomeState.js";
 export default {
   commands: ["setwelcome"],
   admin: true,
-  group: true,
+  category: "grupo",
 
-  async run(sock, msg, args) {
-    const jid = msg.key.remoteJid;
+  async run(sock, msg, args, ctx) {
+    const { jid, isGroup } = ctx;
+    if (!isGroup) return sock.sendMessage(jid, { text: "❌ Solo en grupos" });
+
     const text = args.join(" ");
-
-    if (!text) {
+    if (!text)
       return sock.sendMessage(jid, {
-        text: "✏️ Uso: .setwelcome texto"
+        text: "Uso: .setwelcome texto\nUsa @user @group @members"
       });
-    }
 
     setWelcomeText(jid, text);
 
-    await sock.sendMessage(jid, {
-      text: "✅ Texto de welcome actualizado"
-    });
+    sock.sendMessage(jid, { text: "✅ Mensaje de bienvenida actualizado" });
   }
 };
