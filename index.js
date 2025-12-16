@@ -6,6 +6,13 @@ import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
 import path from "path";
 import fs from "fs";
+import {
+    isWelcomeEnabled,
+    isByeEnabled,
+    getWelcomeText,
+    getByeText
+} from "./utils/welcomeState.js";
+
 
 import { handleMessage, loadPlugins } from "./handler.js";
 
@@ -58,6 +65,7 @@ async function startBot() {
         try {
             const msg = messages[0];
             if (!msg?.message) return;
+            
 
             if (msg.key.fromMe) return;
             if (msg.message.protocolMessage) return;
@@ -81,6 +89,56 @@ async function startBot() {
             console.error("❌ Error en messages.upsert:", e);
         }
     });
+    // ==================================================
+//        👋 WELCOME / BYE PROFESIONAL
+// ==================================================
+sock.ev.on("group-participants.update", async (update) => {
+    try {
+        const { id, participants, action } = update;
+
+        let metadata;
+        try {
+            metadata = await sock.groupMetadata(id);
+        } catch {
+            metadata = { subject: "Grupo" };
+        }
+
+        for (const user of participants) {
+            const mention = user.split("@")[0];
+
+            // ===== WELCOME =====
+            if (action === "add") {
+                if (!isWelcomeEnabled(id)) continue;
+
+                let text = getWelcomeText(id)
+                    .replace(/@user/g, `@${mention}`)
+                    .replace(/@group/g, metadata.subject);
+
+                await sock.sendMessage(id, {
+                    text,
+                    mentions: [user]
+                });
+            }
+
+            // ===== BYE =====
+            if (action === "remove") {
+                if (!isByeEnabled(id)) continue;
+
+                let text = getByeText(id)
+                    .replace(/@user/g, `@${mention}`)
+                    .replace(/@group/g, metadata.subject);
+
+                await sock.sendMessage(id, {
+                    text,
+                    mentions: [user]
+                });
+            }
+        }
+    } catch (err) {
+        console.error("❌ Error en welcome/bye:", err);
+    }
+});
+
 }
 
 startBot();
