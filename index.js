@@ -89,9 +89,14 @@ async function startBot() {
             console.error("❌ Error en messages.upsert:", e);
         }
     });
+
+    
     // ==================================================
-//        👋 WELCOME / BYE PROFESIONAL
-// ==================================================
+    //   👋 WELCOME / BYE PRO (PFP + FALLBACK LINK)
+    // ==================================================
+const DEFAULT_WELCOME_IMG = "https://TU_LINK_AQUI.jpg";
+const DEFAULT_BYE_IMG = "https://TU_LINK_AQUI.jpg";
+
 sock.ev.on("group-participants.update", async (update) => {
     try {
         const { id, participants, action } = update;
@@ -100,36 +105,54 @@ sock.ev.on("group-participants.update", async (update) => {
         try {
             metadata = await sock.groupMetadata(id);
         } catch {
-            metadata = { subject: "Grupo" };
+            return;
         }
 
         for (const user of participants) {
-            const mention = user.split("@")[0];
+            if (user === sock.user.id) continue;
 
-            // ===== WELCOME =====
+            const mention = user.split("@")[0];
+            const memberCount = metadata.participants.length;
+
+            // ================== FOTO PERFIL ==================
+            let profilePic;
+            try {
+                profilePic = await sock.profilePictureUrl(user, "image");
+            } catch {
+                profilePic =
+                    action === "add"
+                        ? DEFAULT_WELCOME_IMG
+                        : DEFAULT_BYE_IMG;
+            }
+
+            // ================== WELCOME ==================
             if (action === "add") {
                 if (!isWelcomeEnabled(id)) continue;
 
-                let text = getWelcomeText(id)
+                const text = getWelcomeText(id)
                     .replace(/@user/g, `@${mention}`)
-                    .replace(/@group/g, metadata.subject);
+                    .replace(/@group/g, metadata.subject)
+                    .replace(/@count/g, memberCount);
 
                 await sock.sendMessage(id, {
-                    text,
+                    image: { url: profilePic },
+                    caption: text,
                     mentions: [user]
                 });
             }
 
-            // ===== BYE =====
+            // ================== BYE ==================
             if (action === "remove") {
                 if (!isByeEnabled(id)) continue;
 
-                let text = getByeText(id)
+                const text = getByeText(id)
                     .replace(/@user/g, `@${mention}`)
-                    .replace(/@group/g, metadata.subject);
+                    .replace(/@group/g, metadata.subject)
+                    .replace(/@count/g, memberCount - 1);
 
                 await sock.sendMessage(id, {
-                    text,
+                    image: { url: profilePic },
+                    caption: text,
                     mentions: [user]
                 });
             }
@@ -138,6 +161,7 @@ sock.ev.on("group-participants.update", async (update) => {
         console.error("❌ Error en welcome/bye:", err);
     }
 });
+
 
 }
 
