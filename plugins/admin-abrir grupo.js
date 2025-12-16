@@ -1,6 +1,6 @@
 export default {
     commands: ["abrir"],
-    category: "admin",
+    category: "grupo",
     admin: true,
     description: "Abre el grupo para que todos escriban.",
 
