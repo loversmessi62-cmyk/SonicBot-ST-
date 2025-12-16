@@ -1,22 +1,27 @@
-import { setByeState } from "../utils/welcomeState.js";
+import { setBye } from "../utils/welcomeState.js";
 
 export default {
-  commands: ["bye"],
-  admin: true,
-  category: "grupo",
+    commands: ["bye"],
+    admin: true,
+    group: true,
 
-  async run(sock, msg, args, ctx) {
-    const { jid, isGroup } = ctx;
-    if (!isGroup) return sock.sendMessage(jid, { text: "❌ Solo en grupos" });
+    async run(sock, msg, args) {
+        const jid = msg.key.remoteJid;
 
-    const option = args[0];
-    if (!["on", "off"].includes(option))
-      return sock.sendMessage(jid, { text: "Uso: .bye on / off" });
+        if (!args[0]) {
+            return sock.sendMessage(jid, {
+                text: "Uso: .bye on | off"
+            });
+        }
 
-    setByeState(jid, option === "on");
+        const state = args[0].toLowerCase();
 
-    sock.sendMessage(jid, {
-      text: `👋 Bye ${option === "on" ? "activado" : "desactivado"}`
-    });
-  }
+        if (state === "on") {
+            setBye(jid, true);
+            await sock.sendMessage(jid, { text: "✅ Bye ACTIVADO en este grupo" });
+        } else if (state === "off") {
+            setBye(jid, false);
+            await sock.sendMessage(jid, { text: "❌ Bye DESACTIVADO en este grupo" });
+        }
+    }
 };
