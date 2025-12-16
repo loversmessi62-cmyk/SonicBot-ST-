@@ -175,6 +175,43 @@ export const handleMessage = async (sock, msg) => {
                 `🚀 COMANDO DETECTADO → .${cmd} | Args: ${tmp.join(" ") || "NINGUNO"}`
             );
         }
+// =========================================================
+//              SISTEMA ANTILINK
+// =========================================================
+if (isGroup && fixedText) {
+
+    const linkRegex = /(https?:\/\/|www\.|chat\.whatsapp\.com)/i;
+
+    if (linkRegex.test(fixedText)) {
+
+        // 🔒 Verificar estado
+        if (!isAntilinkEnabled(jid)) return;
+
+        // ❌ Ignorar admins
+        if (isAdmin) return;
+
+        // 🗑️ Borrar mensaje
+        try {
+            await sock.sendMessage(jid, {
+                delete: {
+                    remoteJid: jid,
+                    fromMe: false,
+                    id: msg.key.id,
+                    participant: realSender
+                }
+            });
+        } catch {}
+
+        // 🦶 Expulsar si se puede
+        if (isBotAdmin) {
+            try {
+                await sock.groupParticipantsUpdate(jid, [realSender], "remove");
+            } catch {}
+        }
+
+        return;
+    }
+}
 
         // ==================================================
         //       SI NO ES COMANDO → onMessage
