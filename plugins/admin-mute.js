@@ -3,22 +3,19 @@ import { muteUser } from "../utils/muteState.js";
 export default {
     commands: ["mute"],
     admin: true,
-    category: "admin",
 
-    async run(sock, msg) {
-        const jid = msg.key.remoteJid;
-
+    async run(sock, msg, args, ctx) {
         const target =
             msg.message?.extendedTextMessage?.contextInfo?.participant;
 
         if (!target)
-            return sock.sendMessage(jid, {
-                text: "❌ Responde al mensaje del usuario que quieres mutear."
+            return sock.sendMessage(ctx.jid, {
+                text: "❌ Responde al usuario que quieres mutear."
             }, { quoted: msg });
 
-        muteUser(jid, target);
+        muteUser(ctx.jid, target);
 
-        await sock.sendMessage(jid, {
+        await sock.sendMessage(ctx.jid, {
             text: `🔇 Usuario muteado:\n@${target.split("@")[0]}`,
             mentions: [target]
         });
