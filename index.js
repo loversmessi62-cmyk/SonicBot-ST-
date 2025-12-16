@@ -94,8 +94,8 @@ async function startBot() {
     // ==================================================
     //   👋 WELCOME / BYE PRO (PFP + FALLBACK LINK)
     // ==================================================
-const DEFAULT_WELCOME_IMG = "https://TU_LINK_AQUI.jpg";
-const DEFAULT_BYE_IMG = "https://TU_LINK_AQUI.jpg";
+const DEFAULT_WELCOME_IMG = " https://files.catbox.moe/mgqqcn.jpeg";
+const DEFAULT_BYE_IMG = " https://files.catbox.moe/tozocs.jpeg";
 
 sock.ev.on("group-participants.update", async (update) => {
     try {
