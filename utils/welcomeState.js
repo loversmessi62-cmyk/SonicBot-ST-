@@ -1,0 +1,54 @@
+import fs from "fs";
+
+const FILE = "./utils/welcomestore.json";
+
+const load = () => JSON.parse(fs.readFileSync(FILE));
+const save = (data) => fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
+
+export const isWelcomeEnabled = (jid) => {
+    const db = load();
+    return db.groups[jid]?.welcome ?? db.global.welcome;
+};
+
+export const isByeEnabled = (jid) => {
+    const db = load();
+    return db.groups[jid]?.bye ?? db.global.bye;
+};
+
+export const setWelcome = (jid, state) => {
+    const db = load();
+    if (!db.groups[jid]) db.groups[jid] = {};
+    db.groups[jid].welcome = state;
+    save(db);
+};
+
+export const setBye = (jid, state) => {
+    const db = load();
+    if (!db.groups[jid]) db.groups[jid] = {};
+    db.groups[jid].bye = state;
+    save(db);
+};
+
+export const setWelcomeText = (jid, text) => {
+    const db = load();
+    if (!db.groups[jid]) db.groups[jid] = {};
+    db.groups[jid].welcomeText = text;
+    save(db);
+};
+
+export const setByeText = (jid, text) => {
+    const db = load();
+    if (!db.groups[jid]) db.groups[jid] = {};
+    db.groups[jid].byeText = text;
+    save(db);
+};
+
+export const getWelcomeText = (jid) => {
+    const db = load();
+    return db.groups[jid]?.welcomeText || "👋 Bienvenido @user a @group";
+};
+
+export const getByeText = (jid) => {
+    const db = load();
+    return db.groups[jid]?.byeText || "👋 @user salió de @group";
+};
