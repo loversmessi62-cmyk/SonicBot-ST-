@@ -99,40 +99,54 @@ export const handleMessage = async (sock, msg) => {
             msg.message?.imageMessage?.caption ||
             "";
 
-        // =========================================================
-        //       📌 CONTADOR REAL DE ACTIVIDAD
-        // =========================================================
-        if (isGroup) {
+        // =====================================
+//          📟 LOG DE MENSAJES
+// =====================================
+try {
+    const time = new Date().toLocaleTimeString("es-MX", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+    });
 
-            if (!store.chats[jid]) store.chats[jid] = {};
+    const senderNum = realSender.split("@")[0];
 
-            const chat = store.chats[jid];
+    let groupName = "PRIVADO";
+    if (isGroup && metadata) {
+        groupName = metadata.subject;
+    }
 
-            // Inicializar
-            if (!chat[realSender]) chat[realSender] = 0;
+    // Detectar tipo de mensaje
+    const m = msg.message || {};
+    let type = "DESCONOCIDO";
 
-            const m = msg.message || {};
+    if (m.conversation || m.extendedTextMessage) type = "TEXTO";
+    else if (m.imageMessage) type = "IMAGEN";
+    else if (m.videoMessage) type = "VIDEO";
+    else if (m.stickerMessage) type = "STICKER";
+    else if (m.audioMessage) type = "AUDIO";
+    else if (m.documentMessage) type = "DOCUMENTO";
+    else if (m.reactionMessage) type = "REACCIÓN";
+    else if (m.viewOnceMessage || m.viewOnceMessageV2) type = "VIEWONCE";
 
-            const hizoAlgo =
-                m.conversation ||
-                m.extendedTextMessage ||
-                m.imageMessage ||
-                m.videoMessage ||
-                m.stickerMessage ||
-                m.documentMessage ||
-                m.audioMessage ||
-                m.contactMessage ||
-                m.locationMessage ||
-                m.liveLocationMessage ||
-                m.viewOnceMessage ||
-                m.viewOnceMessageV2 ||
-                m.reactionMessage;
+    const preview =
+        text && text.length > 40
+            ? text.slice(0, 40) + "..."
+            : text || "[SIN TEXTO]";
 
-            if (hizoAlgo) {
-                chat[realSender]++;
-                saveStore();
-            }
-        }
+    console.log(`
+╔════════════════════════════════════╗
+║ 🕒 ${time}
+║ 👤 ${senderNum}
+║ 👥 ${groupName}
+║ 📎 Tipo: ${type}
+║ 💬 ${preview}
+╚════════════════════════════════════╝
+    `);
+} catch (e) {
+    console.error("❌ Error en log:", e);
+}
+
 
         // =========================================================
         //              SISTEMA ANTILINK
