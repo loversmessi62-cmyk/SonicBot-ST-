@@ -91,11 +91,11 @@ async function startBot() {
     });
 
     
-  // ==================================================
+ // ==================================================
 //   👋 WELCOME / BYE PRO (PFP + FALLBACK LINK)
 // ==================================================
-const DEFAULT_WELCOME_IMG = "https://TU_LINK_AQUI.jpg";
-const DEFAULT_BYE_IMG = "https://TU_LINK_AQUI.jpg";
+const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/welcome.jpg";
+const DEFAULT_BYE_IMG = "https://files.catbox.moe/bye.jpg";
 
 sock.ev.on("group-participants.update", async (update) => {
     try {
@@ -114,18 +114,18 @@ sock.ev.on("group-participants.update", async (update) => {
             const mention = user.split("@")[0];
             const memberCount = metadata.participants.length;
 
-            // ================== FOTO PERFIL ==================
-            let profilePic;
+            // ================= FOTO PERFIL O FALLBACK =================
+            let imageUrl;
             try {
-                profilePic = await sock.profilePictureUrl(user, "image");
+                imageUrl = await sock.profilePictureUrl(user, "image");
             } catch {
-                profilePic =
+                imageUrl =
                     action === "add"
                         ? DEFAULT_WELCOME_IMG
                         : DEFAULT_BYE_IMG;
             }
 
-            // ================== WELCOME ==================
+            // ================= WELCOME =================
             if (action === "add") {
                 if (!isWelcomeEnabled(id)) continue;
 
@@ -135,13 +135,13 @@ sock.ev.on("group-participants.update", async (update) => {
                     .replace(/@count/g, memberCount);
 
                 await sock.sendMessage(id, {
-                    image: { url: profilePic },
+                    image: { url: imageUrl },
                     caption: text,
                     mentions: [user]
                 });
             }
 
-            // ================== BYE ==================
+            // ================= BYE =================
             if (action === "remove") {
                 if (!isByeEnabled(id)) continue;
 
@@ -151,7 +151,7 @@ sock.ev.on("group-participants.update", async (update) => {
                     .replace(/@count/g, memberCount - 1);
 
                 await sock.sendMessage(id, {
-                    image: { url: profilePic },
+                    image: { url: imageUrl },
                     caption: text,
                     mentions: [user]
                 });
