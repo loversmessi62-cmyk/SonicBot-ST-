@@ -125,19 +125,24 @@ if (isGroup && isMuted(jid, realSender)) {
         return;
     }
 }
+// ===============================
+//       TEXTO NORMALIZADO
+// ===============================
+const text =
+    msg.message?.conversation ||
+    msg.message?.extendedTextMessage?.text ||
+    msg.message?.imageMessage?.caption ||
+    msg.message?.videoMessage?.caption ||
+    msg.message?.buttonsResponseMessage?.selectedButtonId ||
+    msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+    msg.message?.templateButtonReplyMessage?.selectedId ||
+    "";
 
-        // ===============================
-        //       TEXTO NORMALIZADO
-        // ===============================
-        const text =
-            msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text ||
-            msg.message?.imageMessage?.caption ||
-            msg.message?.videoMessage?.caption ||
-            msg.message?.buttonsResponseMessage?.selectedButtonId ||
-            msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
-            msg.message?.templateButtonReplyMessage?.selectedId ||
-            "";
+let fixedText = text;
+if (!fixedText && msg.message) {
+    const key = Object.keys(msg.message)[0];
+    fixedText = `[${key}]`;
+}
 
         // 🔥 TEXTO FORZADO (para logs y comandos)
         let fixedText = text;
@@ -208,18 +213,12 @@ if (isGroup && isMuted(jid, realSender)) {
 //              SISTEMA ANTILINK
 // =========================================================
 if (isGroup && fixedText) {
-
     const linkRegex = /(https?:\/\/|www\.|chat\.whatsapp\.com)/i;
 
     if (linkRegex.test(fixedText)) {
-
-        // 🔒 Verificar estado
         if (!isAntilinkEnabled(jid)) return;
-
-        // ❌ Ignorar admins
         if (isAdmin) return;
 
-        // 🗑️ Borrar mensaje
         try {
             await sock.sendMessage(jid, {
                 delete: {
@@ -231,16 +230,15 @@ if (isGroup && fixedText) {
             });
         } catch {}
 
-        // 🦶 Expulsar si se puede
         if (isBotAdmin) {
             try {
                 await sock.groupParticipantsUpdate(jid, [realSender], "remove");
             } catch {}
         }
-
         return;
     }
 }
+
 
         // ==================================================
         //       SI NO ES COMANDO → onMessage
