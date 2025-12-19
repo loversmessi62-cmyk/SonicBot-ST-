@@ -68,27 +68,50 @@ export const handleMessage = async (sock, msg) => {
     let isAdmin = false;
     let isBotAdmin = false;
 
-    // =====================================
-    // SISTEMA DE ADMINS
-    // =====================================
-    if (isGroup) {
-      if (!groupCache[jid]) {
-        groupCache[jid] = await sock.groupMetadata(jid);
-      }
-      metadata = groupCache[jid];
-      const found = metadata.participants.find(
-        p => p.jid === sender || p.id === sender
-      );
-      if (found) realSender = found.id;
+   // =====================================
+// SISTEMA DE ADMINS FIABLE
+// =====================================
+if (isGroup) {
+  // Actualizar metadata del grupo siempre
+  try {
+    groupCache[jid] = await sock.groupMetadata(jid);
+    metadata = groupCache[jid];
 
-      admins = metadata.participants
-        .filter(p => p.admin)
-        .map(p => p.id);
+    // Buscar al sender real
+    const found = metadata.participants.find(
+      p =>
+        p.jid === sender || // jid completo
+        p.id === sender || // id corto
+        (p.jid.split("@")[0] === sender.split("@")[0]) // comparar solo número
+    );
+    if (found) realSender = found.id;
 
-      isAdmin = admins.includes(realSender);
-      const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-      isBotAdmin = admins.includes(botId);
-    }
+    // Obtener admins reales del grupo
+    admins = metadata.participants
+      .filter(p => p.admin === "admin" || p.admin === "superadmin")
+      .map(p => p.id);
+
+    // Comprobación extra por número y jid
+    const senderNum = realSender.split("@")[0];
+    isAdmin = admins.some(
+      a => a === realSender || a.split("@")[0] === senderNum
+    );
+
+    // ID del bot
+    const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+    isBotAdmin = admins.some(
+      a => a === botId || a.split("@")[0] === botId.split("@")[0]
+    );
+
+  } catch (err) {
+    console.error("❌ Error al obtener admins del grupo:", err);
+    // fallback: ningún admin detectado
+    admins = [];
+    isAdmin = false;
+    isBotAdmin = false;
+  }
+}
+
 
     // ===============================
     // 🔇 SISTEMA MUTE REAL (CORRECTO)
