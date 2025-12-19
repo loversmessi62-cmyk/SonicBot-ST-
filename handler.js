@@ -5,16 +5,14 @@ import { isMuted } from "./utils/muteState.js";
 import { isAntilinkEnabled } from "./utils/antilinkState.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
-// =========================================================
-//                   📌 STORE GLOBAL
-// =========================================================
-export const store = {
-    chats: {},
-};
+// =====================
+// STORE GLOBAL
+// =====================
+export const store = { chats: {} };
 
-// =========================================================
-//              SISTEMA DE PLUGINS
-// =========================================================
+// =====================
+// PLUGINS
+// =====================
 export const plugins = {};
 
 export const loadPlugins = async () => {
@@ -25,7 +23,6 @@ export const loadPlugins = async () => {
         try {
             const module = await import("file://" + path.resolve(`${dir}/${file}`));
             const cmds = module.default.commands || module.default.command;
-
             if (!cmds) continue;
 
             for (const c of Array.isArray(cmds) ? cmds : [cmds]) {
@@ -34,14 +31,14 @@ export const loadPlugins = async () => {
 
             console.log(`✅ Plugin cargado: ${file}`);
         } catch (e) {
-            console.error(`❌ Error en plugin ${file}:`, e);
+            console.error(`❌ Error plugin ${file}:`, e);
         }
     }
 };
 
-// =====================================================
-//               ⚡ HANDLER PRINCIPAL ⚡
-// =====================================================
+// =====================
+// HANDLER PRINCIPAL
+// =====================
 export const handleMessage = async (sock, msg) => {
     try {
         if (!msg.message) return;
@@ -49,20 +46,28 @@ export const handleMessage = async (sock, msg) => {
         const jid = msg.key.remoteJid;
         const isGroup = jid.endsWith("@g.us");
 
-        const sender = msg.key.participant || msg.key.remoteJid;
+        let sender =
+            msg.key.participant ||
+            msg.key.remoteJid;
+
+        // 🔧 NORMALIZAR SENDER
+        if (sender.includes(":")) {
+            sender = sender.split(":")[0] + "@s.whatsapp.net";
+        }
+
         let metadata = null;
         let admins = [];
         let isAdmin = false;
         let isBotAdmin = false;
 
-        // =====================================
-        //           METADATA REAL (SIEMPRE)
-        // =====================================
+        // =====================
+        // METADATA REAL
+        // =====================
         if (isGroup) {
             metadata = await sock.groupMetadata(jid);
 
             admins = metadata.participants
-                .filter(p => p.admin)
+                .filter(p => p.admin === "admin" || p.admin === "superadmin")
                 .map(p => p.id);
 
             isAdmin = admins.includes(sender);
@@ -71,9 +76,9 @@ export const handleMessage = async (sock, msg) => {
             isBotAdmin = admins.includes(botId);
         }
 
-        // ===============================
-        // 🔇 SISTEMA MUTE REAL
-        // ===============================
+        // =====================
+        // MUTE
+        // =====================
         if (isGroup && isMuted(jid, sender) && !isAdmin) {
             try {
                 await sock.sendMessage(jid, {
@@ -88,53 +93,48 @@ export const handleMessage = async (sock, msg) => {
             return;
         }
 
-        // ===============================
-        //       TEXTO NORMALIZADO
-        // ===============================
+        // =====================
+        // TEXTO
+        // =====================
         const text =
-            msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text ||
-            msg.message?.imageMessage?.caption ||
-            msg.message?.videoMessage?.caption ||
-            msg.message?.buttonsResponseMessage?.selectedButtonId ||
-            msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
-            msg.message?.templateButtonReplyMessage?.selectedId ||
+            msg.message.conversation ||
+            msg.message.extendedTextMessage?.text ||
+            msg.message.imageMessage?.caption ||
+            msg.message.videoMessage?.caption ||
             "";
 
-        // ===============================
-        //          ANTILINK
-        // ===============================
-        if (isGroup && text) {
-            const linkRegex = /(https?:\/\/|www\.|chat\.whatsapp\.com)/i;
+        // =====================
+        // ANTILINK
+        // =====================
+        if (
+            isGroup &&
+            text &&
+            /(https?:\/\/|www\.|chat\.whatsapp\.com)/i.test(text) &&
+            isAntilinkEnabled(jid) &&
+            !isAdmin
+        ) {
+            try {
+                await sock.sendMessage(jid, {
+                    delete: {
+                        remoteJid: jid,
+                        fromMe: false,
+                        id: msg.key.id,
+                        participant: sender
+                    }
+                });
+            } catch {}
 
-            if (
-                linkRegex.test(text) &&
-                isAntilinkEnabled(jid) &&
-                !isAdmin
-            ) {
+            if (isBotAdmin) {
                 try {
-                    await sock.sendMessage(jid, {
-                        delete: {
-                            remoteJid: jid,
-                            fromMe: false,
-                            id: msg.key.id,
-                            participant: sender
-                        }
-                    });
+                    await sock.groupParticipantsUpdate(jid, [sender], "remove");
                 } catch {}
-
-                if (isBotAdmin) {
-                    try {
-                        await sock.groupParticipantsUpdate(jid, [sender], "remove");
-                    } catch {}
-                }
-                return;
             }
+            return;
         }
 
-        // ===============================
-        //      NO ES COMANDO
-        // ===============================
+        // =====================
+        // NO COMANDO
+        // =====================
         if (!text || !text.startsWith(".")) {
             for (const p of Object.values(plugins)) {
                 if (p.onMessage) await p.onMessage(sock, msg);
@@ -142,57 +142,36 @@ export const handleMessage = async (sock, msg) => {
             return;
         }
 
-        // ===============================
-        //        COMANDO
-        // ===============================
+        // =====================
+        // COMANDO
+        // =====================
         const args = text.slice(1).trim().split(/\s+/);
         const command = args.shift().toLowerCase();
 
         if (!plugins[command]) return;
         const plugin = plugins[command];
 
-        // ===============================
-        //      ON / OFF GLOBAL
-        // ===============================
+        // =====================
+        // ON / OFF
+        // =====================
         if (getState(command) === false) {
             return sock.sendMessage(jid, {
                 text: `⚠️ El comando *.${command}* está desactivado.`
             });
         }
 
-        // ===============================
-        //      SOLO ADMINS
-        // ===============================
-      let metadata = null;
-let admins = [];
-let isAdmin = false;
-let isBotAdmin = false;
+        // =====================
+        // SOLO ADMINS
+        // =====================
+        if (plugin.admin && !isAdmin) {
+            return sock.sendMessage(jid, {
+                text: "❌ Solo administradores pueden usar este comando."
+            });
+        }
 
-if (isGroup) {
-    metadata = await sock.groupMetadata(jid);
-
-    const participants = metadata.participants || [];
-
-    admins = participants
-        .filter(p => p.admin === "admin" || p.admin === "superadmin")
-        .map(p => p.id);
-
-    const senderId = sender.includes(":")
-        ? sender.split(":")[0] + "@s.whatsapp.net"
-        : sender;
-
-    realSender = senderId;
-
-    isAdmin = admins.includes(realSender);
-
-    const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-    isBotAdmin = admins.includes(botId);
-}
-
-
-        // ===============================
-        //      CONTEXTO
-        // ===============================
+        // =====================
+        // CONTEXTO
+        // =====================
         const ctx = {
             sock,
             msg,
@@ -229,9 +208,9 @@ if (isGroup) {
             }
         };
 
-        // ===============================
-        //      EJECUTAR
-        // ===============================
+        // =====================
+        // EJECUTAR
+        // =====================
         await plugin.run(sock, msg, args, ctx);
 
     } catch (e) {
