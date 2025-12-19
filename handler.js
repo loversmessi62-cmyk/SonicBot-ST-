@@ -163,11 +163,32 @@ export const handleMessage = async (sock, msg) => {
         // ===============================
         //      SOLO ADMINS
         // ===============================
-        if (plugin.admin && !isAdmin) {
-            return sock.sendMessage(jid, {
-                text: "❌ Este comando es solo para administradores."
-            });
-        }
+      let metadata = null;
+let admins = [];
+let isAdmin = false;
+let isBotAdmin = false;
+
+if (isGroup) {
+    metadata = await sock.groupMetadata(jid);
+
+    const participants = metadata.participants || [];
+
+    admins = participants
+        .filter(p => p.admin === "admin" || p.admin === "superadmin")
+        .map(p => p.id);
+
+    const senderId = sender.includes(":")
+        ? sender.split(":")[0] + "@s.whatsapp.net"
+        : sender;
+
+    realSender = senderId;
+
+    isAdmin = admins.includes(realSender);
+
+    const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+    isBotAdmin = admins.includes(botId);
+}
+
 
         // ===============================
         //      CONTEXTO
