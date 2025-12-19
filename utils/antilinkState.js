@@ -1,18 +1,21 @@
 import fs from "fs";
 
-const FILE = "./antilink.json";
-let data = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE)) : {};
+const file = "./antilink.json";
 
-const save = () => fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
+// crear archivo si no existe
+if (!fs.existsSync(file)) {
+    fs.writeFileSync(file, JSON.stringify({}, null, 2));
+}
 
-export const enableAntilink = jid => {
-    data[jid] = true;
-    save();
+// obtener estado del antilink por grupo
+export const isAntilinkEnabled = (jid) => {
+    const data = JSON.parse(fs.readFileSync(file));
+    return data[jid] === true;
 };
 
-export const disableAntilink = jid => {
-    data[jid] = false;
-    save();
+// activar / desactivar antilink por grupo
+export const setAntilink = (jid, value) => {
+    const data = JSON.parse(fs.readFileSync(file));
+    data[jid] = !!value;
+    fs.writeFileSync(file, JSON.stringify(data, null, 2));
 };
-
-export const isAntilinkEnabled = jid => data[jid] === true;
