@@ -4,7 +4,6 @@ import { getState } from "./utils/cdmtoggle.js";
 import { isMuted } from "./utils/muteState.js";
 import { isAntilinkEnabled } from "./utils/antilinkState.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
-import { isMuted } from "./utils/muteState.js";
 
 const groupCache = {};
 
