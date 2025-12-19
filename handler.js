@@ -138,18 +138,13 @@ const text =
     msg.message?.templateButtonReplyMessage?.selectedId ||
     "";
 
+// 🔥 TEXTO FORZADO (UNA SOLA VEZ)
 let fixedText = text;
 if (!fixedText && msg.message) {
     const key = Object.keys(msg.message)[0];
     fixedText = `[${key}]`;
 }
 
-        // 🔥 TEXTO FORZADO (para logs y comandos)
-        let fixedText = text;
-        if (!fixedText && msg.message) {
-            const key = Object.keys(msg.message)[0];
-            fixedText = `[${key}]`;
-        }
 
         // =====================================
         //          📟 LOG DE MENSAJES
