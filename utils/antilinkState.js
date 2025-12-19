@@ -1,32 +1,18 @@
 import fs from "fs";
 
-const FILE = "./antilinkState.json";
+const FILE = "./antilink.json";
+let data = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE)) : {};
 
-let data = {
-    global: true,
-    groups: {}
-};
+const save = () => fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
 
-if (fs.existsSync(FILE)) {
-    data = JSON.parse(fs.readFileSync(FILE));
-}
-
-const save = () =>
-    fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
-
-export const isAntilinkEnabled = (jid) => {
-    if (data.groups[jid] === undefined) {
-        return data.global;
-    }
-    return data.groups[jid];
-};
-
-export const setAntilinkGroup = (jid, state) => {
-    data.groups[jid] = state;
+export const enableAntilink = jid => {
+    data[jid] = true;
     save();
 };
 
-export const setAntilinkGlobal = (state) => {
-    data.global = state;
+export const disableAntilink = jid => {
+    data[jid] = false;
     save();
 };
+
+export const isAntilinkEnabled = jid => data[jid] === true;
