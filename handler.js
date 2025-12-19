@@ -103,23 +103,29 @@ if (isGroup) {
         metadata = await sock.groupMetadata(jid);
         groupCache[jid] = metadata;
     } else if (!groupCache[jid]) {
-        groupCache[jid] = await sock.groupMetadata(jid);
-        metadata = groupCache[jid];
+        metadata = await sock.groupMetadata(jid);
+        metadata && (groupCache[jid] = metadata);
     } else {
         metadata = groupCache[jid];
     }
 
-    realSender = sender.includes(":")
-        ? sender.split(":")[0] + "@s.whatsapp.net"
-        : sender;
+    // Función para normalizar JID
+    const normalizeJid = (jid) => {
+        if (!jid) return "";
+        if (jid.includes(":")) jid = jid.split(":")[0];
+        if (!jid.endsWith("@s.whatsapp.net")) jid += "@s.whatsapp.net";
+        return jid;
+    };
 
-    admins = metadata.participants
+    realSender = normalizeJid(sender);
+    const botId = normalizeJid(sock.user.id);
+
+    // Obtener admins normalizados
+    admins = (metadata?.participants || [])
         .filter(p => p.admin === "admin" || p.admin === "superadmin")
-        .map(p => p.id);
+        .map(p => normalizeJid(p.id));
 
     isAdmin = admins.includes(realSender);
-
-    const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
     isBotAdmin = admins.includes(botId);
 }
 
