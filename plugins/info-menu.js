@@ -20,7 +20,6 @@ export default {
         const pluginsDir = "./plugins";
         const files = fs.readdirSync(pluginsDir).filter(f => f.endsWith(".js"));
 
-        // Categorías reales de tu bot
         let admin = [];
         let owner = [];
         let info = [];
@@ -28,7 +27,7 @@ export default {
         let multi = [];
         let onoff = [];
         let funny = [];
-        let hot = []; // +18
+        let hot = [];
 
         for (let file of files) {
             try {
@@ -54,8 +53,8 @@ export default {
                     case "grupo":
                         grupo.push(...lista);
                         break;
-                         case "multi":
-                        grupo.push(...lista);
+                    case "multi":
+                        multi.push(...lista);
                         break;
                     case "on-off":
                     case "onoff":
@@ -77,11 +76,8 @@ export default {
             }
         }
 
-        // ===============================
-        // FORMATO DE MENÚ BONITO
-       // ===============================
         const texto = `
-╭───「 ADRI BOT - DH 」───
+╭───「 🤖 ADRIBOT 」───
 │ 👤 Usuario: @${username}
 │ 📅 Fecha: ${new Date().toLocaleDateString("es-MX")}
 │
@@ -97,7 +93,10 @@ ${info.map(c => `│ • .${c}`).join("\n") || "│ (Vacío)"}
 ├──「 👥 GRUPO 」
 ${grupo.map(c => `│ • .${c}`).join("\n") || "│ (Vacío)"}
 
-├──「 🔧 ON-OFF 」
+├──「 🔀 MULTI 」
+${multi.map(c => `│ • .${c}`).join("\n") || "│ (Vacío)"}
+
+├──「 🔧 ON / OFF 」
 ${onoff.map(c => `│ • .${c}`).join("\n") || "│ (Vacío)"}
 
 ├──「 😂 FUNNY 」
@@ -106,12 +105,9 @@ ${funny.map(c => `│ • .${c}`).join("\n") || "│ (Vacío)"}
 ├──「 🔞 +18 」
 ${hot.map(c => `│ • .${c}`).join("\n") || "│ (Vacío)"}
 
-╰─────────────────────●
+╰────────────────────●
 `;
 
-        // ===============================
-        // ENVIAR MENÚ
-        // ===============================
         await sock.sendMessage(jid, {
             image: { url: menuImg },
             caption: texto,
