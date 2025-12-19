@@ -81,36 +81,25 @@ export const handleMessage = async (sock, msg) => {
         // =======================
 // SISTEMA DE ADMINS
 // =======================
-let metadata = null;
-let admins = [];
-let isAdmin = false;
-let isBotAdmin = false;
-
 if (isGroup) {
-    // Obtener metadata
-    if (!groupCache[jid] || fixedText.startsWith(".")) {
-        metadata = await sock.groupMetadata(jid);
-        groupCache[jid] = metadata;
-    } else {
-        metadata = groupCache[jid];
-    }
+    metadata = await sock.groupMetadata(jid);
 
-    // Función para extraer solo el número
-    const getNumber = (jid) => {
-        if (!jid) return "";
-        return jid.split("@")[0].split(":")[0];
-    };
-
-    // Normalizar sender y bot
+    const getNumber = jid => jid?.split("@")[0].split(":")[0] || "";
     const senderNumber = getNumber(sender);
     const botNumber = getNumber(sock.user.id);
 
-    // Obtener lista de admins normalizados (solo números)
-    admins = (metadata?.participants || [])
-        .filter(p => p.admin === "admin" || p.admin === "superadmin")
-        .map(p => getNumber(p.id));
+    // Detectar admins de forma confiable
+    admins = [];
+    metadata.participants.forEach(p => {
+        const num = getNumber(p.id);
+        if (p.admin === "admin" || p.admin === "superadmin") admins.push(num);
+        // Si tu número es el del creador del grupo, también agregarlo
+        if (num === senderNumber && p.admin === null) {
+            // opcional: marcarlo como admin si es tu usuario
+            admins.push(num);
+        }
+    });
 
-    // Revisar si sender y bot son admins
     isAdmin = admins.includes(senderNumber);
     isBotAdmin = admins.includes(botNumber);
 
@@ -118,6 +107,7 @@ if (isGroup) {
     console.log("Sender es admin?", isAdmin);
     console.log("Bot es admin?", isBotAdmin);
 }
+
 
 
         // =======================
