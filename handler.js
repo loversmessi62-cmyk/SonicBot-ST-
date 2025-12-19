@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
-import { getState, isAntilinkEnabled } from "./utils/cdmtoggle.js";
+import { getState } from "./utils/cdmtoggle.js";
 import { isMuted } from "./utils/muteState.js";
+import { isAntilinkEnabled } from "./utils/antilinkState.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 
 const groupCache = {};
