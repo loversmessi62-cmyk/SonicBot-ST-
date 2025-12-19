@@ -43,7 +43,7 @@ export const loadPlugins = async () => {
           console.warn(`⚠️ ${file} no tiene "command" ni "commands"`);
           continue;
         }
-        cmds.forEach(cmd => (plugins[cmd] = module.default));
+        cmds.forEach(cmd => plugins[cmd] = module.default);
         console.log(`🔥 Plugin cargado: ${file}`);
       } catch (err) {
         console.error(`❌ Error en plugin ${file}:`, err);
@@ -101,8 +101,8 @@ export const handleMessage = async (sock, msg) => {
               remoteJid: jid,
               fromMe: false,
               id: msg.key.id,
-              participant: realSender,
-            },
+              participant: realSender
+            }
           });
         } catch {}
         return;
@@ -136,7 +136,7 @@ export const handleMessage = async (sock, msg) => {
       const time = new Date().toLocaleTimeString("es-MX", {
         hour: "2-digit",
         minute: "2-digit",
-        second: "2-digit",
+        second: "2-digit"
       });
 
       const senderNum = realSender.split("@")[0];
@@ -175,9 +175,7 @@ export const handleMessage = async (sock, msg) => {
       const tmp = fixedText.slice(1).trim().split(/\s+/);
       const cmd = tmp.shift()?.toLowerCase();
       console.log(
-        `🚀 COMANDO DETECTADO → .${cmd} | Args: ${
-          tmp.join(" ") || "NINGUNO"
-        }`
+        `🚀 COMANDO DETECTADO → .${cmd} | Args: ${tmp.join(" ") || "NINGUNO"}`
       );
     }
 
@@ -199,8 +197,8 @@ export const handleMessage = async (sock, msg) => {
               remoteJid: jid,
               fromMe: false,
               id: msg.key.id,
-              participant: realSender,
-            },
+              participant: realSender
+            }
           });
         } catch {}
 
@@ -273,7 +271,7 @@ export const handleMessage = async (sock, msg) => {
           buffer = Buffer.concat([buffer, chunk]);
         }
         return buffer;
-      },
+      }
     };
 
     // ===============================
@@ -282,7 +280,7 @@ export const handleMessage = async (sock, msg) => {
     const state = getState(command);
     if (state === false) {
       return sock.sendMessage(jid, {
-        text: `⚠️ El comando *.${command}* está desactivado.`,
+        text: `⚠️ El comando *.${command}* está desactivado.`
       });
     }
 
@@ -291,7 +289,7 @@ export const handleMessage = async (sock, msg) => {
     // ===============================
     if (plugin.admin && !isAdmin) {
       return sock.sendMessage(jid, {
-        text: "❌ Solo administradores pueden usar este comando.",
+        text: "❌ Solo administradores pueden usar este comando."
       });
     }
 
@@ -299,6 +297,7 @@ export const handleMessage = async (sock, msg) => {
     // EJECUTAR COMANDO
     // ===============================
     await plugin.run(sock, msg, args, ctx);
+
   } catch (e) {
     console.error("❌ ERROR EN HANDLER:", e);
   }
