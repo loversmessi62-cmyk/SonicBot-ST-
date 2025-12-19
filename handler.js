@@ -75,7 +75,24 @@ export const handleMessage = async (sock, msg) => {
         let admins = [];
         let isAdmin = false;
         let isBotAdmin = false;
+// ===============================
+//       TEXTO NORMALIZADO
+// ===============================
+const text =
+    msg.message?.conversation ||
+    msg.message?.extendedTextMessage?.text ||
+    msg.message?.imageMessage?.caption ||
+    msg.message?.videoMessage?.caption ||
+    msg.message?.buttonsResponseMessage?.selectedButtonId ||
+    msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+    msg.message?.templateButtonReplyMessage?.selectedId ||
+    "";
 
+let fixedText = text;
+if (!fixedText && msg.message) {
+    const key = Object.keys(msg.message)[0];
+    fixedText = `[${key}]`;
+}
       // =====================================
 //           SISTEMA DE ADMINS
 // =====================================
@@ -125,24 +142,7 @@ if (isGroup && isMuted(jid, realSender)) {
         return;
     }
 }
-// ===============================
-//       TEXTO NORMALIZADO
-// ===============================
-const text =
-    msg.message?.conversation ||
-    msg.message?.extendedTextMessage?.text ||
-    msg.message?.imageMessage?.caption ||
-    msg.message?.videoMessage?.caption ||
-    msg.message?.buttonsResponseMessage?.selectedButtonId ||
-    msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
-    msg.message?.templateButtonReplyMessage?.selectedId ||
-    "";
 
-let fixedText = text;
-if (!fixedText && msg.message) {
-    const key = Object.keys(msg.message)[0];
-    fixedText = `[${key}]`;
-}
 
         // =====================================
         //          📟 LOG DE MENSAJES
