@@ -68,44 +68,36 @@ export const handleMessage = async (sock, msg) => {
     let isAdmin = false;
     let isBotAdmin = false;
 
-   // =====================================
+  // =====================================
 // SISTEMA DE ADMINS FIABLE
 // =====================================
 if (isGroup) {
-  // Actualizar metadata del grupo siempre
   try {
+    // Actualizar metadata del grupo siempre
     groupCache[jid] = await sock.groupMetadata(jid);
     metadata = groupCache[jid];
 
-    // Buscar al sender real
+    // Encontrar al sender real
     const found = metadata.participants.find(
-      p =>
-        p.jid === sender || // jid completo
-        p.id === sender || // id corto
-        (p.jid.split("@")[0] === sender.split("@")[0]) // comparar solo número
+      p => p.jid === sender || p.id === sender || p.jid.split("@")[0] === sender.split("@")[0]
     );
     if (found) realSender = found.id;
 
-    // Obtener admins reales del grupo
+    // Obtener admins del grupo
     admins = metadata.participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
       .map(p => p.id);
 
-    // Comprobación extra por número y jid
+    // Verificar si el sender es admin
     const senderNum = realSender.split("@")[0];
-    isAdmin = admins.some(
-      a => a === realSender || a.split("@")[0] === senderNum
-    );
+    isAdmin = admins.some(a => a === realSender || a.split("@")[0] === senderNum);
 
-    // ID del bot
+    // Verificar si el bot es admin
     const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-    isBotAdmin = admins.some(
-      a => a === botId || a.split("@")[0] === botId.split("@")[0]
-    );
+    isBotAdmin = admins.some(a => a === botId || a.split("@")[0] === botId.split("@")[0]);
 
   } catch (err) {
     console.error("❌ Error al obtener admins del grupo:", err);
-    // fallback: ningún admin detectado
     admins = [];
     isAdmin = false;
     isBotAdmin = false;
