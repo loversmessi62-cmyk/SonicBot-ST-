@@ -76,15 +76,15 @@ export const handleMessage = async (sock, msg) => {
         let isAdmin = false;
         let isBotAdmin = false;
 
-       // =====================================
-//           SISTEMA DE ADMINS (FIX)
+      // =====================================
+//           SISTEMA DE ADMINS
 // =====================================
 if (isGroup) {
 
-    // 🔥 SI ES COMANDO, FORZAR METADATA NUEVA
-    if (fixedText?.startsWith(".")) {
+    // refrescar metadata solo si es comando
+    if (fixedText.startsWith(".")) {
         metadata = await sock.groupMetadata(jid);
-        groupCache[jid] = metadata; // actualizar cache
+        groupCache[jid] = metadata;
     } else if (!groupCache[jid]) {
         groupCache[jid] = await sock.groupMetadata(jid);
         metadata = groupCache[jid];
@@ -92,7 +92,6 @@ if (isGroup) {
         metadata = groupCache[jid];
     }
 
-    // 🔧 NORMALIZAR SENDER
     realSender = sender.includes(":")
         ? sender.split(":")[0] + "@s.whatsapp.net"
         : sender;
@@ -106,6 +105,7 @@ if (isGroup) {
     const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
     isBotAdmin = admins.includes(botId);
 }
+
 
         // ===============================
         // 🔇 SISTEMA MUTE REAL (CORRECTO)
@@ -138,13 +138,11 @@ const text =
     msg.message?.templateButtonReplyMessage?.selectedId ||
     "";
 
-// 🔥 TEXTO FORZADO (UNA SOLA VEZ)
 let fixedText = text;
 if (!fixedText && msg.message) {
     const key = Object.keys(msg.message)[0];
     fixedText = `[${key}]`;
 }
-
 
         // =====================================
         //          📟 LOG DE MENSAJES
