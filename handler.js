@@ -76,29 +76,37 @@ export const handleMessage = async (sock, msg) => {
         let isAdmin = false;
         let isBotAdmin = false;
 
-        // =====================================
-        //           SISTEMA DE ADMINS
-        // =====================================
-        if (isGroup) {
-            if (!groupCache[jid]) {
-                groupCache[jid] = await sock.groupMetadata(jid);
-            }
-            metadata = groupCache[jid];
+       // =====================================
+//           SISTEMA DE ADMINS (FIX)
+// =====================================
+if (isGroup) {
 
-            const found = metadata.participants.find(
-                p => p.jid === sender || p.id === sender
-            );
-            if (found) realSender = found.id;
+    // 🔥 SI ES COMANDO, FORZAR METADATA NUEVA
+    if (fixedText?.startsWith(".")) {
+        metadata = await sock.groupMetadata(jid);
+        groupCache[jid] = metadata; // actualizar cache
+    } else if (!groupCache[jid]) {
+        groupCache[jid] = await sock.groupMetadata(jid);
+        metadata = groupCache[jid];
+    } else {
+        metadata = groupCache[jid];
+    }
 
-            admins = metadata.participants
-                .filter(p => p.admin)
-                .map(p => p.id);
+    // 🔧 NORMALIZAR SENDER
+    realSender = sender.includes(":")
+        ? sender.split(":")[0] + "@s.whatsapp.net"
+        : sender;
 
-            isAdmin = admins.includes(realSender);
+    admins = metadata.participants
+        .filter(p => p.admin === "admin" || p.admin === "superadmin")
+        .map(p => p.id);
 
-            const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-            isBotAdmin = admins.includes(botId);
-        }
+    isAdmin = admins.includes(realSender);
+
+    const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+    isBotAdmin = admins.includes(botId);
+}
+
         // ===============================
         // 🔇 SISTEMA MUTE REAL (CORRECTO)
         // ===============================
