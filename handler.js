@@ -79,28 +79,46 @@ export const handleMessage = async (sock, msg) => {
         fixedText = fixedText.trim();
 
         // =======================
-        // SISTEMA DE ADMINS
-        // =======================
-        let metadata = null;
-        let admins = [];
-        let isAdmin = false;
-        let isBotAdmin = false;
+// SISTEMA DE ADMINS
+// =======================
+let metadata = null;
+let admins = [];
+let isAdmin = false;
+let isBotAdmin = false;
 
-        if (isGroup) {
-            if (!groupCache[jid] || fixedText.startsWith(".")) {
-                metadata = await sock.groupMetadata(jid);
-                groupCache[jid] = metadata;
-            } else {
-                metadata = groupCache[jid];
-            }
+if (isGroup) {
+    // Obtener metadata
+    if (!groupCache[jid] || fixedText.startsWith(".")) {
+        metadata = await sock.groupMetadata(jid);
+        groupCache[jid] = metadata;
+    } else {
+        metadata = groupCache[jid];
+    }
 
-            admins = (metadata?.participants || [])
-                .filter(p => p.admin === "admin" || p.admin === "superadmin")
-                .map(p => getNumber(p.id));
+    // Función para extraer solo el número
+    const getNumber = (jid) => {
+        if (!jid) return "";
+        return jid.split("@")[0].split(":")[0];
+    };
 
-            isAdmin = admins.includes(getNumber(sender));
-            isBotAdmin = admins.includes(getNumber(sock.user.id));
-        }
+    // Normalizar sender y bot
+    const senderNumber = getNumber(sender);
+    const botNumber = getNumber(sock.user.id);
+
+    // Obtener lista de admins normalizados (solo números)
+    admins = (metadata?.participants || [])
+        .filter(p => p.admin === "admin" || p.admin === "superadmin")
+        .map(p => getNumber(p.id));
+
+    // Revisar si sender y bot son admins
+    isAdmin = admins.includes(senderNumber);
+    isBotAdmin = admins.includes(botNumber);
+
+    console.log("Admins detectados:", admins);
+    console.log("Sender es admin?", isAdmin);
+    console.log("Bot es admin?", isBotAdmin);
+}
+
 
         // =======================
         // SISTEMA MUTE
