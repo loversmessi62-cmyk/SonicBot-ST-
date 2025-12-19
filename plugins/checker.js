@@ -1,12 +1,17 @@
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
+
 export default {
     commands: ["checker", "check", "chacker"],
     category: "tools",
 
     async run(sock, msg, args, ctx) {
         try {
-            // Detectar el TXT
-            const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-            const doc = quoted?.documentMessage || msg.message?.documentMessage;
+            const quoted =
+                msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+
+            const doc =
+                quoted?.documentMessage ||
+                msg.message?.documentMessage;
 
             if (!doc) {
                 return sock.sendMessage(ctx.jid, {
@@ -14,26 +19,30 @@ export default {
                 });
             }
 
-            // Descargar
-            const buffer = await ctx.download();
+            // ⬇️ DESCARGA REAL DEL TXT
+            const stream = await downloadContentFromMessage(doc, "document");
+            let buffer = Buffer.from([]);
+
+            for await (const chunk of stream) {
+                buffer = Buffer.concat([buffer, chunk]);
+            }
+
             const text = buffer.toString("utf8");
 
-            // Separar líneas exactas
+            // ==============================
+            // TU LÓGICA ORIGINAL (INTOCADA)
+            // ==============================
             const lines = text
                 .split(/\r?\n/)
                 .map(l => l.trim())
-                .filter(l => l.length > 0);
+                .filter(Boolean);
 
             const results = [];
 
             for (const original of lines) {
-                // Sacar solo números
                 const digits = original.replace(/\D/g, "");
-
-                // Si no hay número válido → ignorar
                 if (digits.length < 6) continue;
 
-                // Contar repeticiones
                 const count = {};
                 for (const d of digits) {
                     count[d] = (count[d] || 0) + 1;
@@ -41,34 +50,24 @@ export default {
 
                 const maxRepeats = Math.max(...Object.values(count));
 
-                // Solo tomar números con mínimo 6 repetidos
                 if (maxRepeats >= 6) {
-                    results.push({
-                        original,      // TAL CUAL aparece en el TXT
-                        digits,
-                        maxRepeats
-                    });
+                    results.push({ original, maxRepeats });
                 }
             }
 
-            if (results.length === 0) {
+            if (!results.length) {
                 return sock.sendMessage(ctx.jid, {
                     text: "❌ No hay números con mínimo 6 dígitos repetidos."
                 });
             }
 
-            // Ordenar por más repetidos
             results.sort((a, b) => b.maxRepeats - a.maxRepeats);
 
-            // Tomar top 10
-            const top = results.slice(0, 10);
-
-            // Armar mensaje
             let out = "📊 *TOP 10 – NÚMEROS CON MÁS REPETIDOS*\n\n";
 
-            for (const r of top) {
+            for (const r of results.slice(0, 10)) {
                 out += `🔹 ${r.original}\n`;
-                out += `   ➤ Repetidos máximos de un mismo dígito: *${r.maxRepeats}*\n\n`;
+                out += `   ➤ Repeticiones máximas: *${r.maxRepeats}*\n\n`;
             }
 
             await sock.sendMessage(ctx.jid, { text: out });
