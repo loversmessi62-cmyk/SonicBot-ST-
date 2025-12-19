@@ -2,6 +2,9 @@ import fs from "fs";
 import path from "path";
 import { getState } from "./utils/cdmtoggle.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
+import { isMuted } from "./utils/muteState.js";
+
+const groupCache = {};
 
 // =========================================================
 //                   📌 STORE GLOBAL
@@ -20,6 +23,8 @@ if (fs.existsSync("./store.json")) {
     const old = JSON.parse(fs.readFileSync("./store.json"));
     Object.assign(store, old);
 }
+
+
 
 // ============================================
 //              SISTEMA DE PLUGINS
@@ -55,9 +60,8 @@ export const loadPlugins = async () => {
     }
 };
 
-
 // =====================================================
-//               ⚡ HANDLER PRINCIPAL FIX ⚡
+//               ⚡ HANDLER PRINCIPAL ⚡
 // =====================================================
 export const handleMessage = async (sock, msg) => {
     try {
@@ -76,7 +80,10 @@ export const handleMessage = async (sock, msg) => {
         //           SISTEMA DE ADMINS
         // =====================================
         if (isGroup) {
-            metadata = await sock.groupMetadata(jid);
+            if (!groupCache[jid]) {
+                groupCache[jid] = await sock.groupMetadata(jid);
+            }
+            metadata = groupCache[jid];
 
             const found = metadata.participants.find(
                 p => p.jid === sender || p.id === sender
@@ -92,57 +99,145 @@ export const handleMessage = async (sock, msg) => {
             const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
             isBotAdmin = admins.includes(botId);
         }
+        // ===============================
+        // 🔇 SISTEMA MUTE REAL (CORRECTO)
+        // ===============================
+if (isGroup && isMuted(jid, realSender)) {
+    if (!isAdmin) {
+        try {
+            await sock.sendMessage(jid, {
+                delete: {
+                    remoteJid: jid,
+                    fromMe: false,
+                    id: msg.key.id,
+                    participant: realSender
+                }
+            });
+        } catch {}
+        return;
+    }
+}
 
+        // ===============================
+        //       TEXTO NORMALIZADO
+        // ===============================
         const text =
             msg.message?.conversation ||
             msg.message?.extendedTextMessage?.text ||
             msg.message?.imageMessage?.caption ||
+            msg.message?.videoMessage?.caption ||
+            msg.message?.buttonsResponseMessage?.selectedButtonId ||
+            msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+            msg.message?.templateButtonReplyMessage?.selectedId ||
             "";
 
-        // =========================================================
-        //       📌 CONTADOR REAL DE ACTIVIDAD
-        // =========================================================
-        if (isGroup) {
-
-            if (!store.chats[jid]) store.chats[jid] = {};
-
-            const chat = store.chats[jid];
-
-            // Inicializar
-            if (!chat[realSender]) chat[realSender] = 0;
-
-            const m = msg.message || {};
-
-            const hizoAlgo =
-                m.conversation ||
-                m.extendedTextMessage ||
-                m.imageMessage ||
-                m.videoMessage ||
-                m.stickerMessage ||
-                m.documentMessage ||
-                m.audioMessage ||
-                m.contactMessage ||
-                m.locationMessage ||
-                m.liveLocationMessage ||
-                m.viewOnceMessage ||
-                m.viewOnceMessageV2 ||
-                m.reactionMessage;
-
-            if (hizoAlgo) {
-                chat[realSender]++;
-                saveStore();
-            }
+        // 🔥 TEXTO FORZADO (para logs y comandos)
+        let fixedText = text;
+        if (!fixedText && msg.message) {
+            const key = Object.keys(msg.message)[0];
+            fixedText = `[${key}]`;
         }
 
-        // =========================================================
-        //              SISTEMA ANTILINK
-        // =========================================================
-       
+        // =====================================
+        //          📟 LOG DE MENSAJES
+        // =====================================
+        try {
+            const time = new Date().toLocaleTimeString("es-MX", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit"
+            });
+
+            const senderNum = realSender.split("@")[0];
+            let groupName = "PRIVADO";
+
+            if (isGroup && metadata) {
+                groupName = metadata.subject;
+            }
+
+            const m = msg.message || {};
+            let type = "DESCONOCIDO";
+
+            if (m.conversation || m.extendedTextMessage) type = "TEXTO";
+            else if (m.imageMessage) type = "IMAGEN";
+            else if (m.videoMessage) type = "VIDEO";
+            else if (m.stickerMessage) type = "STICKER";
+            else if (m.audioMessage) type = "AUDIO";
+            else if (m.documentMessage) type = "DOCUMENTO";
+            else if (m.reactionMessage) type = "REACCIÓN";
+            else if (m.viewOnceMessage || m.viewOnceMessageV2) type = "VIEWONCE";
+
+            const preview =
+                fixedText && fixedText.length > 40
+                    ? fixedText.slice(0, 40) + "..."
+                    : fixedText || "[SIN TEXTO]";
+
+            console.log(`
+╔════════════════════════════════════╗
+║ 🕒 ${time}
+║ 👤 ${senderNum}
+║ 👥 ${groupName}
+║ 📎 Tipo: ${type}
+║ 💬 ${preview}
+╚════════════════════════════════════╝
+            `);
+        } catch (e) {
+            console.error("❌ Error en log:", e);
+        }
+
+        // =====================================
+        // 🚀 LOG GARANTIZADO DE COMANDOS
+        // =====================================
+        if (fixedText?.startsWith(".")) {
+            const tmp = fixedText.slice(1).trim().split(/\s+/);
+            const cmd = tmp.shift()?.toLowerCase();
+
+            console.log(
+                `🚀 COMANDO DETECTADO → .${cmd} | Args: ${tmp.join(" ") || "NINGUNO"}`
+            );
+        }
+// =========================================================
+//              SISTEMA ANTILINK
+// =========================================================
+if (isGroup && fixedText) {
+
+    const linkRegex = /(https?:\/\/|www\.|chat\.whatsapp\.com)/i;
+
+    if (linkRegex.test(fixedText)) {
+
+        // 🔒 Verificar estado
+        if (!isAntilinkEnabled(jid)) return;
+
+        // ❌ Ignorar admins
+        if (isAdmin) return;
+
+        // 🗑️ Borrar mensaje
+        try {
+            await sock.sendMessage(jid, {
+                delete: {
+                    remoteJid: jid,
+                    fromMe: false,
+                    id: msg.key.id,
+                    participant: realSender
+                }
+            });
+        } catch {}
+
+        // 🦶 Expulsar si se puede
+        if (isBotAdmin) {
+            try {
+                await sock.groupParticipantsUpdate(jid, [realSender], "remove");
+            } catch {}
+        }
+
+        return;
+    }
+}
 
         // ==================================================
-        //       SI NO ES COMANDO → ejecutar "onMessage"
+        //       SI NO ES COMANDO → onMessage
         // ==================================================
-        if (!text.startsWith(".")) {
+        if (!fixedText || !fixedText.startsWith(".")) {
             for (let name in plugins) {
                 const plug = plugins[name];
                 if (plug.onMessage) {
@@ -155,139 +250,65 @@ export const handleMessage = async (sock, msg) => {
         // ===============================
         //        PROCESAR COMANDO
         // ===============================
-        const args = text.slice(1).trim().split(/\s+/);
+        const args = fixedText.slice(1).trim().split(/\s+/);
         const command = args.shift().toLowerCase();
 
         if (!plugins[command]) return;
-
         const plugin = plugins[command];
-
-        // ============= DETECTAR MEDIA CORRECTAMENTE =============
-        function getMediaMessage(m) {
-
-            if (!m?.message) return null;
-
-            const msg = m.message;
-
-            const direct =
-                msg.imageMessage ||
-                msg.videoMessage ||
-                msg.stickerMessage ||
-                msg.documentMessage ||
-                msg.audioMessage;
-
-            if (direct) {
-                return [
-                    direct.mimetype?.split("/")[0] || "file",
-                    direct
-                ];
-            }
-
-            const vo = msg.viewOnceMessageV2?.message || msg.viewOnceMessage?.message;
-
-            if (vo) {
-                const voMedia = vo.imageMessage || vo.videoMessage;
-                if (voMedia) {
-                    return [
-                        voMedia.mimetype?.split("/")[0] || "file",
-                        voMedia
-                    ];
-                }
-            }
-
-            const ctx =
-                msg?.extendedTextMessage?.contextInfo ||
-                msg?.imageMessage?.contextInfo ||
-                msg?.videoMessage?.contextInfo ||
-                msg?.documentMessage?.contextInfo ||
-                msg?.stickerMessage?.contextInfo ||
-                msg?.audioMessage?.contextInfo;
-
-            const quoted = ctx?.quotedMessage;
-            if (quoted) {
-
-                const qMedia =
-                    quoted.imageMessage ||
-                    quoted.videoMessage ||
-                    quoted.stickerMessage ||
-                    quoted.documentMessage ||
-                    quoted.audioMessage;
-
-                if (qMedia) {
-                    return [
-                        qMedia.mimetype?.split("/")[0] || "file",
-                        qMedia
-                    ];
-                }
-            }
-
-            return null;
-        }
 
         // ===============================
         //      CONTEXTO (ctx)
         // ===============================
-       const ctx = {
-    sock,
-    msg,
-    jid,
-    sender: realSender,
-    isAdmin,
-    isBotAdmin,
-    isGroup,
-    args,
+        const ctx = {
+            sock,
+            msg,
+            jid,
+            sender: realSender,
+            isAdmin,
+            isBotAdmin,
+            isGroup,
+            args,
+            groupMetadata: metadata,
+            participants: metadata?.participants || [],
+            groupAdmins: admins,
+            store,
+            download: async () => {
+                const m = msg.message;
+                if (!m) throw new Error("NO_MEDIA");
+                const media =
+                    m.imageMessage ||
+                    m.videoMessage ||
+                    m.stickerMessage ||
+                    m.documentMessage ||
+                    m.audioMessage;
 
-    groupMetadata: metadata,
-    participants: metadata?.participants || [],
-    groupAdmins: admins,
+                if (!media) throw new Error("NO_MEDIA");
 
-    store,
+                const stream = await downloadContentFromMessage(
+                    media,
+                    media.mimetype?.split("/")[0] || "file"
+                );
 
-    download: async () => {
-        try {
-            const detected = getMediaMessage(msg);
-
-            if (!detected) throw new Error("NO_MEDIA_FOUND");
-
-            const [type, media] = detected;
-
-            // 📌 Detectar tipo real cuando sea TXT, PDF, DOCX, etc.
-            let realType = type;
-            if (media.mimetype?.startsWith("text")) realType = "document";
-            if (media.mimetype?.includes("application")) realType = "document";
-
-            const stream = await downloadContentFromMessage(media, realType);
-
-            let buffer = Buffer.from([]);
-            for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk]);
+                let buffer = Buffer.from([]);
+                for await (const chunk of stream) {
+                    buffer = Buffer.concat([buffer, chunk]);
+                }
+                return buffer;
             }
+        };
 
-            return buffer;
-
-        } catch (e) {
-            console.error("⛔ Error en ctx.download:", e);
-            throw e;
-        }
-    }
-};
-
-        // =====================================================
-        //              SISTEMA ON/OFF
-        // =====================================================
-        try {
-            const state = getState(command);
-            if (state === false) {
-                return sock.sendMessage(jid, {
-                    text: `⚠️ El comando *.${command}* está desactivado.`
-                });
-            }
-        } catch (e) {
-            console.error("Error verificando on/off:", e);
+        // ===============================
+        //        SISTEMA ON / OFF
+        // ===============================
+        const state = getState(command);
+        if (state === false) {
+            return sock.sendMessage(jid, {
+                text: `⚠️ El comando *.${command}* está desactivado.`
+            });
         }
 
         // ===============================
-        //   PROTECCIÓN SOLO ADMIN
+        //      SOLO ADMINS
         // ===============================
         if (plugin.admin && !isAdmin) {
             return sock.sendMessage(jid, {
@@ -296,7 +317,7 @@ export const handleMessage = async (sock, msg) => {
         }
 
         // ===============================
-        //         EJECUTAR COMANDO
+        //        EJECUTAR COMANDO
         // ===============================
         await plugin.run(sock, msg, args, ctx);
 
