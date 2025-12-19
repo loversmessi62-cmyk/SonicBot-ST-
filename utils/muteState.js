@@ -1,31 +1,29 @@
 import fs from "fs";
 
-const FILE = "./mutelist.json";
+const file = "./mutelist.json";
 
-const read = () => {
-    if (!fs.existsSync(FILE)) return {};
-    return JSON.parse(fs.readFileSync(FILE));
-};
+if (!fs.existsSync(file)) {
+    fs.writeFileSync(file, JSON.stringify({}, null, 2));
+}
 
-const write = (data) => {
-    fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
-};
+const read = () => JSON.parse(fs.readFileSync(file));
+const save = (data) => fs.writeFileSync(file, JSON.stringify(data, null, 2));
 
-export const isMuted = (group, user) => {
+export const muteUser = (jid, user) => {
     const data = read();
-    return data[group]?.includes(user);
+    if (!data[jid]) data[jid] = [];
+    if (!data[jid].includes(user)) data[jid].push(user);
+    save(data);
 };
 
-export const addMute = (group, user) => {
+export const unmuteUser = (jid, user) => {
     const data = read();
-    if (!data[group]) data[group] = [];
-    if (!data[group].includes(user)) data[group].push(user);
-    write(data);
+    if (!data[jid]) return;
+    data[jid] = data[jid].filter(u => u !== user);
+    save(data);
 };
 
-export const removeMute = (group, user) => {
+export const isMuted = (jid, user) => {
     const data = read();
-    if (!data[group]) return;
-    data[group] = data[group].filter(u => u !== user);
-    write(data);
+    return data[jid]?.includes(user);
 };
