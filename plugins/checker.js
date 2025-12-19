@@ -19,7 +19,7 @@ export default {
                 });
             }
 
-            // ⬇️ DESCARGA REAL DEL TXT
+            // ⬇️ DESCARGA REAL DEL DOCUMENTO
             const stream = await downloadContentFromMessage(doc, "document");
             let buffer = Buffer.from([]);
 
@@ -30,7 +30,7 @@ export default {
             const text = buffer.toString("utf8");
 
             // ==============================
-            // TU LÓGICA ORIGINAL (INTOCADA)
+            // PROCESAMIENTO
             // ==============================
             const lines = text
                 .split(/\r?\n/)
