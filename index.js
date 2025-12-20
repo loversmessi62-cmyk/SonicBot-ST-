@@ -75,7 +75,10 @@ groupSettings(sock);
 
     const cache = new Set();
 
-   sock.ev.on("messages.upsert", async ({ messages, type }) => {
+  const processedMessages = new Set();
+
+sock.ev.on("messages.upsert", async ({ messages, type }) => {
+    // ⛔ FILTRO CLAVE (SIN ESTO SIEMPRE HABRÁ DUPLICADOS)
     if (type !== "notify") return;
 
     for (const msg of messages) {
@@ -90,17 +93,7 @@ groupSettings(sock);
             if (processedMessages.has(id)) continue;
 
             processedMessages.add(id);
-
-            // Limpieza automática del cache
             setTimeout(() => processedMessages.delete(id), 60_000);
-
-            const texto =
-                msg.message.conversation ||
-                msg.message.extendedTextMessage?.text ||
-                msg.message.imageMessage?.caption ||
-                "";
-
-            console.log(`[MSJ] ${msg.key.remoteJid} -> ${texto}`);
 
             await handleMessage(sock, msg);
 
