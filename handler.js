@@ -72,33 +72,27 @@ export const handleMessage = async (sock, msg) => {
 // SISTEMA DE ADMINS FIABLE + DEBUG
 // =====================================
 if (isGroup) {
-  // Función para normalizar JID a solo número
-  const normalizeJid = jid => jid.replace(/@.*$/, "");
-
-  const botNum = normalizeJid(sock.user.id);
-  const senderNum = normalizeJid(msg.key.participant || msg.key.remoteJid);
-
   try {
-    // Actualizar metadata del grupo
+    // 🔹 Obtener metadata del grupo
     groupCache[jid] = await sock.groupMetadata(jid);
     metadata = groupCache[jid] || { subject: "GRUPO DESCONOCIDO", participants: [] };
 
-    // Encontrar al sender real en la metadata
-    const found = metadata.participants.find(p => normalizeJid(p.id) === senderNum);
-    realSender = found ? found.id : msg.key.participant || msg.key.remoteJid;
+    // 🔹 Encontrar al sender real
+    // Usar ID completo que WhatsApp devuelve
+    const participantId = msg.key.participant || msg.key.remoteJid;
+    const found = metadata.participants.find(p => p.id === participantId);
+    realSender = found ? found.id : participantId;
 
-    // Obtener admins del grupo (normalizados a solo números)
+    // 🔹 Obtener admins del grupo (IDs completos)
     admins = metadata.participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => normalizeJid(p.id));
+      .map(p => p.id);
 
-    // Verificar si el sender y el bot son admins
-    isAdmin = admins.includes(senderNum);
-    isBotAdmin = admins.includes(botNum);
+    // 🔹 Verificar si el sender y el bot son admins usando IDs exactos
+    isAdmin = admins.includes(realSender);
+    isBotAdmin = admins.includes(sock.user.id);
 
-    // =====================
-    // DEBUG
-    // =====================
+    // 🔹 DEBUG confiable
     console.log("===== DEBUG ADMINS =====");
     console.log("Sender ID:", realSender);
     console.log("Bot ID:", sock.user.id);
@@ -115,6 +109,7 @@ if (isGroup) {
     isBotAdmin = false;
   }
 }
+
 
 
 
