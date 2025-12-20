@@ -41,7 +41,6 @@ async function startBot() {
 // =====================
 groupAdmins(sock);
 groupSettings(sock);
-groupParticipants(sock);
 
     
     sock.ev.on("creds.update", saveCreds);
