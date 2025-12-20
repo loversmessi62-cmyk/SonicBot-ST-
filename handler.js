@@ -88,13 +88,13 @@ if (isGroup) {
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
       .map(p => p.id);
 
-    // Verificar si el sender es admin
-    const senderNum = realSender.split("@")[0];
-    isAdmin = admins.some(a => a === realSender || a.split("@")[0] === senderNum);
+   // Verificar si el sender es admin
+const senderNum = realSender.split("@")[0]; // solo número
+isAdmin = admins.some(a => a.split("@")[0] === senderNum);
 
-    // Verificar si el bot es admin
-    const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-    isBotAdmin = admins.some(a => a === botId || a.split("@")[0] === botId.split("@")[0]);
+// Verificar si el bot es admin
+const botNum = sock.user.id.split(":")[0]; // solo número
+isBotAdmin = admins.some(a => a.split("@")[0] === botNum);
 
     // =====================================
     // DEBUG ADMINS - VERIFICAR IDS
