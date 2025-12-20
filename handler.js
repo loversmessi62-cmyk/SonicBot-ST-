@@ -247,18 +247,27 @@ if (isGroup) {
       }
     }
 
-    // ==================================================
-    // SI NO ES COMANDO → onMessage
-    // ==================================================
-    if (!fixedText || !fixedText.startsWith(".")) {
-      for (let name in plugins) {
-        const plug = plugins[name];
-        if (plug.onMessage) {
-          await plug.onMessage(sock, msg);
-        }
-      }
-      return;
+    // ===============================
+// SI NO ES COMANDO → onMessage (FIX)
+// ===============================
+if (!fixedText || !fixedText.startsWith(".")) {
+
+  const executed = new Set();
+
+  for (let name in plugins) {
+    const plug = plugins[name];
+
+    // ⚠️ evita ejecutar el mismo plugin más de una vez
+    if (executed.has(plug)) continue;
+    executed.add(plug);
+
+    if (plug.onMessage) {
+      await plug.onMessage(sock, msg);
     }
+  }
+
+  return;
+}
 
     // ===============================
     // PROCESAR COMANDO
