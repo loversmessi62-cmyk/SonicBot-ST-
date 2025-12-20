@@ -58,7 +58,7 @@ export const loadPlugins = async () => {
 // =====================================================
 // ⚡ HANDLER PRINCIPAL ⚡
 // =====================================================
-export const handleMessage = async (sock, msg) => {
+const handler = async (sock, msg) => {
   try {
     const jid = msg.key.remoteJid;
     const isGroup = jid.endsWith("@g.us");
@@ -346,4 +346,8 @@ if (!fixedText || !fixedText.startsWith(".")) {
   } catch (e) {
     console.error("❌ ERROR EN HANDLER:", e);
   }
+
 };
+
+  export default handler;
+export { loadPlugins };
