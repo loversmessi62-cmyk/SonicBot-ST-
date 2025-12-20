@@ -68,18 +68,20 @@ export const handleMessage = async (sock, msg) => {
     let isAdmin = false;
     let isBotAdmin = false;
 
-  // =====================================
-// SISTEMA DE ADMINS FIABLE
+ // =====================================
+// SISTEMA DE ADMINS FIABLE + DEBUG
 // =====================================
 if (isGroup) {
+  const botNum = sock.user.id.split(":")[0]; // solo número del bot
+  const senderNum = (msg.key.participant || msg.key.remoteJid).split("@")[0]; // solo número del sender
   try {
-    // Actualizar metadata del grupo siempre
+    // Actualizar metadata del grupo
     groupCache[jid] = await sock.groupMetadata(jid);
     metadata = groupCache[jid];
 
     // Encontrar al sender real
     const found = metadata.participants.find(
-      p => p.jid === sender || p.id === sender || p.jid.split("@")[0] === sender.split("@")[0]
+      p => p.jid.split("@")[0] === senderNum
     );
     if (found) realSender = found.id;
 
@@ -88,20 +90,18 @@ if (isGroup) {
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
       .map(p => p.id);
 
-   // Verificar si el sender es admin
-const senderNum = realSender.split("@")[0]; // solo número
-isAdmin = admins.some(a => a.split("@")[0] === senderNum);
+    // Verificar si el sender es admin
+    isAdmin = admins.some(a => a.split("@")[0] === senderNum);
 
-// Verificar si el bot es admin
-const botNum = sock.user.id.split(":")[0]; // solo número
-isBotAdmin = admins.some(a => a.split("@")[0] === botNum);
+    // Verificar si el bot es admin
+    isBotAdmin = admins.some(a => a.split("@")[0] === botNum);
 
-    // =====================================
-    // DEBUG ADMINS - VERIFICAR IDS
-    // =====================================
+    // =====================
+    // DEBUG
+    // =====================
     console.log("===== DEBUG ADMINS =====");
     console.log("Sender ID:", realSender);
-    console.log("Bot ID:", botId);
+    console.log("Bot ID:", sock.user.id);
     console.log("Admins detectados en el grupo:");
     admins.forEach(a => console.log("-", a));
     console.log("Es Admin?", isAdmin);
@@ -115,6 +115,7 @@ isBotAdmin = admins.some(a => a.split("@")[0] === botNum);
     isBotAdmin = false;
   }
 }
+
 
     // ===============================
     // 🔇 SISTEMA MUTE REAL (CORRECTO)
