@@ -69,46 +69,42 @@ export const handleMessage = async (sock, msg) => {
     let isBotAdmin = false;
 
 // =====================================
-// SISTEMA DE ADMINS FIABLE PARA TODOS LOS ADMINS
+// SISTEMA DE ADMINS REAL (LID + NUMERO)
 // =====================================
 if (isGroup) {
   try {
-    // 🔹 Obtener metadata del grupo
-    groupCache[jid] = await sock.groupMetadata(jid);
-    metadata = groupCache[jid] || { subject: "GRUPO DESCONOCIDO", participants: [] };
+    metadata = await sock.groupMetadata(jid);
+    groupCache[jid] = metadata;
 
-    // 🔹 Función para obtener solo el número del JID (ignora @s.whatsapp.net, @lid, etc.)
-    const getNumber = jid => jid.split("@")[0];
+    // 🔹 Normaliza cualquier JID (numero o lid)
+    const normalize = jid => jid?.split(":")[0];
 
-    // 🔹 Obtener todos los admins del grupo (solo números)
+    // 🔹 JID reales
+    const senderJid = normalize(msg.key.participant || msg.key.remoteJid);
+    const botJid = normalize(sock.user.id);
+
+    // 🔹 Admins reales (sin convertir a número)
     admins = metadata.participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => getNumber(p.id));
+      .map(p => normalize(p.id));
 
-    // 🔹 Sender y bot (solo números)
-    const senderNum = getNumber(msg.key.participant || msg.key.remoteJid);
-    const botNum = getNumber(sock.user.id);
+    isAdmin = admins.includes(senderJid);
+    isBotAdmin = admins.includes(botJid);
 
-    // 🔹 Verificar si sender y bot son admins
-    isAdmin = admins.includes(senderNum);
-    isBotAdmin = admins.includes(botNum);
+    realSender = senderJid;
 
-    // 🔹 Encontrar realSender exacto desde metadata
-    const found = metadata.participants.find(p => getNumber(p.id) === senderNum);
-    realSender = found ? p.id : msg.key.participant || msg.key.remoteJid;
-
-    // 🔹 DEBUG
-    console.log("===== DEBUG ADMINS =====");
-    console.log("Sender ID:", msg.key.participant);
-    console.log("Bot ID:", sock.user.id);
-    console.log("Admins detectados en el grupo (solo números):");
+    // 🔹 DEBUG CLARO
+    console.log("===== DEBUG ADMINS FIX =====");
+    console.log("Sender:", senderJid);
+    console.log("Bot:", botJid);
+    console.log("Admins:");
     admins.forEach(a => console.log("-", a));
     console.log("Es Admin?", isAdmin);
     console.log("Es Bot Admin?", isBotAdmin);
-    console.log("========================");
+    console.log("===========================");
 
   } catch (err) {
-    console.error("❌ Error al obtener admins del grupo:", err);
+    console.error("❌ Error al obtener admins:", err);
     admins = [];
     isAdmin = false;
     isBotAdmin = false;
