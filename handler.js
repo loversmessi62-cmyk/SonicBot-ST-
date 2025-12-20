@@ -68,36 +68,30 @@ export const handleMessage = async (sock, msg) => {
     let isAdmin = false;
     let isBotAdmin = false;
 
-// =====================================
-// SISTEMA DE ADMINS FIABLE + DEBUG
-// =====================================
 if (isGroup) {
   try {
-    // 🔹 Obtener metadata del grupo
-    groupCache[jid] = await sock.groupMetadata(jid);
-    metadata = groupCache[jid] || { subject: "GRUPO DESCONOCIDO", participants: [] };
+    const participants = (await sock.groupMetadata(jid)).participants;
 
-    // 🔹 Obtener todos los participantes
-    const participants = metadata.participants;
+    // Función para obtener solo el número del JID
+    const getNumber = jid => jid.split("@")[0];
 
-    // 🔹 Obtener admins (IDs completos tal como WhatsApp los devuelve)
+    // Obtener admins (solo números)
     admins = participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => p.id);
+      .map(p => getNumber(p.id));
 
-    // 🔹 Identificar al sender y al bot
-    const participantId = msg.key.participant || msg.key.remoteJid;
-    realSender = participantId; // Puedes ajustar si quieres buscar en participants
-    const botId = sock.user.id;
+    // Sender y bot (solo números)
+    const senderNum = getNumber(msg.key.participant || msg.key.remoteJid);
+    const botNum = getNumber(sock.user.id);
 
-    // 🔹 Verificar si son admins
-    isAdmin = admins.includes(realSender);
-    isBotAdmin = admins.includes(botId);
+    // Verificar admins
+    isAdmin = admins.includes(senderNum);
+    isBotAdmin = admins.includes(botNum);
 
-    // 🔹 DEBUG
+    // Debug
     console.log("===== DEBUG ADMINS =====");
-    console.log("Sender ID:", realSender);
-    console.log("Bot ID:", botId);
+    console.log("Sender ID:", msg.key.participant);
+    console.log("Bot ID:", sock.user.id);
     console.log("Admins detectados en el grupo:");
     admins.forEach(a => console.log("-", a));
     console.log("Es Admin?", isAdmin);
@@ -111,7 +105,6 @@ if (isGroup) {
     isBotAdmin = false;
   }
 }
-
 
 
     // ===============================
