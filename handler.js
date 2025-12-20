@@ -5,6 +5,7 @@ import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { isMuted } from "./utils/muteState.js";
 
 const groupCache = {};
+console.log("🔥 handler.js cargado");
 
 // =========================================================
 // 📌 STORE GLOBAL
