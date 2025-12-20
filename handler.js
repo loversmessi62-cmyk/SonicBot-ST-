@@ -226,3 +226,5 @@ export const handler = async (sock, msg, { jid, isGroup = false } = {}) => {
     console.error("❌ ERROR EN HANDLER:", err);
   }
 };
+
+  export default handler;
