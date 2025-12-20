@@ -72,8 +72,10 @@ export const handleMessage = async (sock, msg) => {
 // SISTEMA DE ADMINS FIABLE + DEBUG
 // =====================================
 if (isGroup) {
-  const botNum = sock.user.id.split(":")[0]; // solo número del bot
-  const senderNum = (msg.key.participant || msg.key.remoteJid).split("@")[0]; // solo número del sender
+  const normalizeJid = jid => jid.split("@")[0];
+  const botNum = normalizeJid(sock.user.id);
+  const senderNum = normalizeJid(msg.key.participant || msg.key.remoteJid);
+
   try {
     // Actualizar metadata del grupo
     groupCache[jid] = await sock.groupMetadata(jid);
@@ -81,24 +83,20 @@ if (isGroup) {
 
     // Encontrar al sender real
     const found = metadata.participants.find(
-      p => p.jid.split("@")[0] === senderNum
+      p => normalizeJid(p.id) === senderNum
     );
     if (found) realSender = found.id;
 
-    // Obtener admins del grupo
+    // Obtener admins del grupo (solo números)
     admins = metadata.participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => p.id);
+      .map(p => normalizeJid(p.id));
 
-    // Verificar si el sender es admin
-    isAdmin = admins.some(a => a.split("@")[0] === senderNum);
+    // Verificar admins
+    isAdmin = admins.includes(senderNum);
+    isBotAdmin = admins.includes(botNum);
 
-    // Verificar si el bot es admin
-    isBotAdmin = admins.some(a => a.split("@")[0] === botNum);
-
-    // =====================
     // DEBUG
-    // =====================
     console.log("===== DEBUG ADMINS =====");
     console.log("Sender ID:", realSender);
     console.log("Bot ID:", sock.user.id);
