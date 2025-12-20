@@ -13,8 +13,8 @@ import {
     getByeText
 } from "./utils/welcomeState.js";
 
-import "./events/groupAdmins.js";
-import "./events/groupSettings.js";
+import groupAdmins from "./events/groupAdmins.js";
+import groupSettings from "./events/groupSettings.js";
 import { handleMessage, loadPlugins } from "./handler.js";
 
 const {
@@ -36,6 +36,14 @@ async function startBot() {
         browser: ["ADRIBOT", "Chrome", "6.0"]
     });
 
+    // =====================
+// REGISTRAR EVENTOS PRO
+// =====================
+groupAdmins(sock);
+groupSettings(sock);
+groupParticipants(sock);
+
+    
     sock.ev.on("creds.update", saveCreds);
 
     sock.ev.on("connection.update", async update => {
