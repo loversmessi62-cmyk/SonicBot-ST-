@@ -68,31 +68,40 @@ export const handleMessage = async (sock, msg) => {
     let isAdmin = false;
     let isBotAdmin = false;
 
+// =====================================
+// SISTEMA DE ADMINS FIABLE PARA TODOS LOS ADMINS
+// =====================================
 if (isGroup) {
   try {
-    const participants = (await sock.groupMetadata(jid)).participants;
+    // 🔹 Obtener metadata del grupo
+    groupCache[jid] = await sock.groupMetadata(jid);
+    metadata = groupCache[jid] || { subject: "GRUPO DESCONOCIDO", participants: [] };
 
-    // Función para obtener solo el número del JID
+    // 🔹 Función para obtener solo el número del JID (ignora @s.whatsapp.net, @lid, etc.)
     const getNumber = jid => jid.split("@")[0];
 
-    // Obtener admins (solo números)
-    admins = participants
+    // 🔹 Obtener todos los admins del grupo (solo números)
+    admins = metadata.participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
       .map(p => getNumber(p.id));
 
-    // Sender y bot (solo números)
+    // 🔹 Sender y bot (solo números)
     const senderNum = getNumber(msg.key.participant || msg.key.remoteJid);
     const botNum = getNumber(sock.user.id);
 
-    // Verificar admins
+    // 🔹 Verificar si sender y bot son admins
     isAdmin = admins.includes(senderNum);
     isBotAdmin = admins.includes(botNum);
 
-    // Debug
+    // 🔹 Encontrar realSender exacto desde metadata
+    const found = metadata.participants.find(p => getNumber(p.id) === senderNum);
+    realSender = found ? p.id : msg.key.participant || msg.key.remoteJid;
+
+    // 🔹 DEBUG
     console.log("===== DEBUG ADMINS =====");
     console.log("Sender ID:", msg.key.participant);
     console.log("Bot ID:", sock.user.id);
-    console.log("Admins detectados en el grupo:");
+    console.log("Admins detectados en el grupo (solo números):");
     admins.forEach(a => console.log("-", a));
     console.log("Es Admin?", isAdmin);
     console.log("Es Bot Admin?", isBotAdmin);
