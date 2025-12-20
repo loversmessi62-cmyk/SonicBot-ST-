@@ -96,6 +96,18 @@ if (isGroup) {
     const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
     isBotAdmin = admins.some(a => a === botId || a.split("@")[0] === botId.split("@")[0]);
 
+    // =====================================
+    // DEBUG ADMINS - VERIFICAR IDS
+    // =====================================
+    console.log("===== DEBUG ADMINS =====");
+    console.log("Sender ID:", realSender);
+    console.log("Bot ID:", botId);
+    console.log("Admins detectados en el grupo:");
+    admins.forEach(a => console.log("-", a));
+    console.log("Es Admin?", isAdmin);
+    console.log("Es Bot Admin?", isBotAdmin);
+    console.log("========================");
+
   } catch (err) {
     console.error("❌ Error al obtener admins del grupo:", err);
     admins = [];
@@ -103,7 +115,6 @@ if (isGroup) {
     isBotAdmin = false;
   }
 }
-
 
     // ===============================
     // 🔇 SISTEMA MUTE REAL (CORRECTO)
