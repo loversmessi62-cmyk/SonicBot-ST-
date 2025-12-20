@@ -4,151 +4,46 @@ import { getState } from "./utils/cdmtoggle.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { isMuted } from "./utils/muteState.js";
 
+const processedMessages = new Set();
 const groupCache = {};
-console.log("🔥 handler.js cargado");
 
-// =========================================================
-// 📌 STORE GLOBAL
-// =========================================================
-export const store = {
-  chats: {}, // jid → { user → count }
-};
-
-// Guardar store en disco (opcional)
-const saveStore = () => {
-  fs.writeFileSync("./store.json", JSON.stringify(store, null, 2));
-};
+export const store = { chats: {} };
 
 // Cargar store si existe
 if (fs.existsSync("./store.json")) {
-  const old = JSON.parse(fs.readFileSync("./store.json"));
-  Object.assign(store, old);
+  Object.assign(store, JSON.parse(fs.readFileSync("./store.json")));
 }
 
-// ============================================
-// SISTEMA DE PLUGINS
-// ============================================
+// Plugins
 export const plugins = {};
 
 export const loadPlugins = async () => {
   try {
     const dir = "./plugins";
     const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"));
-
-    for (let file of files) {
+    for (const file of files) {
       try {
-        console.log(`🔎 Cargando plugin: ${file}`);
         const module = await import("file://" + path.resolve(`./plugins/${file}`));
         const cmds = module.default.commands || module.default.command;
-        if (!cmds) {
-          console.warn(`⚠️ ${file} no tiene "command" ni "commands"`);
-          continue;
-        }
+        if (!cmds) continue;
         cmds.forEach(cmd => plugins[cmd] = module.default);
         console.log(`🔥 Plugin cargado: ${file}`);
       } catch (err) {
-        console.error(`❌ Error en plugin ${file}:`, err);
+        console.error(`❌ Error cargando plugin ${file}:`, err);
       }
     }
-  } catch (e) {
-    console.error("❌ Error cargando plugins:", e);
+  } catch (err) {
+    console.error("❌ Error cargando plugins:", err);
   }
 };
 
-// =====================================================
-// ⚡ HANDLER PRINCIPAL ⚡
-// =====================================================
-const handler = async (sock, msg) => {
+// Handler principal
+export const handler = async (sock, msg, { jid, isGroup = false } = {}) => {
   try {
-    const jid = msg.key.remoteJid;
-    const isGroup = jid.endsWith("@g.us");
-    const sender = msg.key.participant || msg.key.remoteJid;
-    let realSender = sender;
-    let metadata = null;
-    let admins = [];
-    let isAdmin = false;
-    let isBotAdmin = false;
-
-// =====================================
-// SISTEMA DE ADMINS REAL (NUM + LID)
-// =====================================
-if (isGroup) {
-  try {
-    metadata = await sock.groupMetadata(jid);
-    groupCache[jid] = metadata;
-
-    const normalize = j => j?.split(":")[0];
-
-    const senderJid = normalize(msg.key.participant);
-    const botJid = normalize(sock.user.id);
-
-    // 🔹 Buscar el participante real
-    const senderParticipant = metadata.participants.find(p =>
-      p.id === senderJid ||
-      p.id?.endsWith("@lid") && p.jid === senderJid
-    );
-
-    const botParticipant = metadata.participants.find(p =>
-      p.id === botJid
-    );
-
-    const senderLid = senderParticipant?.id;
-    const botLid = botParticipant?.id;
-
-    admins = metadata.participants
-      .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => p.id);
-
-    // 🔥 MATCH REAL
-    isAdmin = admins.includes(senderLid) || admins.includes(senderJid);
-    isBotAdmin = admins.includes(botLid) || admins.includes(botJid);
-
-    realSender = senderJid;
-
-    // 🔹 DEBUG FINAL
-    console.log("===== DEBUG ADMINS FINAL =====");
-    console.log("Sender JID:", senderJid);
-    console.log("Sender LID:", senderLid);
-    console.log("Bot JID:", botJid);
-    console.log("Bot LID:", botLid);
-    console.log("Admins:");
-    admins.forEach(a => console.log("-", a));
-    console.log("Es Admin?", isAdmin);
-    console.log("Es Bot Admin?", isBotAdmin);
-    console.log("==============================");
-
-  } catch (e) {
-    console.error("❌ Error admins:", e);
-    admins = [];
-    isAdmin = false;
-    isBotAdmin = false;
-  }
-}
-
-
-    // ===============================
-    // 🔇 SISTEMA MUTE REAL (CORRECTO)
-    // ===============================
-    if (isGroup && isMuted(jid, realSender)) {
-      if (!isAdmin) {
-        try {
-          await sock.sendMessage(jid, {
-            delete: {
-              remoteJid: jid,
-              fromMe: false,
-              id: msg.key.id,
-              participant: realSender
-            }
-          });
-        } catch {}
-        return;
-      }
-    }
-
     // ===============================
     // TEXTO NORMALIZADO
     // ===============================
-    const text =
+    let text =
       msg.message?.conversation ||
       msg.message?.extendedTextMessage?.text ||
       msg.message?.imageMessage?.caption ||
@@ -158,26 +53,20 @@ if (isGroup) {
       msg.message?.templateButtonReplyMessage?.selectedId ||
       "";
 
-    // 🔥 TEXTO FORZADO (para logs y comandos)
-    let fixedText = text;
-    if (!fixedText && msg.message) {
-      const key = Object.keys(msg.message)[0];
-      fixedText = `[${key}]`;
-    }
+    const fixedText = text || `[${Object.keys(msg.message || {})[0]}]`;
+    if (!fixedText) return;
 
-    // =====================================
-    // 📟 LOG DE MENSAJES
-    // =====================================
+    // ===============================
+    // LOG DE MENSAJES
+    // ===============================
     try {
       const time = new Date().toLocaleTimeString("es-MX", {
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit"
       });
-
-      const senderNum = realSender.split("@")[0];
-      let groupName = "PRIVADO";
-      if (isGroup && metadata) groupName = metadata.subject;
+      const senderNum = (msg.key.participant || msg.key.remoteJid).split("@")[0];
+      let groupName = isGroup ? (groupCache[jid]?.subject || "GRUPO") : "PRIVADO";
 
       const m = msg.message || {};
       let type = "DESCONOCIDO";
@@ -190,96 +79,114 @@ if (isGroup) {
       else if (m.reactionMessage) type = "REACCIÓN";
       else if (m.viewOnceMessage || m.viewOnceMessageV2) type = "VIEWONCE";
 
-      const preview =
-        fixedText && fixedText.length > 40
-          ? fixedText.slice(0, 40) + "..."
-          : fixedText || "[SIN TEXTO]";
+      const preview = fixedText.length > 40 ? fixedText.slice(0, 40) + "..." : fixedText;
 
       console.log(
-        `╔════════════════════════════════════╗
-║ 🕒 ${time} ║ 👤 ${senderNum} ║ 👥 ${groupName} ║ 📎 Tipo: ${type} ║ 💬 ${preview}
-╚════════════════════════════════════╝`
+        `╔════════════════════════════════════╗\n` +
+        `║ 🕒 ${time} ║ 👤 ${senderNum} ║ 👥 ${groupName} ║ 📎 Tipo: ${type} ║ 💬 ${preview}\n` +
+        `╚════════════════════════════════════╝`
       );
-    } catch (e) {
-      console.error("❌ Error en log:", e);
+    } catch (err) {
+      console.error("❌ Error log mensajes:", err);
     }
 
-    // =====================================
-    // 🚀 LOG GARANTIZADO DE COMANDOS
-    // =====================================
-    if (fixedText?.startsWith(".")) {
-      const tmp = fixedText.slice(1).trim().split(/\s+/);
-      const cmd = tmp.shift()?.toLowerCase();
-      console.log(
-        `🚀 COMANDO DETECTADO → .${cmd} | Args: ${tmp.join(" ") || "NINGUNO"}`
-      );
-    }
-
-    // =========================================================
-    // SISTEMA ANTILINK
-    // =========================================================
-    if (isGroup && fixedText) {
-      const linkRegex = /(https?:\/\/|www\.|chat\.whatsapp\.com)/i;
-      if (linkRegex.test(fixedText)) {
-        // 🔒 Verificar estado
-        if (!isAntilinkEnabled(jid)) return;
-        // ❌ Ignorar admins
-        if (isAdmin) return;
-
-        // 🗑️ Borrar mensaje
-        try {
-          await sock.sendMessage(jid, {
-            delete: {
-              remoteJid: jid,
-              fromMe: false,
-              id: msg.key.id,
-              participant: realSender
-            }
-          });
-        } catch {}
-
-        // 🦶 Expulsar si se puede
-        if (isBotAdmin) {
-          try {
-            await sock.groupParticipantsUpdate(jid, [realSender], "remove");
-          } catch {}
-        }
-        return;
+    // ===============================
+    // DETECTAR COMANDO
+    // ===============================
+    const isCommand = fixedText.startsWith(".");
+    if (!isCommand) {
+      // Plugins onMessage
+      const executed = new Set();
+      for (const name in plugins) {
+        const plug = plugins[name];
+        if (executed.has(plug)) continue;
+        executed.add(plug);
+        if (plug.onMessage) await plug.onMessage(sock, msg);
       }
+      return;
     }
 
-    // ===============================
-// SI NO ES COMANDO → onMessage (FIX)
-// ===============================
-if (!fixedText || !fixedText.startsWith(".")) {
-
-  const executed = new Set();
-
-  for (let name in plugins) {
-    const plug = plugins[name];
-
-    // ⚠️ evita ejecutar el mismo plugin más de una vez
-    if (executed.has(plug)) continue;
-    executed.add(plug);
-
-    if (plug.onMessage) {
-      await plug.onMessage(sock, msg);
-    }
-  }
-
-  return;
-}
+    const parts = fixedText.slice(1).trim().split(/\s+/);
+    const command = parts.shift()?.toLowerCase();
+    const args = parts;
 
     // ===============================
-    // PROCESAR COMANDO
+    // PREVENIR DOBLE EJECUCIÓN
     // ===============================
-    const args = fixedText.slice(1).trim().split(/\s+/);
-    const command = args.shift().toLowerCase();
-    if (!plugins[command]) return;
+    const msgId = `${msg.key.remoteJid}_${msg.key.id}_${command}`;
+    if (processedMessages.has(msgId)) return;
+    processedMessages.add(msgId);
+    setTimeout(() => processedMessages.delete(msgId), 60_000);
+
     const plugin = plugins[command];
+    if (!plugin) return;
 
     // ===============================
-    // CONTEXTO (ctx)
+    // ESTADO ON/OFF
+    // ===============================
+    if (getState(command) === false) {
+      return sock.sendMessage(jid, { text: `⚠️ El comando *.${command}* está desactivado.` });
+    }
+
+    // ===============================
+    // ADMINS
+    // ===============================
+    let metadata, admins = [], isAdmin = false, isBotAdmin = false, realSender;
+    if (isGroup) {
+      try {
+        metadata = await sock.groupMetadata(jid);
+        groupCache[jid] = metadata;
+
+        const normalize = j => j?.split(":")[0];
+        const senderJid = normalize(msg.key.participant);
+        const botJid = normalize(sock.user.id);
+
+        admins = metadata.participants
+          .filter(p => p.admin === "admin" || p.admin === "superadmin")
+          .map(p => p.id);
+
+        isAdmin = admins.includes(senderJid);
+        isBotAdmin = admins.includes(botJid);
+        realSender = senderJid;
+      } catch {
+        admins = []; isAdmin = false; isBotAdmin = false;
+      }
+    } else {
+      realSender = msg.key.remoteJid;
+    }
+
+    // ===============================
+    // SISTEMA MUTE
+    // ===============================
+    if (isGroup && isMuted(jid, realSender) && !isAdmin) {
+      try {
+        await sock.sendMessage(jid, { delete: { remoteJid: jid, fromMe: false, id: msg.key.id, participant: realSender } });
+      } catch {}
+      return;
+    }
+
+    // ===============================
+    // ANTI-LINK
+    // ===============================
+    if (isGroup && /(https?:\/\/|www\.|chat\.whatsapp\.com)/i.test(fixedText)) {
+      if (!isAdmin && isBotAdmin) {
+        try {
+          await sock.sendMessage(jid, { delete: { remoteJid: jid, fromMe: false, id: msg.key.id, participant: realSender } });
+          await sock.groupParticipantsUpdate(jid, [realSender], "remove");
+        } catch {}
+      }
+      return;
+    }
+
+    // ===============================
+    // SOLO ADMINS PARA EL COMANDO
+    // ===============================
+    if (plugin.admin && !isAdmin) {
+      return sock.sendMessage(jid, { text: "❌ Solo administradores pueden usar este comando." });
+    }
+
+    // ===============================
+    // CONTEXTO Y EJECUCIÓN
     // ===============================
     const ctx = {
       sock,
@@ -297,56 +204,25 @@ if (!fixedText || !fixedText.startsWith(".")) {
       download: async () => {
         const m = msg.message;
         if (!m) throw new Error("NO_MEDIA");
-
-        const media =
-          m.imageMessage ||
-          m.videoMessage ||
-          m.stickerMessage ||
-          m.documentMessage ||
-          m.audioMessage;
+        const media = m.imageMessage || m.videoMessage || m.stickerMessage || m.documentMessage || m.audioMessage;
         if (!media) throw new Error("NO_MEDIA");
 
-        const stream = await downloadContentFromMessage(
-          media,
-          media.mimetype?.split("/")[0] || "file"
-        );
-
         let buffer = Buffer.from([]);
-        for await (const chunk of stream) {
+        for await (const chunk of await downloadContentFromMessage(media, media.mimetype?.split("/")[0] || "file")) {
           buffer = Buffer.concat([buffer, chunk]);
         }
         return buffer;
       }
     };
 
-    // ===============================
-    // SISTEMA ON / OFF
-    // ===============================
-    const state = getState(command);
-    if (state === false) {
-      return sock.sendMessage(jid, {
-        text: `⚠️ El comando *.${command}* está desactivado.`
-      });
-    }
-
-    // ===============================
-    // SOLO ADMINS
-    // ===============================
-    if (plugin.admin && !isAdmin) {
-      return sock.sendMessage(jid, {
-        text: "❌ Solo administradores pueden usar este comando."
-      });
-    }
-
-    // ===============================
-    // EJECUTAR COMANDO
-    // ===============================
     await plugin.run(sock, msg, args, ctx);
 
-  } catch (e) {
-    console.error("❌ ERROR EN HANDLER:", e);
+    // ===============================
+    // LOG DE COMANDO
+    // ===============================
+    console.log(`🚀 COMANDO DETECTADO → .${command} | Args: ${args.join(" ") || "NINGUNO"}`);
+
+  } catch (err) {
+    console.error("❌ ERROR EN HANDLER:", err);
   }
-
 };
-
-  export default handler;
