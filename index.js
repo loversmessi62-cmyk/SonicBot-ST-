@@ -78,29 +78,21 @@ groupSettings(sock);
   const processedMessages = new Set();
 
 sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    // ⛔ FILTRO CLAVE (SIN ESTO SIEMPRE HABRÁ DUPLICADOS)
-    if (type !== "notify") return;
+  // 🚫 SOLO aceptar mensajes nuevos reales
+  if (type !== "notify") return;
 
-    for (const msg of messages) {
-        try {
-            if (!msg.message) continue;
-            if (msg.key.fromMe) continue;
-            if (msg.message.protocolMessage) continue;
-            if (msg.message.senderKeyDistributionMessage) continue;
-            if (msg.key.remoteJid === "status@broadcast") continue;
+  for (const msg of messages) {
+    // 🚫 ignorar mensajes del bot
+    if (msg.key.fromMe) continue;
 
-            const id = msg.key.id;
-            if (processedMessages.has(id)) continue;
+    // 🚫 ignorar reacciones
+    if (msg.message?.reactionMessage) continue;
 
-            processedMessages.add(id);
-            setTimeout(() => processedMessages.delete(id), 60_000);
+    // 🚫 ignorar mensajes vacíos
+    if (!msg.message) continue;
 
-            await handleMessage(sock, msg);
-
-        } catch (err) {
-            console.error("❌ Error en messages.upsert:", err);
-        }
-    }
+    await handler(sock, msg);
+  }
 });
 
 
