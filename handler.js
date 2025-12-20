@@ -350,4 +350,3 @@ if (!fixedText || !fixedText.startsWith(".")) {
 };
 
   export default handler;
-export { loadPlugins };
