@@ -1,174 +1,134 @@
 // =====================
-// ADRI-BOT (Baileys GataNina-Li)
+// ADRI-BOT (Baileys)
 // =====================
-const processedMessages = new Set();
 
 import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
-import path from "path";
-import fs from "fs";
-import {
-    isWelcomeEnabled,
-    isByeEnabled,
-    getWelcomeText,
-    getByeText
-} from "./utils/welcomeState.js";
+import handler, { loadPlugins } from "./handler.js";
 
 import groupAdmins from "./events/groupAdmins.js";
 import groupSettings from "./events/groupSettings.js";
-import { handleMessage, loadPlugins } from "./handler.js";
-let pluginsLoaded = false;
+
+import {
+  isWelcomeEnabled,
+  isByeEnabled,
+  getWelcomeText,
+  getByeText
+} from "./utils/welcomeState.js";
 
 const {
-    default: makeWASocket,
-    useMultiFileAuthState,
-    DisconnectReason
+  default: makeWASocket,
+  useMultiFileAuthState,
+  DisconnectReason
 } = baileys;
 
+let pluginsLoaded = false;
+
 async function startBot() {
+  console.log("🚀 Iniciando ADRIBOT...");
 
-    console.log("🚀 Iniciando ADRIBOT...");
+  const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
-    const { state, saveCreds } = await useMultiFileAuthState("./sessions");
+  const sock = makeWASocket({
+    logger: pino({ level: "silent" }),
+    printQRInTerminal: true,
+    auth: state,
+    browser: ["ADRIBOT", "Chrome", "6.0"]
+  });
 
-    const sock = makeWASocket({
-        logger: pino({ level: "silent" }),
-        printQRInTerminal: true,
-        auth: state,
-        browser: ["ADRIBOT", "Chrome", "6.0"]
-    });
+  // =====================
+  // EVENTOS EXTERNOS
+  // =====================
+  groupAdmins(sock);
+  groupSettings(sock);
 
-    // =====================
-// REGISTRAR EVENTOS PRO
-// =====================
-groupAdmins(sock);
-groupSettings(sock);
+  sock.ev.on("creds.update", saveCreds);
 
-    
-    sock.ev.on("creds.update", saveCreds);
+  sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
+    if (connection === "open") {
+      console.log("✅ ADRIBOT CONECTADO");
 
-    sock.ev.on("connection.update", async update => {
-        const { connection, lastDisconnect } = update;
-
-       if (connection === "open") {
-    console.log("✅ ADRIBOT CONECTADO");
-
-    if (!pluginsLoaded) {
+      if (!pluginsLoaded) {
         await loadPlugins();
         pluginsLoaded = true;
         console.log("🔥 Plugins cargados correctamente.");
+      }
     }
-}
 
-      if (connection === "close") {
-    const code = lastDisconnect?.error?.output?.statusCode;
-
-    if (code === DisconnectReason.loggedOut) {
-        console.log("❌ Sesión cerrada. Borra la carpeta /sessions/");
+    if (connection === "close") {
+      const code = lastDisconnect?.error?.output?.statusCode;
+      if (code === DisconnectReason.loggedOut) {
+        console.log("❌ Sesión cerrada. Borra /sessions/");
         process.exit(1);
-    } else {
-        console.log("⚠️ Conexión cerrada, Baileys reconectará solo...");
+      }
     }
-}
+  });
 
-    });
+  // =====================
+  // MENSAJES (UN SOLO LISTENER)
+  // =====================
+  sock.ev.on("messages.upsert", async ({ messages, type }) => {
+    if (type !== "notify") return;
 
-    const cache = new Set();
+    for (const msg of messages) {
+      if (!msg.message) continue;
+      if (msg.key.fromMe) continue;
+      if (msg.message?.reactionMessage) continue;
 
-  const processedMessages = new Set();
+      await handler(sock, msg);
+    }
+  });
 
-sock.ev.on("messages.upsert", async ({ messages, type }) => {
-  // 🚫 SOLO aceptar mensajes nuevos reales
-  if (type !== "notify") return;
+  // =====================
+  // WELCOME / BYE
+  // =====================
+  const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/mgqqcn.jpeg";
+  const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
 
-  for (const msg of messages) {
-    // 🚫 ignorar mensajes del bot
-    if (msg.key.fromMe) continue;
-
-    // 🚫 ignorar reacciones
-    if (msg.message?.reactionMessage) continue;
-
-    // 🚫 ignorar mensajes vacíos
-    if (!msg.message) continue;
-
-    await handler(sock, msg);
-  }
-});
-
-
-    
- // ==================================================
-//   👋 WELCOME / BYE PRO (PFP + FALLBACK LINK)
-// ==================================================
-const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/mgqqcn.jpeg";
-const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
-
-sock.ev.on("group-participants.update", async (update) => {
+  sock.ev.on("group-participants.update", async update => {
     try {
-        const { id, participants, action } = update;
+      const { id, participants, action } = update;
+      const metadata = await sock.groupMetadata(id);
 
-        let metadata;
+      for (const user of participants) {
+        if (user === sock.user.id) continue;
+
+        const mention = user.split("@")[0];
+        const count = metadata.participants.length;
+
+        let image;
         try {
-            metadata = await sock.groupMetadata(id);
+          image = await sock.profilePictureUrl(user, "image");
         } catch {
-            return;
+          image = action === "add" ? DEFAULT_WELCOME_IMG : DEFAULT_BYE_IMG;
         }
 
-        for (const user of participants) {
-            if (user === sock.user.id) continue;
-
-            const mention = user.split("@")[0];
-            const memberCount = metadata.participants.length;
-
-            // ================= FOTO PERFIL O FALLBACK =================
-            let imageUrl;
-            try {
-                imageUrl = await sock.profilePictureUrl(user, "image");
-            } catch {
-                imageUrl =
-                    action === "add"
-                        ? DEFAULT_WELCOME_IMG
-                        : DEFAULT_BYE_IMG;
-            }
-
-            // ================= WELCOME =================
-            if (action === "add") {
-                if (!isWelcomeEnabled(id)) continue;
-
-                const text = getWelcomeText(id)
-                    .replace(/@user/g, `@${mention}`)
-                    .replace(/@group/g, metadata.subject)
-                    .replace(/@count/g, memberCount);
-
-                await sock.sendMessage(id, {
-                    image: { url: imageUrl },
-                    caption: text,
-                    mentions: [user]
-                });
-            }
-
-            // ================= BYE =================
-            if (action === "remove") {
-                if (!isByeEnabled(id)) continue;
-
-                const text = getByeText(id)
-                    .replace(/@user/g, `@${mention}`)
-                    .replace(/@group/g, metadata.subject)
-                    .replace(/@count/g, memberCount - 1);
-
-                await sock.sendMessage(id, {
-                    image: { url: imageUrl },
-                    caption: text,
-                    mentions: [user]
-                });
-            }
+        if (action === "add" && isWelcomeEnabled(id)) {
+          await sock.sendMessage(id, {
+            image: { url: image },
+            caption: getWelcomeText(id)
+              .replace(/@user/g, `@${mention}`)
+              .replace(/@group/g, metadata.subject)
+              .replace(/@count/g, count),
+            mentions: [user]
+          });
         }
-    } catch (err) {
-        console.error("❌ Error en welcome/bye:", err);
+
+        if (action === "remove" && isByeEnabled(id)) {
+          await sock.sendMessage(id, {
+            image: { url: image },
+            caption: getByeText(id)
+              .replace(/@user/g, `@${mention}`)
+              .replace(/@group/g, metadata.subject)
+              .replace(/@count/g, count - 1),
+            mentions: [user]
+          });
+        }
+      }
+    } catch (e) {
+      console.error("❌ Error welcome/bye:", e);
     }
-});
-
-
+  });
 }
 
 startBot();
