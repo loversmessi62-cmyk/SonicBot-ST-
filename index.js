@@ -1,6 +1,7 @@
 // =====================
 // ADRI-BOT (Baileys GataNina-Li)
 // =====================
+const processedMessages = new Set();
 
 import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
