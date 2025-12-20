@@ -16,6 +16,7 @@ import {
 import groupAdmins from "./events/groupAdmins.js";
 import groupSettings from "./events/groupSettings.js";
 import { handleMessage, loadPlugins } from "./handler.js";
+let pluginsLoaded = false;
 
 const {
     default: makeWASocket,
@@ -48,23 +49,27 @@ groupSettings(sock);
     sock.ev.on("connection.update", async update => {
         const { connection, lastDisconnect } = update;
 
-        if (connection === "open") {
-            console.log("✅ ADRIBOT CONECTADO");
+       if (connection === "open") {
+    console.log("✅ ADRIBOT CONECTADO");
 
-            await loadPlugins();
-            console.log("🔥 Plugins cargados correctamente.");
-        }
+    if (!pluginsLoaded) {
+        await loadPlugins();
+        pluginsLoaded = true;
+        console.log("🔥 Plugins cargados correctamente.");
+    }
+}
 
-        if (connection === "close") {
-            const code = lastDisconnect?.error?.output?.statusCode;
+      if (connection === "close") {
+    const code = lastDisconnect?.error?.output?.statusCode;
 
-            if (code !== DisconnectReason.loggedOut) {
-                console.log("♻️ Reconectando...");
-                startBot();
-            } else {
-                console.log("❌ Sesión cerrada. Borra la carpeta /sessions/");
-            }
-        }
+    if (code === DisconnectReason.loggedOut) {
+        console.log("❌ Sesión cerrada. Borra la carpeta /sessions/");
+        process.exit(1);
+    } else {
+        console.log("⚠️ Conexión cerrada, Baileys reconectará solo...");
+    }
+}
+
     });
 
     const cache = new Set();
