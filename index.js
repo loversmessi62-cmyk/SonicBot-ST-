@@ -74,19 +74,24 @@ groupSettings(sock);
 
     const cache = new Set();
 
-    sock.ev.on("messages.upsert", async ({ messages }) => {
+   sock.ev.on("messages.upsert", async ({ messages, type }) => {
+    if (type !== "notify") return;
+
+    for (const msg of messages) {
         try {
-            const msg = messages[0];
-            if (!msg?.message) return;
-            
+            if (!msg.message) continue;
+            if (msg.key.fromMe) continue;
+            if (msg.message.protocolMessage) continue;
+            if (msg.message.senderKeyDistributionMessage) continue;
+            if (msg.key.remoteJid === "status@broadcast") continue;
 
-            if (msg.key.fromMe) return;
-            if (msg.message.protocolMessage) return;
-            if (msg.message.senderKeyDistributionMessage) return;
-            if (msg.key.remoteJid === "status@broadcast") return;
+            const id = msg.key.id;
+            if (processedMessages.has(id)) continue;
 
-            if (cache.has(msg.key.id)) return;
-            cache.add(msg.key.id);
+            processedMessages.add(id);
+
+            // Limpieza automática del cache
+            setTimeout(() => processedMessages.delete(id), 60_000);
 
             const texto =
                 msg.message.conversation ||
@@ -98,10 +103,12 @@ groupSettings(sock);
 
             await handleMessage(sock, msg);
 
-        } catch (e) {
-            console.error("❌ Error en messages.upsert:", e);
+        } catch (err) {
+            console.error("❌ Error en messages.upsert:", err);
         }
-    });
+    }
+});
+
 
     
  // ==================================================
