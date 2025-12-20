@@ -69,42 +69,55 @@ export const handleMessage = async (sock, msg) => {
     let isBotAdmin = false;
 
 // =====================================
-// SISTEMA DE ADMINS REAL (LID + NUMERO)
+// SISTEMA DE ADMINS REAL (NUM + LID)
 // =====================================
 if (isGroup) {
   try {
     metadata = await sock.groupMetadata(jid);
     groupCache[jid] = metadata;
 
-    // 🔹 Normaliza cualquier JID (numero o lid)
-    const normalize = jid => jid?.split(":")[0];
+    const normalize = j => j?.split(":")[0];
 
-    // 🔹 JID reales
-    const senderJid = normalize(msg.key.participant || msg.key.remoteJid);
+    const senderJid = normalize(msg.key.participant);
     const botJid = normalize(sock.user.id);
 
-    // 🔹 Admins reales (sin convertir a número)
+    // 🔹 Buscar el participante real
+    const senderParticipant = metadata.participants.find(p =>
+      p.id === senderJid ||
+      p.id?.endsWith("@lid") && p.jid === senderJid
+    );
+
+    const botParticipant = metadata.participants.find(p =>
+      p.id === botJid
+    );
+
+    const senderLid = senderParticipant?.id;
+    const botLid = botParticipant?.id;
+
     admins = metadata.participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => normalize(p.id));
+      .map(p => p.id);
 
-    isAdmin = admins.includes(senderJid);
-    isBotAdmin = admins.includes(botJid);
+    // 🔥 MATCH REAL
+    isAdmin = admins.includes(senderLid) || admins.includes(senderJid);
+    isBotAdmin = admins.includes(botLid) || admins.includes(botJid);
 
     realSender = senderJid;
 
-    // 🔹 DEBUG CLARO
-    console.log("===== DEBUG ADMINS FIX =====");
-    console.log("Sender:", senderJid);
-    console.log("Bot:", botJid);
+    // 🔹 DEBUG FINAL
+    console.log("===== DEBUG ADMINS FINAL =====");
+    console.log("Sender JID:", senderJid);
+    console.log("Sender LID:", senderLid);
+    console.log("Bot JID:", botJid);
+    console.log("Bot LID:", botLid);
     console.log("Admins:");
     admins.forEach(a => console.log("-", a));
     console.log("Es Admin?", isAdmin);
     console.log("Es Bot Admin?", isBotAdmin);
-    console.log("===========================");
+    console.log("==============================");
 
-  } catch (err) {
-    console.error("❌ Error al obtener admins:", err);
+  } catch (e) {
+    console.error("❌ Error admins:", e);
     admins = [];
     isAdmin = false;
     isBotAdmin = false;
