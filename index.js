@@ -13,7 +13,8 @@ import {
     getByeText
 } from "./utils/welcomeState.js";
 
-
+import "./events/groupAdmins.js";
+import "./events/groupSettings.js";
 import { handleMessage, loadPlugins } from "./handler.js";
 
 const {
