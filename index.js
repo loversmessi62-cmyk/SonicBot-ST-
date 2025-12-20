@@ -16,7 +16,6 @@ import {
 import groupAdmins from "./events/groupAdmins.js";
 import groupSettings from "./events/groupSettings.js";
 import groupParticipants from "./events/groupParticipants.js";
-
 import { handleMessage, loadPlugins } from "./handler.js";
 
 const {
