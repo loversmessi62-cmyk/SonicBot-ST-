@@ -68,35 +68,36 @@ export const handleMessage = async (sock, msg) => {
     let isAdmin = false;
     let isBotAdmin = false;
 
+// =====================================
+// SISTEMA DE ADMINS FIABLE + DEBUG
+// =====================================
 if (isGroup) {
-  const getNumber = jid => jid.split("@")[0]; // obtener solo número
-
   try {
-    // Metadata del grupo
+    // 🔹 Obtener metadata del grupo
     groupCache[jid] = await sock.groupMetadata(jid);
     metadata = groupCache[jid] || { subject: "GRUPO DESCONOCIDO", participants: [] };
 
-    const participantId = msg.key.participant || msg.key.remoteJid;
-    const senderNum = getNumber(participantId);
-    const botNum = getNumber(sock.user.id);
+    // 🔹 Obtener todos los participantes
+    const participants = metadata.participants;
 
-    // Obtener admins (solo números)
-    admins = metadata.participants
+    // 🔹 Obtener admins (IDs completos tal como WhatsApp los devuelve)
+    admins = participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => getNumber(p.id));
+      .map(p => p.id);
 
-    // Verificar admins
-    isAdmin = admins.includes(senderNum);
-    isBotAdmin = admins.includes(botNum);
+    // 🔹 Identificar al sender y al bot
+    const participantId = msg.key.participant || msg.key.remoteJid;
+    realSender = participantId; // Puedes ajustar si quieres buscar en participants
+    const botId = sock.user.id;
 
-    // Encontrar realSender
-    const found = metadata.participants.find(p => getNumber(p.id) === senderNum);
-    realSender = found ? p.id : participantId;
+    // 🔹 Verificar si son admins
+    isAdmin = admins.includes(realSender);
+    isBotAdmin = admins.includes(botId);
 
-    // DEBUG
+    // 🔹 DEBUG
     console.log("===== DEBUG ADMINS =====");
     console.log("Sender ID:", realSender);
-    console.log("Bot ID:", sock.user.id);
+    console.log("Bot ID:", botId);
     console.log("Admins detectados en el grupo:");
     admins.forEach(a => console.log("-", a));
     console.log("Es Admin?", isAdmin);
@@ -110,8 +111,6 @@ if (isGroup) {
     isBotAdmin = false;
   }
 }
-
-
 
 
 
