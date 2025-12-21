@@ -4,7 +4,7 @@ import { sticker } from "../lib/sticker.js";
 
 export default {
   commands: ["brat"],
-  category: "stickers",
+  category: "grupo",
   description: "Genera un sticker 'brat' (fondo blanco, letras grandes).",
 
   async run(sock, msg, args, ctx) {
