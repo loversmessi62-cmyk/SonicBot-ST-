@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { getState } from "./utils/cdmtoggle.js";
+import { isAntilinkEnabled } from "./utils/antilinkState.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { isMuted } from "./utils/muteState.js";
 
