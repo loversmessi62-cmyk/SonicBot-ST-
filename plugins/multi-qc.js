@@ -1,7 +1,17 @@
-import fs from "fs";
-import path from "path";
-import { spawn } from "child_process";
 import axios from "axios";
+import { writeExifImg } from "../libs/fuctions.js"; // ajusta si tu ruta cambia
+
+const colors = {
+  rojo: "#FF0000",
+  azul: "#0000FF",
+  morado: "#800080",
+  verde: "#008000",
+  amarillo: "#FFFF00",
+  naranja: "#FFA500",
+  celeste: "#00FFFF",
+  rosado: "#FFC0CB",
+  negro: "#000000"
+};
 
 export default {
   commands: ["qc"],
@@ -10,165 +20,104 @@ export default {
   async run(sock, msg, args, ctx) {
     const jid = msg.key.remoteJid;
 
-    // ── TEXTO ─────────────────────
+    // ── TEXTO ─────────────────────────
     const quoted =
       msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
     let text =
       quoted?.conversation ||
       quoted?.extendedTextMessage?.text ||
-      (args.length ? args.join(" ") : null);
+      (args.length ? args.join(" ") : "");
 
     if (!text) {
       return sock.sendMessage(
         jid,
-        { text: "❌ Responde a un texto o usa: *.qc hola*" },
+        { text: "✏️ Usa:\n*.qc texto*\n*.qc rojo texto*\nO responde a un mensaje" },
         { quoted: msg }
       );
     }
 
-    const name = msg.pushName || ctx.sender.split("@")[0];
-    const lines = wrapText(text, 24, 6);
+    // ── COLOR ─────────────────────────
+    const first = args[0]?.toLowerCase();
+    const bgColor = colors[first] || colors.negro;
 
-    // ── AVATAR (OPCIONAL) ──────────
-    let avatarPath = null;
-    try {
-      const url = await sock.profilePictureUrl(ctx.sender, "image");
-      const buf = Buffer.from(
-        (await axios.get(url, { responseType: "arraybuffer" })).data
-      );
-      avatarPath = path.join(process.cwd(), `qc_avatar_${Date.now()}.png`);
-      fs.writeFileSync(avatarPath, buf);
-    } catch {
-      avatarPath = null; // 👈 si no hay foto, no se usa
+    if (colors[first]) {
+      text = args.slice(1).join(" ") || text;
     }
 
-    // ── TEXTO SVG ─────────────────
-    const tspans = lines
-      .map(
-        (l, i) =>
-          `<tspan x="${avatarPath ? 110 : 64}" dy="${
-            i === 0 ? 0 : 38
-          }">${escapeXML(l)}</tspan>`
-      )
-      .join("");
+    // ── NOMBRE ────────────────────────
+    const name =
+      msg.pushName ||
+      ctx.sender.split("@")[0];
 
-    // ── SVG BURBUJA ───────────────
-    const svg = `
-<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+    // ── AVATAR (OPCIONAL) ──────────────
+    let avatar = null;
+    try {
+      avatar = await sock.profilePictureUrl(ctx.sender, "image");
+    } catch {
+      avatar = null;
+    }
 
-  <defs>
-    <clipPath id="ava">
-      <circle cx="56" cy="56" r="28"/>
-    </clipPath>
-  </defs>
+    // ── PAYLOAD QC REAL ────────────────
+    const quoteData = {
+      type: "quote",
+      format: "png",
+      backgroundColor: bgColor,
+      width: 600,
+      height: 900,
+      scale: 3,
+      messages: [
+        {
+          avatar: !!avatar,
+          from: {
+            id: 1,
+            name,
+            photo: avatar ? { url: avatar } : undefined
+          },
+          text,
+          replyMessage: {}
+        }
+      ]
+    };
 
-  <!-- BURBUJA (path tipo WhatsApp) -->
-  <path d="
-    M32 40
-    Q32 16 56 16
-    H456
-    Q480 16 480 40
-    V360
-    Q480 384 456 384
-    H120
-    L80 416
-    V384
-    H56
-    Q32 384 32 360
-    Z"
-    fill="#1f1f1f"/>
+    try {
+      await sock.sendMessage(jid, {
+        react: { text: "🎨", key: msg.key }
+      });
 
-  ${
-    avatarPath
-      ? `<image href="file://${avatarPath}"
-          x="28" y="28" width="56" height="56"
-          clip-path="url(#ava)"/>`
-      : ""
-  }
+      const { data } = await axios.post(
+        "https://bot.lyo.su/quote/generate",
+        quoteData,
+        { headers: { "Content-Type": "application/json" } }
+      );
 
-  <!-- NOMBRE -->
-  <text x="${avatarPath ? 110 : 64}" y="64"
-        font-size="26"
-        fill="#25D366"
-        font-family="Arial"
-        font-weight="bold">
-    ${escapeXML(name)}
-  </text>
+      const buffer = Buffer.from(
+        data.result.image,
+        "base64"
+      );
 
-  <!-- TEXTO -->
-  <text x="${avatarPath ? 110 : 64}" y="110"
-        font-size="30"
-        fill="#ffffff"
-        font-family="Arial">
-    ${tspans}
-  </text>
+      const sticker = await writeExifImg(buffer, {
+        packname: "ADRIBOT",
+        author: "Adri"
+      });
 
-</svg>`;
+      await sock.sendMessage(
+        jid,
+        { sticker: { url: sticker } },
+        { quoted: msg }
+      );
 
-    const tmp = Date.now();
-    const svgPath = path.join(process.cwd(), `qc_${tmp}.svg`);
-    const pngPath = path.join(process.cwd(), `qc_${tmp}.png`);
-    const webpPath = path.join(process.cwd(), `qc_${tmp}.webp`);
+      await sock.sendMessage(jid, {
+        react: { text: "✅", key: msg.key }
+      });
 
-    fs.writeFileSync(svgPath, svg);
-
-    await run("ffmpeg", ["-y", "-i", svgPath, pngPath]);
-
-    await run("ffmpeg", [
-      "-y",
-      "-i", pngPath,
-      "-vf",
-      "scale=512:512:force_original_aspect_ratio=decrease",
-      "-vcodec", "libwebp",
-      "-lossless", "0",
-      "-q:v", "90",
-      webpPath
-    ]);
-
-    await sock.sendMessage(
-      jid,
-      { sticker: fs.readFileSync(webpPath) },
-      { quoted: msg }
-    );
-
-    [svgPath, pngPath, webpPath, avatarPath].forEach(f => {
-      if (f && fs.existsSync(f)) fs.unlinkSync(f);
-    });
+    } catch (e) {
+      console.error("❌ Error QC:", e);
+      await sock.sendMessage(
+        jid,
+        { text: "❌ Error al generar el QC." },
+        { quoted: msg }
+      );
+    }
   }
 };
-
-// ── UTILS ───────────────────────
-
-function wrapText(text, maxChars, maxLines) {
-  const words = text.split(" ");
-  const lines = [];
-  let line = "";
-
-  for (const w of words) {
-    if ((line + w).length > maxChars) {
-      lines.push(line.trim());
-      line = w + " ";
-      if (lines.length >= maxLines) break;
-    } else {
-      line += w + " ";
-    }
-  }
-  if (line.trim() && lines.length < maxLines) lines.push(line.trim());
-  return lines;
-}
-
-function escapeXML(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function run(cmd, args) {
-  return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args);
-    p.on("close", code => (code === 0 ? resolve() : reject()));
-  });
-}
