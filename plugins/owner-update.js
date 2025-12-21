@@ -1,34 +1,39 @@
 import { exec } from "child_process";
 
 export default {
-  commands: ["update", "upd"],   // 👈 Compatible con tu handler
+  commands: ["update", "upd"],
   category: "owner",
-  admin: true,                   // Solo admin
+  admin: true,
 
-  run: async (sock, msg, args, ctx) => {
-    let jid = msg.key.remoteJid;
+  run: async (sock, msg) => {
+    const jid = msg.key.remoteJid;
 
-    // Mensaje inicial
-    await sock.sendMessage(jid, { text: "⏳ *Actualizando desde GitHub...*\nEspere un momento..." });
+    await sock.sendMessage(jid, {
+      text: "⏳ *Actualizando bot desde GitHub...*\nNo apagues nada."
+    });
 
     exec("git pull", async (err, stdout, stderr) => {
       if (err) {
         return sock.sendMessage(jid, {
-          text: "❌ *Error ejecutando git pull:*\n" + err.message
+          text: "❌ *Error en git pull:*\n```" + err.message + "```"
         });
       }
 
+      let text = "✅ *Actualización completada*\n\n```" + stdout + "```";
+
       if (stderr) {
-        await sock.sendMessage(jid, { text: "⚠️ Advertencias:\n" + stderr });
+        text += "\n⚠️ *Advertencias:*\n```" + stderr + "```";
       }
 
-      await sock.sendMessage(jid, {
-        text:
-          "✅ *Actualización completada:*\n```\n" +
-          stdout +
-          "\n```\n" +
-          "🔄 *Reinicia el bot manualmente con:*\n```bash\nnode index.js\n```"
-      });
+      text += "\n\n♻️ *Reiniciando bot automáticamente...*";
+
+      await sock.sendMessage(jid, { text });
+
+      // ⏳ Pequeño delay para que el mensaje sí se envíe
+      setTimeout(() => {
+        console.log("♻️ Reinicio solicitado por .update");
+        process.exit(0); // 🔥 EL HOST LO LEVANTA SOLO
+      }, 2000);
     });
   }
 };
