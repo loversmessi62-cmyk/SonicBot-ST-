@@ -272,6 +272,18 @@ if (!fixedText || !fixedText.startsWith(".")) {
   return;
 }
 
+// =====================================
+// 🔒 MODO ADMINS (BLOQUEO GLOBAL)
+// =====================================
+if (
+  isModoAdminsEnabled() &&
+  fixedText?.startsWith(".") &&
+  !isAdmin
+) {
+  // ❌ NO responde nada (cero spam)
+  return;
+}
+
     // ===============================
     // PROCESAR COMANDO
     // ===============================
