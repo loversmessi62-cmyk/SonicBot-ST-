@@ -1,4 +1,4 @@
-import { isModoAdminsEnabled, setModoAdmins } from "../utils/modoadminsState.js";
+import { isModoAdminsEnabled, setModoAdmins } from "../lib/modoadminsState.js";
 
 export default {
   commands: ["modoadmins"],
