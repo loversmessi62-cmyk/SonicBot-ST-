@@ -237,28 +237,7 @@ if (isGroup) {
         `🚀 COMANDO DETECTADO → .${cmd} | Args: ${tmp.join(" ") || "NINGUNO"}`
       );
     }
-// =====================================
-// 🔐 MODO ADMINS - BLOQUEO REAL
-// =====================================
-if (isGroup && modoAdminsActivo) {
 
-  // comandos que SIEMPRE pueden usarse
-  const allowAlways = ["modoadmins", "help", "menu"];
-
-  if (!allowAlways.includes(command)) {
-
-    // 🔥 AQUÍ está la clave
-    if (!isAdmin && !isBotAdmin && !isOwner) {
-      console.log("🚫 Bloqueado por ModoAdmins");
-
-      return sock.sendMessage(
-        jid,
-        { text: "🔒 *Modo Admins activo*\nSolo administradores pueden usar comandos." },
-        { quoted: msg }
-      );
-    }
-  }
-}
     // =========================================================
     // SISTEMA ANTILINK
     // =========================================================
@@ -314,18 +293,35 @@ if (!fixedText || !fixedText.startsWith(".")) {
   return;
 }
 
-// =====================================
-// 🔒 MODO ADMINS (BLOQUEO GLOBAL)
-// =====================================
-if (
-  isModoAdminsEnabled() &&
-  fixedText?.startsWith(".") &&
-  !isAdmin
-) {
-  // ❌ NO responde nada (cero spam)
-  return;
-}
+// ===============================
+// PROCESAR COMANDO
+// ===============================
+const args = fixedText.slice(1).trim().split(/\s+/);
+const command = args.shift().toLowerCase();
+if (!plugins[command]) return;
 
+// =====================================
+// 🔐 MODO ADMINS - BLOQUEO DEFINITIVO
+// =====================================
+if (isGroup && isModoAdminsEnabled(jid)) {
+
+  const allowAlways = ["modoadmins", "menu", "help"];
+
+  if (!allowAlways.includes(command)) {
+
+    if (!isAdmin) {
+      console.log("🚫 Bloqueado por ModoAdmins:", command);
+
+      return sock.sendMessage(
+        jid,
+        {
+          text: "🔒 *Modo Admins activo*\nSolo administradores pueden usar comandos."
+        },
+        { quoted: msg }
+      );
+    }
+  }
+}
     // ===============================
     // PROCESAR COMANDO
     // ===============================
