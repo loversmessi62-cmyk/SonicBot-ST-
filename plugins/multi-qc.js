@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
+import axios from "axios";
 
 export default {
   commands: ["qc"],
@@ -9,7 +10,7 @@ export default {
   async run(sock, msg, args, ctx) {
     const jid = msg.key.remoteJid;
 
-    // 📌 Obtener texto
+    // ── TEXTO ─────────────────────────
     const quoted =
       msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
@@ -27,54 +28,90 @@ export default {
     }
 
     const name = msg.pushName || ctx.sender.split("@")[0];
+    const lines = wrapText(text, 26, 6);
 
-    // 🔹 Cortar texto en líneas (manual, FFmpeg-safe)
-    const lines = wrapText(text, 28, 6);
+    // ── AVATAR ────────────────────────
+    let avatarUrl;
+    try {
+      avatarUrl = await sock.profilePictureUrl(ctx.sender, "image");
+    } catch {
+      avatarUrl = "https://files.catbox.moe/mgqqcn.jpeg"; // default
+    }
 
+    const avatarBuffer = Buffer.from(
+      (await axios.get(avatarUrl, { responseType: "arraybuffer" })).data
+    );
+
+    const tmp = Date.now();
+    const avatarPath = path.join(process.cwd(), `qc_avatar_${tmp}.png`);
+    fs.writeFileSync(avatarPath, avatarBuffer);
+
+    // ── SVG (TRANSPARENTE + BURBUJA) ──
     const tspans = lines
-      .map((line, i) =>
-        `<tspan x="64" dy="${i === 0 ? 0 : 42}">${escapeXML(line)}</tspan>`
+      .map(
+        (line, i) =>
+          `<tspan x="130" dy="${i === 0 ? 0 : 40}">${escapeXML(
+            line
+          )}</tspan>`
       )
       .join("");
 
     const svg = `
 <svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100%" height="100%" rx="40" ry="40" fill="#0e0e0e"/>
-  <rect x="32" y="64" width="448" height="384" rx="30" ry="30" fill="#1f1f1f"/>
+  <defs>
+    <clipPath id="avatarClip">
+      <circle cx="76" cy="96" r="36"/>
+    </clipPath>
+  </defs>
 
-  <text x="64" y="120"
-        font-size="30"
+  <!-- BURBUJA -->
+  <rect x="24" y="32" width="464" height="448"
+        rx="36" ry="36"
+        fill="#1f1f1f"/>
+
+  <!-- AVATAR -->
+  <image href="file://${avatarPath}"
+         x="40" y="60"
+         width="72" height="72"
+         clip-path="url(#avatarClip)"/>
+
+  <!-- NOMBRE -->
+  <text x="130" y="90"
+        font-size="28"
         fill="#25D366"
         font-family="Arial"
         font-weight="bold">
     ${escapeXML(name)}
   </text>
 
-  <text x="64" y="170"
-        font-size="32"
+  <!-- TEXTO -->
+  <text x="130" y="140"
+        font-size="30"
         fill="#ffffff"
         font-family="Arial">
     ${tspans}
   </text>
 </svg>`;
 
-    const tmp = Date.now();
     const svgPath = path.join(process.cwd(), `qc_${tmp}.svg`);
     const pngPath = path.join(process.cwd(), `qc_${tmp}.png`);
     const webpPath = path.join(process.cwd(), `qc_${tmp}.webp`);
 
     fs.writeFileSync(svgPath, svg);
 
+    // SVG → PNG
     await run("ffmpeg", ["-y", "-i", svgPath, pngPath]);
 
+    // PNG → WEBP (STICKER)
     await run("ffmpeg", [
       "-y",
       "-i", pngPath,
       "-vf",
-      "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+      "scale=512:512:force_original_aspect_ratio=decrease",
       "-vcodec", "libwebp",
       "-lossless", "0",
-      "-q:v", "80",
+      "-q:v", "85",
+      "-pix_fmt", "yuv420p",
       webpPath
     ]);
 
@@ -84,35 +121,31 @@ export default {
       { quoted: msg }
     );
 
-    fs.unlinkSync(svgPath);
-    fs.unlinkSync(pngPath);
-    fs.unlinkSync(webpPath);
+    [svgPath, pngPath, webpPath, avatarPath].forEach(f => {
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    });
   }
 };
 
-// =======================
-// UTILIDADES
-// =======================
+// ── UTILIDADES ───────────────────────
 
 function wrapText(text, maxChars, maxLines) {
   const words = text.split(" ");
   const lines = [];
   let line = "";
 
-  for (const word of words) {
-    if ((line + word).length > maxChars) {
+  for (const w of words) {
+    if ((line + w).length > maxChars) {
       lines.push(line.trim());
-      line = word + " ";
+      line = w + " ";
       if (lines.length >= maxLines) break;
     } else {
-      line += word + " ";
+      line += w + " ";
     }
   }
-
-  if (lines.length < maxLines && line.trim()) {
+  if (line.trim() && lines.length < maxLines) {
     lines.push(line.trim());
   }
-
   return lines;
 }
 
