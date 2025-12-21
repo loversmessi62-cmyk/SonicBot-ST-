@@ -237,7 +237,28 @@ if (isGroup) {
         `🚀 COMANDO DETECTADO → .${cmd} | Args: ${tmp.join(" ") || "NINGUNO"}`
       );
     }
+// =====================================
+// 🔐 MODO ADMINS - BLOQUEO REAL
+// =====================================
+if (isGroup && modoAdminsActivo) {
 
+  // comandos que SIEMPRE pueden usarse
+  const allowAlways = ["modoadmins", "help", "menu"];
+
+  if (!allowAlways.includes(command)) {
+
+    // 🔥 AQUÍ está la clave
+    if (!isAdmin && !isBotAdmin && !isOwner) {
+      console.log("🚫 Bloqueado por ModoAdmins");
+
+      return sock.sendMessage(
+        jid,
+        { text: "🔒 *Modo Admins activo*\nSolo administradores pueden usar comandos." },
+        { quoted: msg }
+      );
+    }
+  }
+}
     // =========================================================
     // SISTEMA ANTILINK
     // =========================================================
