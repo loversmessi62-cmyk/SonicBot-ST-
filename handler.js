@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { getState } from "./utils/cdmtoggle.js";
 import { isAntilinkEnabled } from "./utils/antilinkState.js";
-import { isModoAdminsEnabled } from "./utils/modoadminsState.js";
+import { isModoAdminsEnabled } from "./lib/modoadminsState.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { isMuted } from "./utils/muteState.js";
 
