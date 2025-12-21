@@ -322,13 +322,7 @@ if (isGroup && isModoAdminsEnabled(jid)) {
     }
   }
 }
-    // ===============================
-    // PROCESAR COMANDO
-    // ===============================
-    const args = fixedText.slice(1).trim().split(/\s+/);
-    const command = args.shift().toLowerCase();
-    if (!plugins[command]) return;
-    const plugin = plugins[command];
+    
 
     // ===============================
     // CONTEXTO (ctx)
