@@ -3,6 +3,7 @@ import { enableAntilink, disableAntilink } from "../utils/antilinkState.js";
 export default {
   commands: ["antilink"],
   admin: true,
+  category: "grupo",
 
   run: async (sock, msg, args, ctx) => {
     const jid = msg.key.remoteJid;
