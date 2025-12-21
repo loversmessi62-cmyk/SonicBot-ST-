@@ -1,4 +1,5 @@
 import { exec } from "child_process";
+import fs from "fs";
 
 export default {
   commands: ["update", "upd"],
@@ -8,6 +9,7 @@ export default {
   run: async (sock, msg) => {
     const jid = msg.key.remoteJid;
 
+    // Mensaje inicial
     await sock.sendMessage(jid, {
       text: "⏳ *Actualizando bot desde GitHub...*\nNo apagues nada."
     });
@@ -19,20 +21,32 @@ export default {
         });
       }
 
-      let text = "✅ *Actualización completada*\n\n```" + stdout + "```";
+      let message =
+        "✅ *Actualización completada*\n\n```" +
+        stdout +
+        "```";
 
       if (stderr) {
-        text += "\n⚠️ *Advertencias:*\n```" + stderr + "```";
+        message += "\n⚠️ *Advertencias:*\n```" + stderr + "```";
       }
 
-      text += "\n\n♻️ *Reiniciando bot automáticamente...*";
+      message += "\n\n♻️ *Reiniciando bot automáticamente...*";
 
-      await sock.sendMessage(jid, { text });
+      await sock.sendMessage(jid, { text: message });
 
-      // ⏳ Pequeño delay para que el mensaje sí se envíe
+      // 🔥 Guardamos quién pidió el restart
+      fs.writeFileSync(
+        "./restart.json",
+        JSON.stringify({
+          jid,
+          at: Date.now()
+        })
+      );
+
+      // ⏳ Delay para que el mensaje salga antes del exit
       setTimeout(() => {
-        console.log("♻️ Reinicio solicitado por .update");
-        process.exit(0); // 🔥 EL HOST LO LEVANTA SOLO
+        console.log("♻️ Reinicio solicitado con .update");
+        process.exit(0); // 👉 el HOST lo levanta solo
       }, 2000);
     });
   }
