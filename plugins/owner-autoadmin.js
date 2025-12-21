@@ -1,10 +1,20 @@
+import { ownerNumber } from "../config.js";
+
 export default {
   commands: ["autoadmin"],
   category: "owner",
-  admin: true, // 👈 solo admins (y tú como owner)
+  admin: false, // ❌ no admins, solo owner
 
   run: async (sock, msg, args, ctx) => {
     const jid = msg.key.remoteJid;
+
+    // 🔒 SOLO OWNER
+    const senderNumber = ctx.sender.split("@")[0];
+    if (senderNumber !== ownerNumber) {
+      return sock.sendMessage(jid, {
+        text: "❌ Este comando es exclusivo del OWNER."
+      });
+    }
 
     // ❌ Solo grupos
     if (!ctx.isGroup) {
@@ -13,8 +23,6 @@ export default {
       });
     }
 
-    const botJid = sock.user.id.split(":")[0];
-
     // ✅ Ya es admin
     if (ctx.isBotAdmin) {
       return sock.sendMessage(jid, {
@@ -22,12 +30,7 @@ export default {
       });
     }
 
-    // ❌ El usuario no es admin
-    if (!ctx.isAdmin) {
-      return sock.sendMessage(jid, {
-        text: "❌ Solo un administrador puede usar este comando."
-      });
-    }
+    const botJid = sock.user.id.split(":")[0] + "@s.whatsapp.net";
 
     try {
       await sock.groupParticipantsUpdate(
@@ -47,9 +50,9 @@ export default {
         text:
           "❌ No pude darme admin.\n\n" +
           "📌 *Posibles razones:*\n" +
-          "• No tienes permisos suficientes\n" +
+          "• Tú no eres admin del grupo\n" +
           "• El grupo no permite promociones\n" +
-          "• El bot no tiene permisos aún"
+          "• WhatsApp bloqueó la acción"
       });
     }
   }
