@@ -1,26 +1,36 @@
-import { setAntilink, isAntilinkEnabled } from "../utils/antilinkState.js";
+import { enableAntilink, disableAntilink } from "../utils/antilinkState.js";
 
 export default {
-    commands: ["antilink"],
-    admin: true,
-    category: "on-off",
+  commands: ["antilink"],
+  admin: true,
 
-    async run(sock, msg, args, ctx) {
-        if (!ctx.isGroup)
-            return sock.sendMessage(ctx.jid, { text: "❌ Solo en grupos." });
+  run: async (sock, msg, args, ctx) => {
+    const jid = msg.key.remoteJid;
 
-        const option = args[0];
-
-        if (!option || !["on", "off"].includes(option)) {
-            return sock.sendMessage(ctx.jid, {
-                text: "Uso: .antilink on | off"
-            });
-        }
-
-        setAntilink(ctx.jid, option === "on");
-
-        sock.sendMessage(ctx.jid, {
-            text: `🔗 Antilink ${option === "on" ? "ACTIVADO" : "DESACTIVADO"}`
-        });
+    if (!ctx.isGroup) {
+      return sock.sendMessage(jid, {
+        text: "❌ Este comando solo funciona en grupos."
+      });
     }
+
+    const option = args[0];
+
+    if (option === "on") {
+      enableAntilink(jid);
+      return sock.sendMessage(jid, {
+        text: "🔒 *Antilink activado*"
+      });
+    }
+
+    if (option === "off") {
+      disableAntilink(jid);
+      return sock.sendMessage(jid, {
+        text: "🔓 *Antilink desactivado*"
+      });
+    }
+
+    return sock.sendMessage(jid, {
+      text: "📌 Uso:\n*.antilink on*\n*.antilink off*"
+    });
+  }
 };
