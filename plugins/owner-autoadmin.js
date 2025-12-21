@@ -3,7 +3,7 @@ import config from "../config.js";
 export default {
   commands: ["autoadmin"],
   category: "owner",
-  admin: false, // ❌ no admins, solo owner
+  admin: false,
 
   run: async (sock, msg, args, ctx) => {
     const jid = msg.key.remoteJid;
@@ -23,10 +23,25 @@ export default {
       });
     }
 
-    // ❌ El bot no es admin
-    if (!ctx.isBotAdmin) {
+    // 🔎 VERIFICAR ADMIN REAL DEL BOT (ANTI-BUG LID)
+    let botIsAdmin = false;
+    try {
+      const metadata = await sock.groupMetadata(jid);
+      const botJid = sock.user.id.split(":")[0];
+
+      botIsAdmin = metadata.participants.some(
+        p =>
+          (p.id?.split(":")[0] === botJid ||
+            p.jid?.split(":")[0] === botJid) &&
+          (p.admin === "admin" || p.admin === "superadmin")
+      );
+    } catch (e) {
+      console.error("❌ Error verificando admin real:", e);
+    }
+
+    if (!botIsAdmin) {
       return sock.sendMessage(jid, {
-        text: "❌ El bot no es administrador del grupo."
+        text: "❌ El bot NO es administrador del grupo."
       });
     }
 
