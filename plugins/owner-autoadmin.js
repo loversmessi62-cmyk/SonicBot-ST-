@@ -3,7 +3,7 @@ import config from "../config.js";
 export default {
   commands: ["autoadmin"],
   category: "owner",
-  admin: false,
+  admin: false, // ❌ no admins, solo owner
 
   run: async (sock, msg, args, ctx) => {
     const jid = msg.key.remoteJid;
@@ -23,24 +23,23 @@ export default {
       });
     }
 
-    // ✅ Ya es admin
-    if (ctx.isBotAdmin) {
+    // ❌ El bot no es admin
+    if (!ctx.isBotAdmin) {
       return sock.sendMessage(jid, {
-        text: "✅ Ya soy administrador en este grupo 😎"
+        text: "❌ El bot no es administrador del grupo."
       });
     }
 
-    const botJid = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-
+    // 🔥 PROMOVER AL OWNER (TÚ)
     try {
       await sock.groupParticipantsUpdate(
         jid,
-        [botJid],
+        [ctx.sender],
         "promote"
       );
 
       await sock.sendMessage(jid, {
-        text: "🔥 *Listo.*\nAhora soy administrador del grupo."
+        text: "🔥 *Listo.*\nAhora eres administrador del grupo."
       });
 
     } catch (e) {
@@ -48,11 +47,11 @@ export default {
 
       await sock.sendMessage(jid, {
         text:
-          "❌ No pude darme admin.\n\n" +
+          "❌ No pude darte admin.\n\n" +
           "📌 Posibles razones:\n" +
-          "• Tú no eres admin del grupo\n" +
-          "• El grupo no permite promociones\n" +
-          "• WhatsApp bloqueó la acción"
+          "• Ya eres admin\n" +
+          "• WhatsApp bloqueó la acción\n" +
+          "• El grupo no permite promociones"
       });
     }
   }
