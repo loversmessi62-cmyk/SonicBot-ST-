@@ -3,7 +3,8 @@ import path from "path";
 
 export default {
     commands: ["qc"],
-
+    category: "grupo",
+    
     async run(sock, msg, args, ctx) {
         const jid = msg.key.remoteJid;
 
