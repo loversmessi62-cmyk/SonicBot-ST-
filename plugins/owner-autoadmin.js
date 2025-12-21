@@ -1,16 +1,16 @@
-import { ownerNumber } from "../config.js";
+import config from "../config.js";
 
 export default {
   commands: ["autoadmin"],
   category: "owner",
-  admin: false, // ❌ no admins, solo owner
+  admin: false,
 
   run: async (sock, msg, args, ctx) => {
     const jid = msg.key.remoteJid;
 
     // 🔒 SOLO OWNER
     const senderNumber = ctx.sender.split("@")[0];
-    if (senderNumber !== ownerNumber) {
+    if (!config.owners.includes(senderNumber)) {
       return sock.sendMessage(jid, {
         text: "❌ Este comando es exclusivo del OWNER."
       });
@@ -19,7 +19,7 @@ export default {
     // ❌ Solo grupos
     if (!ctx.isGroup) {
       return sock.sendMessage(jid, {
-        text: "❌ Este comando solo funciona en grupos."
+        text: config.messages.group
       });
     }
 
@@ -49,7 +49,7 @@ export default {
       await sock.sendMessage(jid, {
         text:
           "❌ No pude darme admin.\n\n" +
-          "📌 *Posibles razones:*\n" +
+          "📌 Posibles razones:\n" +
           "• Tú no eres admin del grupo\n" +
           "• El grupo no permite promociones\n" +
           "• WhatsApp bloqueó la acción"
