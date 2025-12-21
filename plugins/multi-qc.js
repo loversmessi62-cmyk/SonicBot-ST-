@@ -51,12 +51,20 @@ export default {
       ctx.sender.split("@")[0];
 
     // ── AVATAR (OPCIONAL) ──────────────
-    let avatar = null;
-    try {
-      avatar = await sock.profilePictureUrl(ctx.sender, "image");
-    } catch {
-      avatar = null;
-    }
+   let avatar = null;
+
+try {
+  const ppUrl = await sock.profilePictureUrl(ctx.sender, "image");
+
+  const res = await axios.get(ppUrl, { responseType: "arraybuffer" });
+  const buffer = Buffer.from(res.data);
+
+  // subir a hosting público
+  avatar = await uploadImage(buffer);
+} catch {
+  avatar = null;
+}
+
 
     // ── PAYLOAD QC REAL ────────────────
     const quoteData = {
