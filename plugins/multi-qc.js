@@ -1,5 +1,6 @@
 import axios from "axios";
 import { writeExifImg } from "../lib/fuctions.js"; // ajusta si tu ruta cambia
+import { uploadImage } from "../lib/uploadImage.js";
 
 const colors = {
   rojo: "#FF0000",
