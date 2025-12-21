@@ -5,6 +5,7 @@
 import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
 import handler, { loadPlugins } from "./handler.js";
+import fs from "fs";
 
 import groupAdmins from "./events/groupAdmins.js";
 import groupSettings from "./events/groupSettings.js";
@@ -45,24 +46,42 @@ async function startBot() {
   sock.ev.on("creds.update", saveCreds);
 
   sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
-    if (connection === "open") {
-      console.log("✅ ADRIBOT CONECTADO");
+  if (connection === "open") {
+    console.log("✅ ADRIBOT CONECTADO");
 
-      if (!pluginsLoaded) {
-        await loadPlugins();
-        pluginsLoaded = true;
-        console.log("🔥 Plugins cargados correctamente.");
-      }
-    }
+    // 🔔 Aviso automático después del reinicio
+    setTimeout(async () => {
+      if (fs.existsSync("./restart.json")) {
+        try {
+          const data = JSON.parse(fs.readFileSync("./restart.json"));
+          fs.unlinkSync("./restart.json");
 
-    if (connection === "close") {
-      const code = lastDisconnect?.error?.output?.statusCode;
-      if (code === DisconnectReason.loggedOut) {
-        console.log("❌ Sesión cerrada. Borra /sessions/");
-        process.exit(1);
+          await sock.sendMessage(data.jid, {
+            text: "✅ *Bot encendido correctamente*\n🚀 Cambios aplicados y funcionando."
+          });
+
+          console.log("✅ Aviso post-reinicio enviado");
+        } catch (e) {
+          console.error("❌ Error enviando aviso post-reinicio:", e);
+        }
       }
+    }, 4000);
+
+    if (!pluginsLoaded) {
+      await loadPlugins();
+      pluginsLoaded = true;
+      console.log("🔥 Plugins cargados correctamente.");
     }
-  });
+  }
+
+  if (connection === "close") {
+    const code = lastDisconnect?.error?.output?.statusCode;
+    if (code === DisconnectReason.loggedOut) {
+      console.log("❌ Sesión cerrada. Borra /sessions/");
+      process.exit(1);
+    }
+  }
+});
 
   // =====================
   // MENSAJES (UN SOLO LISTENER)
