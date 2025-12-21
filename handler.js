@@ -72,44 +72,83 @@ const handler = async (sock, msg) => {
     let isBotAdmin = false;
 
 // =====================================
-// SISTEMA DE ADMINS REAL (FIX DEFINITIVO)
+// SISTEMA ADMIN MATCH TOTAL (ULTRA)
 // =====================================
 if (isGroup) {
   try {
     metadata = await sock.groupMetadata(jid);
     groupCache[jid] = metadata;
 
-    const normalize = j => j?.split(":")[0];
+    // ─── recolectar TODAS las identidades posibles del sender ───
+    const senderIds = new Set();
 
-    const senderJid = normalize(msg.key.participant);
-    const botJid = normalize(sock.user.id);
+    const push = v => {
+      if (v && typeof v === "string") senderIds.add(v);
+    };
 
-    admins = metadata.participants
+    push(msg.key.participant);
+    push(msg.key.remoteJid);
+    push(msg.message?.extendedTextMessage?.contextInfo?.participant);
+
+    // normalizaciones
+    [...senderIds].forEach(id => {
+      const num = id.replace(/[^0-9]/g, "");
+      if (num) {
+        senderIds.add(num + "@s.whatsapp.net");
+        senderIds.add(num + "@c.us");
+        senderIds.add(num + "@lid");
+        senderIds.add(num);
+      }
+    });
+
+    // ─── recolectar TODAS las identidades de los admins ───
+    const adminIds = new Set();
+
+    metadata.participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => normalize(p.id));
+      .forEach(p => {
+        push(p.id);
+        const num = p.id.replace(/[^0-9]/g, "");
+        if (num) {
+          adminIds.add(num);
+          adminIds.add(num + "@s.whatsapp.net");
+          adminIds.add(num + "@c.us");
+          adminIds.add(num + "@lid");
+        }
+      });
 
-    isAdmin = admins.includes(senderJid);
-    isBotAdmin = admins.includes(botJid);
+    // ─── detección FINAL ───
+    isAdmin = [...senderIds].some(id => adminIds.has(id));
 
-    realSender = senderJid;
+    // ─── BOT admin ───
+    const botIds = new Set();
+    push(sock.user.id);
+    [...botIds].forEach(id => {
+      const num = id.replace(/[^0-9]/g, "");
+      if (num) {
+        botIds.add(num);
+        botIds.add(num + "@s.whatsapp.net");
+        botIds.add(num + "@c.us");
+        botIds.add(num + "@lid");
+      }
+    });
 
-    // 🔍 DEBUG REAL
-    console.log("===== DEBUG ADMINS FIX =====");
-    console.log("Sender:", senderJid);
-    console.log("Bot:", botJid);
-    console.log("Admins:", admins);
+    isBotAdmin = [...botIds].some(id => adminIds.has(id));
+
+    // 🔍 DEBUG BRUTAL
+    console.log("===== ADMIN MATCH TOTAL =====");
+    console.log("Sender IDs:", [...senderIds]);
+    console.log("Admin IDs:", [...adminIds]);
     console.log("Es Admin?", isAdmin);
     console.log("Es Bot Admin?", isBotAdmin);
-    console.log("============================");
+    console.log("=============================");
 
   } catch (e) {
-    console.error("❌ Error admins:", e);
-    admins = [];
+    console.error("❌ Error admin ultra:", e);
     isAdmin = false;
     isBotAdmin = false;
   }
 }
-
     // ===============================
     // 🔇 SISTEMA MUTE REAL (CORRECTO)
     // ===============================
