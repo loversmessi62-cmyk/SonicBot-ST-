@@ -1,5 +1,5 @@
 import axios from "axios";
-import { writeExifImg } from "../libs/fuctions.js"; // ajusta si tu ruta cambia
+import { writeExifImg } from "../lib/fuctions.js"; // ajusta si tu ruta cambia
 
 const colors = {
   rojo: "#FF0000",
