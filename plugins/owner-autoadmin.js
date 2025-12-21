@@ -23,33 +23,55 @@ export default {
       });
     }
 
-    // 🔎 VERIFICAR ADMIN REAL DEL BOT (ANTI-BUG LID)
-    let botIsAdmin = false;
+    let metadata;
     try {
-      const metadata = await sock.groupMetadata(jid);
-      const botJid = sock.user.id.split(":")[0];
-
-      botIsAdmin = metadata.participants.some(
-        p =>
-          (p.id?.split(":")[0] === botJid ||
-            p.jid?.split(":")[0] === botJid) &&
-          (p.admin === "admin" || p.admin === "superadmin")
-      );
-    } catch (e) {
-      console.error("❌ Error verificando admin real:", e);
+      metadata = await sock.groupMetadata(jid);
+    } catch {
+      return sock.sendMessage(jid, {
+        text: "❌ No pude obtener información del grupo."
+      });
     }
 
-    if (!botIsAdmin) {
+    // 🔎 VERIFICAR BOT ADMIN (REAL)
+    const botBase = sock.user.id.split(":")[0];
+    const botParticipant = metadata.participants.find(p =>
+      p.id?.split(":")[0] === botBase
+    );
+
+    if (!botParticipant || !botParticipant.admin) {
       return sock.sendMessage(jid, {
         text: "❌ El bot NO es administrador del grupo."
       });
     }
 
-    // 🔥 PROMOVER AL OWNER (TÚ)
+    // 🔥 BUSCAR PARTICIPANTE REAL DEL OWNER (LID > JID)
+    const ownerParticipant = metadata.participants.find(p =>
+      p.id === ctx.sender ||
+      p.jid === ctx.sender ||
+      p.id?.startsWith(ctx.sender.split("@")[0])
+    );
+
+    if (!ownerParticipant) {
+      return sock.sendMessage(jid, {
+        text: "❌ No pude encontrarte en el grupo."
+      });
+    }
+
+    // 🔥 USAR EL ID REAL (LID SI EXISTE)
+    const targetId = ownerParticipant.id;
+
+    // ✅ YA ES ADMIN
+    if (ownerParticipant.admin) {
+      return sock.sendMessage(jid, {
+        text: "✅ Ya eres administrador del grupo."
+      });
+    }
+
+    // 🚀 PROMOVER
     try {
       await sock.groupParticipantsUpdate(
         jid,
-        [ctx.sender],
+        [targetId],
         "promote"
       );
 
@@ -62,11 +84,11 @@ export default {
 
       await sock.sendMessage(jid, {
         text:
-          "❌ No pude darte admin.\n\n" +
-          "📌 Posibles razones:\n" +
-          "• Ya eres admin\n" +
-          "• WhatsApp bloqueó la acción\n" +
-          "• El grupo no permite promociones"
+          "❌ WhatsApp rechazó la promoción.\n\n" +
+          "📌 Esto suele pasar cuando:\n" +
+          "• El grupo usa LID\n" +
+          "• El bot perdió permisos\n" +
+          "• El grupo es muy reciente"
       });
     }
   }
