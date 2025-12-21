@@ -72,7 +72,7 @@ const handler = async (sock, msg) => {
     let isBotAdmin = false;
 
 // =====================================
-// SISTEMA DE ADMINS REAL (NUM + LID)
+// SISTEMA DE ADMINS REAL (FIX DEFINITIVO)
 // =====================================
 if (isGroup) {
   try {
@@ -84,40 +84,23 @@ if (isGroup) {
     const senderJid = normalize(msg.key.participant);
     const botJid = normalize(sock.user.id);
 
-    // 🔹 Buscar el participante real
-    const senderParticipant = metadata.participants.find(p =>
-      p.id === senderJid ||
-      p.id?.endsWith("@lid") && p.jid === senderJid
-    );
-
-    const botParticipant = metadata.participants.find(p =>
-      p.id === botJid
-    );
-
-    const senderLid = senderParticipant?.id;
-    const botLid = botParticipant?.id;
-
     admins = metadata.participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => p.id);
+      .map(p => normalize(p.id));
 
-    // 🔥 MATCH REAL
-    isAdmin = admins.includes(senderLid) || admins.includes(senderJid);
-    isBotAdmin = admins.includes(botLid) || admins.includes(botJid);
+    isAdmin = admins.includes(senderJid);
+    isBotAdmin = admins.includes(botJid);
 
     realSender = senderJid;
 
-    // 🔹 DEBUG FINAL
-    console.log("===== DEBUG ADMINS FINAL =====");
-    console.log("Sender JID:", senderJid);
-    console.log("Sender LID:", senderLid);
-    console.log("Bot JID:", botJid);
-    console.log("Bot LID:", botLid);
-    console.log("Admins:");
-    admins.forEach(a => console.log("-", a));
+    // 🔍 DEBUG REAL
+    console.log("===== DEBUG ADMINS FIX =====");
+    console.log("Sender:", senderJid);
+    console.log("Bot:", botJid);
+    console.log("Admins:", admins);
     console.log("Es Admin?", isAdmin);
     console.log("Es Bot Admin?", isBotAdmin);
-    console.log("==============================");
+    console.log("============================");
 
   } catch (e) {
     console.error("❌ Error admins:", e);
@@ -126,7 +109,6 @@ if (isGroup) {
     isBotAdmin = false;
   }
 }
-
 
     // ===============================
     // 🔇 SISTEMA MUTE REAL (CORRECTO)
