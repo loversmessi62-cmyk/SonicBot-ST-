@@ -10,7 +10,7 @@ export default {
   async run(sock, msg, args, ctx) {
     const jid = msg.key.remoteJid;
 
-    // ── TEXTO ─────────────────────────
+    // ── TEXTO ─────────────────────
     const quoted =
       msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
@@ -28,56 +28,68 @@ export default {
     }
 
     const name = msg.pushName || ctx.sender.split("@")[0];
-    const lines = wrapText(text, 26, 6);
+    const lines = wrapText(text, 24, 6);
 
-    // ── AVATAR ────────────────────────
-    let avatarUrl;
+    // ── AVATAR (OPCIONAL) ──────────
+    let avatarPath = null;
     try {
-      avatarUrl = await sock.profilePictureUrl(ctx.sender, "image");
+      const url = await sock.profilePictureUrl(ctx.sender, "image");
+      const buf = Buffer.from(
+        (await axios.get(url, { responseType: "arraybuffer" })).data
+      );
+      avatarPath = path.join(process.cwd(), `qc_avatar_${Date.now()}.png`);
+      fs.writeFileSync(avatarPath, buf);
     } catch {
-      avatarUrl = "https://files.catbox.moe/mgqqcn.jpeg"; // default
+      avatarPath = null; // 👈 si no hay foto, no se usa
     }
 
-    const avatarBuffer = Buffer.from(
-      (await axios.get(avatarUrl, { responseType: "arraybuffer" })).data
-    );
-
-    const tmp = Date.now();
-    const avatarPath = path.join(process.cwd(), `qc_avatar_${tmp}.png`);
-    fs.writeFileSync(avatarPath, avatarBuffer);
-
-    // ── SVG (TRANSPARENTE + BURBUJA) ──
+    // ── TEXTO SVG ─────────────────
     const tspans = lines
       .map(
-        (line, i) =>
-          `<tspan x="130" dy="${i === 0 ? 0 : 40}">${escapeXML(
-            line
-          )}</tspan>`
+        (l, i) =>
+          `<tspan x="${avatarPath ? 110 : 64}" dy="${
+            i === 0 ? 0 : 38
+          }">${escapeXML(l)}</tspan>`
       )
       .join("");
 
+    // ── SVG BURBUJA ───────────────
     const svg = `
 <svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+
   <defs>
-    <clipPath id="avatarClip">
-      <circle cx="76" cy="96" r="36"/>
+    <clipPath id="ava">
+      <circle cx="56" cy="56" r="28"/>
     </clipPath>
   </defs>
 
-  <!-- BURBUJA -->
-  <rect x="24" y="32" width="464" height="448"
-        rx="36" ry="36"
-        fill="#1f1f1f"/>
+  <!-- BURBUJA (path tipo WhatsApp) -->
+  <path d="
+    M32 40
+    Q32 16 56 16
+    H456
+    Q480 16 480 40
+    V360
+    Q480 384 456 384
+    H120
+    L80 416
+    V384
+    H56
+    Q32 384 32 360
+    Z"
+    fill="#1f1f1f"/>
 
-  <!-- AVATAR -->
-  <image href="file://${avatarPath}"
-         x="40" y="60"
-         width="72" height="72"
-         clip-path="url(#avatarClip)"/>
+  ${
+    avatarPath
+      ? `<image href="file://${avatarPath}"
+          x="28" y="28" width="56" height="56"
+          clip-path="url(#ava)"/>`
+      : ""
+  }
 
   <!-- NOMBRE -->
-  <text x="130" y="90"
-        font-size="28"
+  <text x="${avatarPath ? 110 : 64}" y="64"
+        font-size="26"
         fill="#25D366"
         font-family="Arial"
         font-weight="bold">
@@ -85,24 +97,24 @@ export default {
   </text>
 
   <!-- TEXTO -->
-  <text x="130" y="140"
+  <text x="${avatarPath ? 110 : 64}" y="110"
         font-size="30"
         fill="#ffffff"
         font-family="Arial">
     ${tspans}
   </text>
+
 </svg>`;
 
+    const tmp = Date.now();
     const svgPath = path.join(process.cwd(), `qc_${tmp}.svg`);
     const pngPath = path.join(process.cwd(), `qc_${tmp}.png`);
     const webpPath = path.join(process.cwd(), `qc_${tmp}.webp`);
 
     fs.writeFileSync(svgPath, svg);
 
-    // SVG → PNG
     await run("ffmpeg", ["-y", "-i", svgPath, pngPath]);
 
-    // PNG → WEBP (STICKER)
     await run("ffmpeg", [
       "-y",
       "-i", pngPath,
@@ -110,8 +122,7 @@ export default {
       "scale=512:512:force_original_aspect_ratio=decrease",
       "-vcodec", "libwebp",
       "-lossless", "0",
-      "-q:v", "85",
-      "-pix_fmt", "yuv420p",
+      "-q:v", "90",
       webpPath
     ]);
 
@@ -122,12 +133,12 @@ export default {
     );
 
     [svgPath, pngPath, webpPath, avatarPath].forEach(f => {
-      if (fs.existsSync(f)) fs.unlinkSync(f);
+      if (f && fs.existsSync(f)) fs.unlinkSync(f);
     });
   }
 };
 
-// ── UTILIDADES ───────────────────────
+// ── UTILS ───────────────────────
 
 function wrapText(text, maxChars, maxLines) {
   const words = text.split(" ");
@@ -143,9 +154,7 @@ function wrapText(text, maxChars, maxLines) {
       line += w + " ";
     }
   }
-  if (line.trim() && lines.length < maxLines) {
-    lines.push(line.trim());
-  }
+  if (line.trim() && lines.length < maxLines) lines.push(line.trim());
   return lines;
 }
 
