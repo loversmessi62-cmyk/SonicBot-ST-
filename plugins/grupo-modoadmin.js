@@ -8,28 +8,31 @@ export default {
   async run(sock, msg, args, ctx) {
     const { jid, isAdmin } = ctx;
 
-    // 🛑 ESTA es la clave
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      return sock.sendMessage(jid, {
+        text: "❌ Solo administradores pueden usar este comando."
+      });
+    }
 
     const option = args[0]?.toLowerCase();
 
-    if (!option || !["on", "off"].includes(option)) {
+    if (!["on", "off"].includes(option)) {
       return sock.sendMessage(jid, {
         text: "⚙️ Uso:\n.modoadmins on\n.modoadmins off"
       });
     }
 
     if (option === "on") {
-      setModoAdmins(true);
+      setModoAdmins(jid, true);
       return sock.sendMessage(jid, {
-        text: "🔒 *Modo Admin ACTIVADO*"
+        text: "🔒 *Modo Admins ACTIVADO para este grupo*"
       });
     }
 
     if (option === "off") {
-      setModoAdmins(false);
+      setModoAdmins(jid, false);
       return sock.sendMessage(jid, {
-        text: "🔓 *Modo Admin DESACTIVADO*"
+        text: "🔓 *Modo Admins DESACTIVADO para este grupo*"
       });
     }
   }
