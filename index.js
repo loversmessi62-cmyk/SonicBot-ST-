@@ -98,56 +98,98 @@ async function startBot() {
     }
   });
 
-  // =====================
-  // WELCOME / BYE
-  // =====================
-  const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/mgqqcn.jpeg";
-  const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
+// =====================
+// WELCOME / BYE (FINAL)
+// =====================
+const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/mgqqcn.jpeg";
+const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
 
-  sock.ev.on("group-participants.update", async update => {
-    try {
-      const { id, participants, action } = update;
-      const metadata = await sock.groupMetadata(id);
+sock.ev.on("group-participants.update", async update => {
+  try {
+    const { id, participants, action } = update;
+    const metadata = await sock.groupMetadata(id);
 
-      for (const user of participants) {
-        if (user === sock.user.id) continue;
+    for (const user of participants) {
+      if (user === sock.user.id) continue;
 
-        const mention = user.split("@")[0];
-        const count = metadata.participants.length;
+      const mention = user.split("@")[0];
+      const count = metadata.participants.length;
 
-        let image;
-        try {
-          image = await sock.profilePictureUrl(user, "image");
-        } catch {
-          image = action === "add" ? DEFAULT_WELCOME_IMG : DEFAULT_BYE_IMG;
-        }
-
-        if (action === "add" && isWelcomeEnabled(id)) {
-          await sock.sendMessage(id, {
-            image: { url: image },
-            caption: getWelcomeText(id)
-              .replace(/@user/g, `@${mention}`)
-              .replace(/@group/g, metadata.subject)
-              .replace(/@count/g, count),
-            mentions: [user]
-          });
-        }
-
-        if (action === "remove" && isByeEnabled(id)) {
-          await sock.sendMessage(id, {
-            image: { url: image },
-            caption: getByeText(id)
-              .replace(/@user/g, `@${mention}`)
-              .replace(/@group/g, metadata.subject)
-              .replace(/@count/g, count - 1),
-            mentions: [user]
-          });
-        }
+      let image;
+      try {
+        image = await sock.profilePictureUrl(user, "image");
+      } catch {
+        image = action === "add"
+          ? DEFAULT_WELCOME_IMG
+          : DEFAULT_BYE_IMG;
       }
-    } catch (e) {
-      console.error("❌ Error welcome/bye:", e);
+
+      const date = new Date();
+      const formattedDate = date.toLocaleDateString("es-MX");
+      const formattedTime = date.toLocaleTimeString("es-MX", {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+
+      // =====================
+      // WELCOME
+      // =====================
+      if (action === "add" && isWelcomeEnabled(id)) {
+
+        const raw = getWelcomeText(id);
+
+        const caption = raw
+          .replace(/@user/g, `@${mention}`)
+          .replace(/@id/g, mention)
+          .replace(
+            /@name/g,
+            metadata.participants.find(p => p.id === user)?.notify || "Usuario"
+          )
+          .replace(/@group/g, metadata.subject || "Grupo")
+          .replace(/@desc/g, metadata.desc || "Sin descripción")
+          .replace(/@count/g, count)
+          .replace(/@date/g, formattedDate)
+          .replace(/@time/g, formattedTime);
+
+        await sock.sendMessage(id, {
+          image: { url: image },
+          caption,
+          mentions: [user]
+        });
+      }
+
+      // =====================
+      // BYE
+      // =====================
+      if (action === "remove" && isByeEnabled(id)) {
+
+        const raw = getByeText(id);
+
+        const caption = raw
+          .replace(/@user/g, `@${mention}`)
+          .replace(/@id/g, mention)
+          .replace(
+            /@name/g,
+            metadata.participants.find(p => p.id === user)?.notify || "Usuario"
+          )
+          .replace(/@group/g, metadata.subject || "Grupo")
+          .replace(/@desc/g, metadata.desc || "Sin descripción")
+          .replace(/@count/g, count - 1)
+          .replace(/@date/g, formattedDate)
+          .replace(/@time/g, formattedTime);
+
+        await sock.sendMessage(id, {
+          image: { url: image },
+          caption,
+          mentions: [user]
+        });
+      }
     }
-  });
+  } catch (e) {
+    console.error("❌ Error welcome/bye:", e);
+  }
+});
+
 }
 
 startBot();
