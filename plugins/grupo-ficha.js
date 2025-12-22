@@ -19,10 +19,18 @@ export default {
     const { jid, isGroup, isAdmin } = ctx;
     const data = load();
 
+    // TEXTO REAL
+    const text =
+      msg.message?.conversation ||
+      msg.message?.extendedTextMessage?.text ||
+      "";
+
+    const lower = text.toLowerCase();
+
     // ===============================
     // 📌 SETFICHA (CREA / REEMPLAZA)
     // ===============================
-    if (ctx.command === "setficha") {
+    if (lower.startsWith(".setficha")) {
 
       if (!isGroup)
         return sock.sendMessage(jid, { text: "❌ Solo funciona en grupos." });
@@ -32,17 +40,15 @@ export default {
           text: "❌ Solo administradores pueden usar este comando."
         });
 
-      const text =
-        msg.message?.conversation?.replace(/^\.setficha\s*/i, "") ||
-        msg.message?.extendedTextMessage?.text?.replace(/^\.setficha\s*/i, "");
+      const content = text.replace(/^\.setficha\s*/i, "");
 
-      if (!text || !text.trim())
+      if (!content.trim())
         return sock.sendMessage(jid, {
           text: "✏️ Escribe la ficha después del comando."
         });
 
-      // 🔥 SOBREESCRIBE SIN PREGUNTAR
-      data[jid] = text;
+      // 🔥 SOBREESCRIBE SI YA EXISTE
+      data[jid] = content;
       save(data);
 
       return sock.sendMessage(jid, {
@@ -53,7 +59,7 @@ export default {
     // ===============================
     // 🗑️ DELFICHA (ELIMINAR)
     // ===============================
-    if (ctx.command === "delficha") {
+    if (lower.startsWith(".delficha")) {
 
       if (!isGroup)
         return sock.sendMessage(jid, { text: "❌ Solo funciona en grupos." });
