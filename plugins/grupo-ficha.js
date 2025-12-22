@@ -12,7 +12,7 @@ const save = (data) =>
   fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
 
 export default {
-  commands: ["ficha", "setficha"],
+  commands: ["ficha", "setficha", "delficha"],
   admin: false,
 
   async run(sock, msg, args, ctx) {
@@ -20,12 +20,12 @@ export default {
     const data = load();
 
     // ===============================
-    // 📌 SETFICHA (GUARDA TEXTO REAL)
+    // 📌 SETFICHA (CREA / REEMPLAZA)
     // ===============================
     if (ctx.command === "setficha") {
 
       if (!isGroup)
-        return sock.sendMessage(jid, { text: "❌ Solo en grupos." });
+        return sock.sendMessage(jid, { text: "❌ Solo funciona en grupos." });
 
       if (!isAdmin)
         return sock.sendMessage(jid, {
@@ -41,16 +41,44 @@ export default {
           text: "✏️ Escribe la ficha después del comando."
         });
 
-      data[jid] = text; // 🔥 TAL CUAL
+      // 🔥 SOBREESCRIBE SIN PREGUNTAR
+      data[jid] = text;
       save(data);
 
       return sock.sendMessage(jid, {
-        text: "✅ *Ficha guardada correctamente*"
+        text: "✅ *Ficha guardada / actualizada correctamente*"
       });
     }
 
     // ===============================
-    // 📌 FICHA (MUESTRA IGUAL)
+    // 🗑️ DELFICHA (ELIMINAR)
+    // ===============================
+    if (ctx.command === "delficha") {
+
+      if (!isGroup)
+        return sock.sendMessage(jid, { text: "❌ Solo funciona en grupos." });
+
+      if (!isAdmin)
+        return sock.sendMessage(jid, {
+          text: "❌ Solo administradores pueden usar este comando."
+        });
+
+      if (!data[jid]) {
+        return sock.sendMessage(jid, {
+          text: "📄 No hay ninguna ficha para eliminar."
+        });
+      }
+
+      delete data[jid];
+      save(data);
+
+      return sock.sendMessage(jid, {
+        text: "🗑️ *Ficha eliminada correctamente*"
+      });
+    }
+
+    // ===============================
+    // 📌 FICHA (MOSTRAR)
     // ===============================
     if (!data[jid]) {
       return sock.sendMessage(jid, {
