@@ -17,6 +17,7 @@ const save = (data) =>
 export default {
   commands: ["ficha", "setficha"],
   admin: false, // lo controlamos manualmente
+  category: "admin",
 
   async run(sock, msg, args, ctx) {
     const { jid, isGroup, isAdmin } = ctx;
