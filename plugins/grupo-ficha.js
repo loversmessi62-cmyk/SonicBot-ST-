@@ -4,10 +4,7 @@ import path from "path";
 const DATA_DIR = "./data";
 const FILE = path.join(DATA_DIR, "fichas.json");
 
-// Crear carpeta si no existe
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-
-// Crear archivo si no existe
 if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
 
 const load = () => JSON.parse(fs.readFileSync(FILE));
@@ -16,39 +13,35 @@ const save = (data) =>
 
 export default {
   commands: ["ficha", "setficha"],
-  admin: false, // lo controlamos manualmente
-  category: "grupo",
+  admin: false,
 
   async run(sock, msg, args, ctx) {
     const { jid, isGroup, isAdmin } = ctx;
     const data = load();
 
     // ===============================
-    // 📌 .setficha
+    // 📌 SETFICHA (GUARDA TEXTO REAL)
     // ===============================
-    if (ctx.args[0] && ctx.msg.message && ctx.msg.message.conversation) {}
-
-    if (msg.message?.conversation?.startsWith(".setficha") ||
-        msg.message?.extendedTextMessage?.text?.startsWith(".setficha")) {
+    if (ctx.command === "setficha") {
 
       if (!isGroup)
-        return sock.sendMessage(jid, {
-          text: "❌ Este comando solo funciona en grupos."
-        });
+        return sock.sendMessage(jid, { text: "❌ Solo en grupos." });
 
       if (!isAdmin)
         return sock.sendMessage(jid, {
           text: "❌ Solo administradores pueden usar este comando."
         });
 
-      const text = args.join(" ").trim();
+      const text =
+        msg.message?.conversation?.replace(/^\.setficha\s*/i, "") ||
+        msg.message?.extendedTextMessage?.text?.replace(/^\.setficha\s*/i, "");
 
-      if (!text)
+      if (!text || !text.trim())
         return sock.sendMessage(jid, {
-          text: "✏️ Uso correcto:\n.setficha <texto de la ficha>"
+          text: "✏️ Escribe la ficha después del comando."
         });
 
-      data[jid] = text;
+      data[jid] = text; // 🔥 TAL CUAL
       save(data);
 
       return sock.sendMessage(jid, {
@@ -57,11 +50,11 @@ export default {
     }
 
     // ===============================
-    // 📌 .ficha
+    // 📌 FICHA (MUESTRA IGUAL)
     // ===============================
     if (!data[jid]) {
       return sock.sendMessage(jid, {
-        text: "📄 *No hay ficha configurada en este grupo.*\nUsa `.setficha` para crear una."
+        text: "📄 No hay ficha configurada en este grupo."
       });
     }
 
