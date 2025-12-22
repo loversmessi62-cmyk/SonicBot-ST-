@@ -297,8 +297,10 @@ if (!fixedText || !fixedText.startsWith(".")) {
 // PROCESAR COMANDO
 // ===============================
 const args = fixedText.slice(1).trim().split(/\s+/);
-const command = args.shift().toLowerCase();
-if (!plugins[command]) return;
+const command = args.shift()?.toLowerCase();
+const plugin = plugins[command];
+
+if (!plugin) return;
 
 // =====================================
 // 🔐 MODO ADMINS - BLOQUEO DEFINITIVO
