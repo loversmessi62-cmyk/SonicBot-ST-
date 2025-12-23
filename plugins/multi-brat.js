@@ -4,7 +4,7 @@ import { sticker } from "../lib/sticker.js";
 export default {
   commands: ["brat"],
   category: "grupo",
-  description: "Sticker estilo BRAT (centrado perfecto)",
+  description: "Sticker BRAT (texto centrado sin cortar)",
 
   async run(sock, msg, args) {
     const jid = msg.key.remoteJid;
@@ -21,30 +21,24 @@ export default {
     text = text.toUpperCase();
 
     try {
-      // Canvas
+      // Canvas blanco
       const img = new Jimp(512, 512, "#FFFFFF");
 
-      // Elegir fuente según largo
-      let font;
-      if (text.length <= 10) {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_128_BLACK);
-      } else if (text.length <= 20) {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_96_BLACK);
-      } else {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_64_BLACK);
-      }
+      // ÚNICA fuente segura en host
+      const font = await Jimp.loadFont(Jimp.FONT_SANS_128_BLACK);
 
+      // Área de impresión controlada (CLAVE)
       img.print(
         font,
-        0,
-        0,
+        20,
+        20,
         {
           text,
           alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
           alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE
         },
-        512,
-        512
+        472, // ancho controlado
+        472  // alto controlado
       );
 
       const buffer = await img.getBufferAsync(Jimp.MIME_PNG);
@@ -63,10 +57,10 @@ export default {
       );
 
     } catch (e) {
-      console.error("❌ ERROR BRAT:", e);
+      console.error("❌ BRAT ERROR:", e);
       await sock.sendMessage(
         jid,
-        { text: "❌ Error creando el sticker." },
+        { text: "❌ Error generando sticker brat." },
         { quoted: msg }
       );
     }
