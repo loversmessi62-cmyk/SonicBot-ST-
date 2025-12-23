@@ -4,55 +4,56 @@ import { sticker } from "../lib/sticker.js";
 export default {
   commands: ["brat"],
   category: "grupo",
-  description: "Sticker BRAT local (fondo blanco, letras negras)",
+  description: "Sticker estilo BRAT (centrado perfecto)",
 
-  async run(sock, msg, args, ctx) {
+  async run(sock, msg, args) {
     const jid = msg.key.remoteJid;
     let text = args.join(" ").trim();
 
     if (!text) {
       return sock.sendMessage(
         jid,
-        { text: "⚠️ Ejemplo:\n.brat HOLA" },
+        { text: "⚠️ Ejemplo:\n.brat SOTO EXCLUSIVO" },
         { quoted: msg }
       );
     }
 
-    if (text.length > 80) text = text.slice(0, 77) + "...";
     text = text.toUpperCase();
 
     try {
-      // Crear imagen blanca 512x512
+      // Canvas
       const img = new Jimp(512, 512, "#FFFFFF");
 
-      // Cargar fuente negra gruesa
-      const font = await Jimp.loadFont(Jimp.FONT_SANS_128_BLACK);
-
-      // Calcular wrap manual
-      const maxWidth = 460;
-      const marginTop = 100;
+      // Elegir fuente según largo
+      let font;
+      if (text.length <= 10) {
+        font = await Jimp.loadFont(Jimp.FONT_SANS_128_BLACK);
+      } else if (text.length <= 20) {
+        font = await Jimp.loadFont(Jimp.FONT_SANS_96_BLACK);
+      } else {
+        font = await Jimp.loadFont(Jimp.FONT_SANS_64_BLACK);
+      }
 
       img.print(
         font,
-        26,
-        marginTop,
+        0,
+        0,
         {
           text,
           alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
           alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE
         },
-        maxWidth,
-        320
+        512,
+        512
       );
 
       const buffer = await img.getBufferAsync(Jimp.MIME_PNG);
 
-      // Convertir a sticker WhatsApp
       const webp = await sticker(
         buffer,
         null,
         "ADRIBOT",
-        "BRAT by Adri"
+        "BRAT"
       );
 
       await sock.sendMessage(
@@ -62,10 +63,10 @@ export default {
       );
 
     } catch (e) {
-      console.error("❌ BRAT LOCAL ERROR:", e);
+      console.error("❌ ERROR BRAT:", e);
       await sock.sendMessage(
         jid,
-        { text: "❌ Error generando sticker brat." },
+        { text: "❌ Error creando el sticker." },
         { quoted: msg }
       );
     }
