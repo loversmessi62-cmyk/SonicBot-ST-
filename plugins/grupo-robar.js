@@ -1,5 +1,5 @@
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
-import { writeExif } from "../lib/exif.js"; // 👈 ESTO ES CLAVE
+import { writeExif } from "../lib/exif.js";
 
 export default {
   commands: ["robar"],
@@ -7,9 +7,9 @@ export default {
 
   async run(sock, msg, args) {
     const jid = msg.key.remoteJid;
-    const packName = args.join(" ").trim();
+    const packname = args.join(" ").trim();
 
-    if (!packName) return;
+    if (!packname) return;
 
     const quoted =
       msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -28,16 +28,13 @@ export default {
         buffer = Buffer.concat([buffer, chunk]);
       }
 
-      // 🧬 REESCRIBIR EXIF (RENOMBRAR)
-      const renamedSticker = await writeExif(
-        buffer,
-        {
-          packname: packName,
-          author: ""
-        }
-      );
+      // 🧬 Reescribir EXIF (RENOMBRAR)
+      const renamed = await writeExif(buffer, {
+        packname,
+        author: ""
+      });
 
-      await sock.sendMessage(jid, { sticker: renamedSticker });
+      await sock.sendMessage(jid, { sticker: renamed });
 
     } catch (e) {
       console.error("❌ ERROR .robar:", e);
