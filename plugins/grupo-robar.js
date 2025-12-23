@@ -1,5 +1,5 @@
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
-import { sticker } from "../lib/sticker.js";
+import { writeExif } from "../lib/exif.js"; // 👈 ESTO ES CLAVE
 
 export default {
   commands: ["robar"],
@@ -14,10 +14,10 @@ export default {
     const quoted =
       msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-    if (!quoted || !quoted.stickerMessage) return;
+    if (!quoted?.stickerMessage) return;
 
     try {
-      // 🔽 DESCARGAR STICKER CORRECTAMENTE
+      // 📥 Descargar sticker
       const stream = await downloadContentFromMessage(
         quoted.stickerMessage,
         "sticker"
@@ -28,15 +28,16 @@ export default {
         buffer = Buffer.concat([buffer, chunk]);
       }
 
-      // 🔁 REEMPACAR STICKER (SOLO CAMBIA EL NOMBRE)
-      const webp = await sticker(
+      // 🧬 REESCRIBIR EXIF (RENOMBRAR)
+      const renamedSticker = await writeExif(
         buffer,
-        null,
-        packName, // nombre nuevo
-        ""        // autor vacío
+        {
+          packname: packName,
+          author: ""
+        }
       );
 
-      await sock.sendMessage(jid, { sticker: webp });
+      await sock.sendMessage(jid, { sticker: renamedSticker });
 
     } catch (e) {
       console.error("❌ ERROR .robar:", e);
