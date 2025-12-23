@@ -28,17 +28,8 @@ export default {
     }
 
     try {
-      let font;
-
-      if (text.length <= 6) {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_96_BLACK);
-      } else if (text.length <= 12) {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_64_BLACK);
-      } else {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_48_BLACK);
-      }
-
       const img = new Jimp(512, 512, "#FFFFFF");
+      const font = await Jimp.loadFont(Jimp.FONT_SANS_64_BLACK);
 
       img.print(
         font,
@@ -52,6 +43,15 @@ export default {
         512,
         512
       );
+
+      // 🔥 ESCALADO SEGURO (SIN CORTAR)
+      if (text.length <= 6) {
+        img.resize(640, 640); // MÁS GRANDE
+      } else if (text.length <= 12) {
+        img.resize(576, 576);
+      }
+
+      img.resize(512, 512); // volver a tamaño sticker
 
       const buffer = await img.getBufferAsync(Jimp.MIME_PNG);
 
