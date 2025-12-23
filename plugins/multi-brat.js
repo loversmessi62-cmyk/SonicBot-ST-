@@ -12,35 +12,38 @@ export default {
     if (!text) {
       return sock.sendMessage(
         jid,
-        { text: "⚠️ Usa:\n.brat TEXTO (máx 30 letras)" },
+        { text: "⚠️ Usa:\n.brat TEXTO (máx 20 letras)" },
         { quoted: msg }
       );
     }
 
     text = text.toUpperCase();
 
-    if (text.length > 30) {
+    if (text.length > 20) {
       return sock.sendMessage(
         jid,
-        { text: "❌ Máximo 30 letras para el sticker brat." },
+        { text: "❌ Máximo 20 letras." },
         { quoted: msg }
       );
     }
 
     try {
-      // Tamaño dinámico según letras
-      let scale = 1;
+      // Selección de fuente segura
+      let font;
 
-      if (text.length <= 8) scale = 1;
-      else if (text.length <= 14) scale = 0.8;
-      else if (text.length <= 20) scale = 0.65;
-      else scale = 0.5;
+      if (text.length <= 6) {
+        font = await Jimp.loadFont(Jimp.FONT_SANS_64_BLACK);
+      } else if (text.length <= 12) {
+        font = await Jimp.loadFont(Jimp.FONT_SANS_48_BLACK);
+      } else {
+        font = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK);
+      }
 
-      // Canvas grande base
-      const base = new Jimp(512, 512, "#FFFFFF");
-      const font = await Jimp.loadFont(Jimp.FONT_SANS_128_BLACK);
+      // Canvas fijo
+      const img = new Jimp(512, 512, "#FFFFFF");
 
-      base.print(
+      // Print seguro (sin recorte)
+      img.print(
         font,
         0,
         0,
@@ -53,18 +56,7 @@ export default {
         512
       );
 
-      // 🔥 ESCALADO INTELIGENTE (CLAVE)
-      base.scale(scale);
-
-      // Recentrar en canvas final
-      const finalImg = new Jimp(512, 512, "#FFFFFF");
-      finalImg.composite(
-        base,
-        (512 - base.bitmap.width) / 2,
-        (512 - base.bitmap.height) / 2
-      );
-
-      const buffer = await finalImg.getBufferAsync(Jimp.MIME_PNG);
+      const buffer = await img.getBufferAsync(Jimp.MIME_PNG);
 
       const webp = await sticker(
         buffer,
@@ -79,11 +71,11 @@ export default {
         { quoted: msg }
       );
 
-    } catch (e) {
-      console.error("❌ BRAT ERROR:", e);
+    } catch (err) {
+      console.error("❌ BRAT ERROR:", err);
       await sock.sendMessage(
         jid,
-        { text: "❌ Error generando sticker brat." },
+        { text: "❌ Error al generar el sticker." },
         { quoted: msg }
       );
     }
