@@ -1,38 +1,45 @@
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { sticker } from "../lib/sticker.js";
 
 export default {
   commands: ["robar"],
   category: "grupo",
 
-  async run(sock, msg, args, ctx) {
+  async run(sock, msg, args) {
     const jid = msg.key.remoteJid;
     const packName = args.join(" ").trim();
 
-    // Debe tener nombre
     if (!packName) return;
 
     const quoted =
       msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-    // Debe responder a un sticker
-    if (!quoted?.stickerMessage) return;
+    if (!quoted || !quoted.stickerMessage) return;
 
     try {
-      // Descargar sticker (memoria, host-safe)
-      const buffer = await ctx.download(quoted.stickerMessage);
+      // 🔽 DESCARGAR STICKER CORRECTAMENTE
+      const stream = await downloadContentFromMessage(
+        quoted.stickerMessage,
+        "sticker"
+      );
 
-      // Reempaquetar sticker con nuevo nombre
+      let buffer = Buffer.from([]);
+      for await (const chunk of stream) {
+        buffer = Buffer.concat([buffer, chunk]);
+      }
+
+      // 🔁 REEMPACAR STICKER (SOLO CAMBIA EL NOMBRE)
       const webp = await sticker(
         buffer,
         null,
-        packName, // SOLO esto cambia
+        packName, // nombre nuevo
         ""        // autor vacío
       );
 
       await sock.sendMessage(jid, { sticker: webp });
 
     } catch (e) {
-      console.error("❌ ROBAR ERROR:", e);
+      console.error("❌ ERROR .robar:", e);
     }
   }
 };
