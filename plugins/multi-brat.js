@@ -28,21 +28,18 @@ export default {
     }
 
     try {
-      // Selección de fuente segura
       let font;
 
       if (text.length <= 6) {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_64_BLACK);
+        font = await Jimp.loadFont(Jimp.FONT_SANS_96_BLACK);
       } else if (text.length <= 12) {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_48_BLACK);
+        font = await Jimp.loadFont(Jimp.FONT_SANS_64_BLACK);
       } else {
-        font = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK);
+        font = await Jimp.loadFont(Jimp.FONT_SANS_48_BLACK);
       }
 
-      // Canvas fijo
       const img = new Jimp(512, 512, "#FFFFFF");
 
-      // Print seguro (sin recorte)
       img.print(
         font,
         0,
@@ -71,8 +68,8 @@ export default {
         { quoted: msg }
       );
 
-    } catch (err) {
-      console.error("❌ BRAT ERROR:", err);
+    } catch (e) {
+      console.error("❌ BRAT ERROR:", e);
       await sock.sendMessage(
         jid,
         { text: "❌ Error al generar el sticker." },
