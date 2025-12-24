@@ -1,54 +1,52 @@
 export default {
   command: ["4vs4"],
+  run: async (sock, msg, args) => {
 
-  async run(sock, msg, args) {
-    // ===============================
-    // VALIDAR HORA
-    // ===============================
-    if (!args[0]) {
+    // =========================
+    // VALIDAR ARGUMENTOS
+    // =========================
+    // Ej: .4vs4 fem 2mx
+    const modo = (args[0] || "").toLowerCase()
+    const horaMX = args[1]
+
+    if (!["fem", "masc", "mixto"].includes(modo) || !horaMX) {
       return sock.sendMessage(msg.key.remoteJid, {
-        text: "❌ Usa: *.4vs4 2mx*"
+        text: "❌ Uso correcto:\n.4vs4 fem 2mx\n.4vs4 masc 9mx\n.4vs4 mixto 7mx"
       }, { quoted: msg })
     }
 
-    const match = args[0].match(/^(\d{1,2})(mx)$/i)
-    if (!match) {
+    // =========================
+    // CALCULAR HORAS
+    // =========================
+    const mx = parseInt(horaMX.replace("mx", ""))
+    if (isNaN(mx)) {
       return sock.sendMessage(msg.key.remoteJid, {
-        text: "❌ Formato inválido. Ejemplo: *.4vs4 2mx*"
+        text: "❌ Hora inválida. Ejemplo: 2mx"
       }, { quoted: msg })
     }
 
-    const baseHour = parseInt(match[1])
+    const col = (mx + 1) % 24
 
-    // ===============================
-    // ZONAS HORARIAS (DESDE MX)
-    // ===============================
-    const zonas = {
-      "🇲🇽 México": baseHour,
-      "🇨🇴 Colombia": baseHour + 1,
-      
-    }
+    // =========================
+    // TITULO SEGÚN MODO
+    // =========================
+    const titulo =
+      modo === "fem" ? "💗 4 VS 4 FEMENIL 💗" :
+      modo === "masc" ? "💪 4 VS 4 VARONIL 💪" :
+      "⚖️ 4 VS 4 MIXTO ⚖️"
 
-    const formatHour = h => {
-      let hour = h % 24
-      if (hour <= 0) hour += 24
-      return `${hour}:00`
-    }
-
-    const horarios = Object.entries(zonas)
-      .map(([pais, hora]) => `${pais}: ${formatHour(hora)}`)
-      .join("\n")
-
-    // ===============================
+    // =========================
     // MENSAJE FINAL
-    // ===============================
-    const text = `
-⚔️ *4 VS 4 FREE FIRE* ⚔️
+    // =========================
+    const texto = `
+⚔️ ${titulo} ⚔️
 
 🕒 *HORARIOS*
-${horarios}
+🇲🇽 México: ${mx}MX
+🇨🇴 Colombia: ${col}COL
 
 ━━━━━━━━━━━━━━━
+
 🎮 *JUGADORES*
 1. —
 2. —
@@ -64,7 +62,7 @@ ${horarios}
 `.trim()
 
     await sock.sendMessage(msg.key.remoteJid, {
-      text
+      text: texto
     }, { quoted: msg })
   }
 }
