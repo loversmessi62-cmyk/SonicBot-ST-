@@ -1,23 +1,13 @@
 const lobbies = new Map()
 
-let handler = async (m, { conn, text }) => {
-  const chat = m.chat
+export default {
+  command: ['4vs4'],
 
-  // Parsear hora
-  let hora = 'No definida'
-  if (text) {
-    const match = text.match(/(\d{1,2})(?::(\d{2}))?\s?(am|pm)?\s?(mx|co|ar|cl|pe)?/i)
-    if (match) {
-      let h = match[1]
-      let min = match[2] || '00'
-      let ampm = match[3]?.toUpperCase() || ''
-      let tz = (match[4] || 'MX').toUpperCase()
-      hora = `${h}:${min} ${ampm} (${tz})`
-    }
-  }
+  async run(sock, msg, args) {
+    const chat = msg.key.remoteJid
+    const hora = args.join(' ') || 'Sin hora definida'
 
-  const msg = await conn.sendMessage(chat, {
-    text: `⚔️ *4 VS 4* ⚔️
+    const text = `⚔️ *4 VS 4* ⚔️
 🕒 *Hora:* ${hora}
 
 🎮 *JUGADORES (0/4):*
@@ -29,28 +19,73 @@ let handler = async (m, { conn, text }) => {
 ❤️ = Jugador
 👍 = Suplente
 ❌ = Salir`
-  })
 
-  lobbies.set(msg.key.id, {
-    chat,
-    jugadores: [],
-    suplentes: [],
-    hora
-  })
+    const sent = await sock.sendMessage(chat, { text }, { quoted: msg })
 
-  await conn.sendMessage(chat, {
-    react: { text: '❤️', key: msg.key }
-  })
-  await conn.sendMessage(chat, {
-    react: { text: '👍', key: msg.key }
-  })
-  await conn.sendMessage(chat, {
-    react: { text: '❌', key: msg.key }
-  })
+    lobbies.set(sent.key.id, {
+      chat,
+      hora,
+      jugadores: [],
+      suplentes: []
+    })
+
+    // Reacciones iniciales
+    await sock.sendMessage(chat, {
+      react: { text: '❤️', key: sent.key }
+    })
+    await sock.sendMessage(chat, {
+      react: { text: '👍', key: sent.key }
+    })
+    await sock.sendMessage(chat, {
+      react: { text: '❌', key: sent.key }
+    })
+  },
+
+  // 👇 ESTO ES LO QUE TÚ PREGUNTABAS
+  async onMessage(sock, msg) {
+    if (!msg.message?.reactionMessage) return
+
+    const emoji = msg.message.reactionMessage.text
+    const key = msg.message.reactionMessage.key.id
+    const user = msg.key.participant || msg.key.remoteJid
+
+    if (!lobbies.has(key)) return
+
+    const lobby = lobbies.get(key)
+
+    // Quitar de todos antes
+    lobby.jugadores = lobby.jugadores.filter(u => u !== user)
+    lobby.suplentes = lobby.suplentes.filter(u => u !== user)
+
+    if (emoji === '❤️' && lobby.jugadores.length < 4) {
+      lobby.jugadores.push(user)
+    }
+
+    if (emoji === '👍' && lobby.suplentes.length < 2) {
+      lobby.suplentes.push(user)
+    }
+
+    // ❌ solo sale (ya se removió arriba)
+
+    const format = list =>
+      list.length
+        ? list.map((u, i) => `${i + 1}. @${u.split('@')[0]}`).join('\n')
+        : '—'
+
+    await sock.sendMessage(lobby.chat, {
+      text: `⚔️ *4 VS 4* ⚔️
+🕒 *Hora:* ${lobby.hora}
+
+🎮 *JUGADORES (${lobby.jugadores.length}/4):*
+${format(lobby.jugadores)}
+
+🪑 *SUPLENTES (${lobby.suplentes.length}/2):*
+${format(lobby.suplentes)}
+
+❤️ = Jugador
+👍 = Suplente
+❌ = Salir`,
+      mentions: [...lobby.jugadores, ...lobby.suplentes]
+    })
+  }
 }
-
-handler.command = /^4vs4$/i
-handler.tags = ['games']
-handler.help = ['4vs4 [hora]']
-
-export default handler
