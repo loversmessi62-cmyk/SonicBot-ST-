@@ -26,10 +26,7 @@ export default {
     const zonas = {
       "🇲🇽 México": baseHour,
       "🇨🇴 Colombia": baseHour + 1,
-      "🇵🇪 Perú": baseHour + 1,
-      "🇨🇱 Chile": baseHour + 2,
-      "🇦🇷 Argentina": baseHour + 3,
-      "🇧🇷 Brasil": baseHour + 3
+      
     }
 
     const formatHour = h => {
