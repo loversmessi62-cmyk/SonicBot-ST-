@@ -1,30 +1,57 @@
 export default {
-  command: ['4vs4'],
-  tags: ['ff'],
-  help: ['4vs4 <hora mx>'],
+  command: ["4vs4"],
 
-  run: async (sock, msg, args) => {
-    const jid = msg.key.remoteJid
+  async run(sock, msg, args) {
+    // ===============================
+    // VALIDAR HORA
+    // ===============================
+    if (!args[0]) {
+      return sock.sendMessage(msg.key.remoteJid, {
+        text: "❌ Usa: *.4vs4 2mx*"
+      }, { quoted: msg })
+    }
 
-    // Hora base MX
-    let horaMX = args.join(' ') || 'Hora por definir'
+    const match = args[0].match(/^(\d{1,2})(mx)$/i)
+    if (!match) {
+      return sock.sendMessage(msg.key.remoteJid, {
+        text: "❌ Formato inválido. Ejemplo: *.4vs4 2mx*"
+      }, { quoted: msg })
+    }
 
-    // Si ponen solo "2mx", "8pm mx", etc
-    horaMX = horaMX.replace(/mx/i, 'MX')
+    const baseHour = parseInt(match[1])
 
-    const texto = `
+    // ===============================
+    // ZONAS HORARIAS (DESDE MX)
+    // ===============================
+    const zonas = {
+      "🇲🇽 México": baseHour,
+      "🇨🇴 Colombia": baseHour + 1,
+      "🇵🇪 Perú": baseHour + 1,
+      "🇨🇱 Chile": baseHour + 2,
+      "🇦🇷 Argentina": baseHour + 3,
+      "🇧🇷 Brasil": baseHour + 3
+    }
+
+    const formatHour = h => {
+      let hour = h % 24
+      if (hour <= 0) hour += 24
+      return `${hour}:00`
+    }
+
+    const horarios = Object.entries(zonas)
+      .map(([pais, hora]) => `${pais}: ${formatHour(hora)}`)
+      .join("\n")
+
+    // ===============================
+    // MENSAJE FINAL
+    // ===============================
+    const text = `
 ⚔️ *4 VS 4 FREE FIRE* ⚔️
 
 🕒 *HORARIOS*
-🇲🇽 México: ${horaMX}
-🇨🇴 Colombia: +1h
-🇵🇪 Perú: +1h
-🇨🇱 Chile: +2h
-🇦🇷 Argentina: +3h
-🇧🇷 Brasil: +3h
+${horarios}
 
-━━━━━━━━━━━━━━
-
+━━━━━━━━━━━━━━━
 🎮 *JUGADORES*
 1. —
 2. —
@@ -37,8 +64,10 @@ export default {
 
 📌 *Anótate escribiendo tu nombre*
 🔥 *Modo serio*
-`
+`.trim()
 
-    await sock.sendMessage(jid, { text: texto }, { quoted: msg })
+    await sock.sendMessage(msg.key.remoteJid, {
+      text
+    }, { quoted: msg })
   }
 }
