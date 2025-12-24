@@ -1,104 +1,101 @@
-let partidas = new Map()
+import moment from "moment-timezone"
 
-let handler = async (m, { conn }) => {
-  const chat = m.chat
+const rooms = {}
 
-  if (partidas.has(chat)) {
-    return m.reply('⚠️ Ya hay una partida activa aquí')
-  }
+const zones = {
+  mx: "America/Mexico_City",
+  co: "America/Bogota",
+  ar: "America/Argentina/Buenos_Aires",
+  cl: "America/Santiago",
+  pe: "America/Lima",
+  es: "Europe/Madrid"
+}
 
-  const data = {
+function parseTime(text = "") {
+  const match = text.match(/(\d{1,2})(am|pm)\s*(\w+)?/i)
+  if (!match) return null
+
+  let [, hour, ampm, zone] = match
+  zone = zone?.toLowerCase()
+  const tz = zones[zone] || null
+
+  let h = parseInt(hour)
+  if (ampm.toLowerCase() === "pm" && h < 12) h += 12
+  if (ampm.toLowerCase() === "am" && h === 12) h = 0
+
+  if (!tz) return `${hour}${ampm}`
+  return moment().tz(tz).hour(h).minute(0).format("HH:mm z")
+}
+
+function render(room) {
+  return `
+🎮 *4 VS 4*
+${room.time ? `⏰ Hora: *${room.time}*` : ""}
+
+👥 *Jugadores (${room.players.length}/4)*
+${room.players.map((u,i)=>`${i+1}. @${u.split("@")[0]}`).join("\n") || "-"}
+
+🪑 *Suplentes (${room.subs.length}/2)*
+${room.subs.map((u,i)=>`${i+1}. @${u.split("@")[0]}`).join("\n") || "-"}
+
+❤️ = Jugar
+👍 = Suplente
+❌ = Salir
+`
+}
+
+let handler = async (m, { conn, text }) => {
+  const time = parseTime(text)
+  const id = m.chat
+
+  rooms[id] = {
     players: [],
     subs: [],
-    msgId: null
+    time
   }
 
-  let texto = generarTexto(data)
-  let msg = await conn.sendMessage(chat, { text: texto })
+  const msg = await conn.sendMessage(id, {
+    text: render(rooms[id]),
+    mentions: []
+  })
 
-  data.msgId = msg.key.id
-  partidas.set(chat, data)
+  rooms[id].msgId = msg.key.id
 
-  await conn.sendMessage(chat, {
-    react: { text: '❤️', key: msg.key }
-  })
-  await conn.sendMessage(chat, {
-    react: { text: '👍', key: msg.key }
-  })
-  await conn.sendMessage(chat, {
-    react: { text: '❌', key: msg.key }
-  })
+  await conn.sendMessage(id, { react: { text: "❤️", key: msg.key } })
+  await conn.sendMessage(id, { react: { text: "👍", key: msg.key } })
+  await conn.sendMessage(id, { react: { text: "❌", key: msg.key } })
 }
 
 handler.before = async (m, { conn }) => {
   if (!m.message?.reactionMessage) return
 
-  const chat = m.chat
-  const game = partidas.get(chat)
-  if (!game) return
-
   const { key, text } = m.message.reactionMessage
-  if (key.id !== game.msgId) return
+  const room = rooms[m.chat]
+  if (!room || key.id !== room.msgId) return
 
   const user = m.sender
 
-  // salir
-  if (text === '❌') {
-    game.players = game.players.filter(u => u !== user)
-    game.subs = game.subs.filter(u => u !== user)
+  room.players = room.players.filter(u => u !== user)
+  room.subs = room.subs.filter(u => u !== user)
+
+  if (text === "❤️" && room.players.length < 4) {
+    room.players.push(user)
   }
 
-  // jugador
-  if (text === '❤️') {
-    if (!game.players.includes(user) && game.players.length < 4) {
-      game.players.push(user)
-      game.subs = game.subs.filter(u => u !== user)
-    }
+  if (text === "👍" && room.subs.length < 2) {
+    room.subs.push(user)
   }
 
-  // suplente
-  if (text === '👍') {
-    if (!game.subs.includes(user) && game.subs.length < 2) {
-      game.subs.push(user)
-      game.players = game.players.filter(u => u !== user)
-    }
-  }
+  const newText = render(room)
 
-  let nuevoTexto = generarTexto(game)
-
-  await conn.sendMessage(chat, {
-    text: nuevoTexto,
-    edit: {
-      remoteJid: chat,
-      id: game.msgId
-    }
-  })
+  await conn.sendMessage(m.chat, {
+    text: newText,
+    mentions: [...room.players, ...room.subs]
+  }, { edit: key })
 }
 
 handler.command = /^4vs4$/i
-handler.tags = ['juegos']
-handler.help = ['4vs4']
+handler.tags = ["games"]
+handler.help = ["4vs4 [hora zona]"]
 
 export default handler
-
-function generarTexto(data) {
-  let t = `⚔️ *4 VS 4*\n\n`
-
-  t += `👥 *Jugadores*\n`
-  for (let i = 0; i < 4; i++) {
-    let u = data.players[i]
-    t += `${i + 1}. ${u ? '@' + u.split('@')[0] : '—'}\n`
-  }
-
-  t += `\n🪑 *Suplentes*\n`
-  for (let i = 0; i < 2; i++) {
-    let u = data.subs[i]
-    t += `${i + 1}. ${u ? '@' + u.split('@')[0] : '—'}\n`
-  }
-
-  t += `\n❤️ = jugador`
-  t += `\n👍 = suplente`
-  t += `\n❌ = salir`
-
-  return t
-}
