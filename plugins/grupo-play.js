@@ -1,4 +1,5 @@
 import axios from "axios";
+import yts from "yt-search";
 
 export default {
   commands: ["play"],
@@ -6,8 +7,7 @@ export default {
 
   async run(sock, msg, args) {
     const jid = msg.key.remoteJid;
-    const text = args.join(" ");
-
+    const text = args.join(" ").trim();
     if (!text) {
       return sock.sendMessage(jid, {
         text: "🎵 Usa: *.play nombre de la canción*"
@@ -15,30 +15,33 @@ export default {
     }
 
     await sock.sendMessage(jid, {
-      text: "🔎 Buscando música..."
+      react: { text: "⏳", key: msg.key }
     });
 
     try {
-      // API que SOLO devuelve URL (no descarga)
-      const api = `https://api.neoxr.eu/api/play?query=${encodeURIComponent(text)}&apikey=russellxz`;
+      const search = await yts(text);
+      const video = search.videos[0];
+      if (!video) throw "No encontré resultados";
+
+      const api = `https://api.lolhuman.xyz/api/ytaudio2?apikey=f8267e6585a96d8eb1cc371a&url=${video.url}`;
       const res = await axios.get(api);
-      const data = res.data;
 
-      if (!data.status) throw "No se pudo obtener el audio";
-
-      const audioUrl = data.data.url;
-      const title = data.data.title;
+      if (!res.data?.result?.link) throw "No se pudo obtener el audio";
 
       await sock.sendMessage(jid, {
-        audio: { url: audioUrl },
+        audio: { url: res.data.result.link },
         mimetype: "audio/mpeg",
-        fileName: `${title}.mp3`
+        fileName: `${video.title}.mp3`
+      }, { quoted: msg });
+
+      await sock.sendMessage(jid, {
+        react: { text: "✅", key: msg.key }
       });
 
     } catch (e) {
       console.error(e);
       await sock.sendMessage(jid, {
-        text: "❌ Error al reproducir la canción."
+        text: "❌ Error al reproducir la canción"
       });
     }
   }
