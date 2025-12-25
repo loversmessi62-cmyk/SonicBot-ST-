@@ -1,47 +1,36 @@
-import axios from "axios"
+import axios from "axios";
 
 export default {
   commands: ["play"],
   async run(sock, msg, args) {
-    const text = args.join(" ")
-    if (!text) {
-      return sock.sendMessage(msg.key.remoteJid, {
-        text: "🎵 Usa: *.play nombre de la canción*"
-      }, { quoted: msg })
+    const jid = msg.key.remoteJid;
+    const query = args.join(" ");
+    if (!query) {
+      return sock.sendMessage(jid, { text: "❌ Escribe el nombre de la canción." });
     }
 
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: "🔎 Buscando música..."
-    }, { quoted: msg })
+    await sock.sendMessage(jid, { text: `🔎 Buscando: ${query}` });
 
-    try {
-      const res = await axios.get(
-        "https://api.lolhuman.xyz/api/ytplay2",
-        {
-          params: {
-            query: text,
-            apikey: "f8267e6585a96d8eb1cc371a"
-          }
-        }
-      )
+    // 1️⃣ Buscar video en Invidious (JSON)
+    const search = await axios.get(
+      `https://yewtu.be/api/v1/search?q=${encodeURIComponent(query)}&type=video`
+    );
 
-      const data = res.data.result
-
-      await sock.sendMessage(
-        msg.key.remoteJid,
-        {
-          audio: { url: data.audio },
-          mimetype: "audio/mpeg",
-          fileName: `${data.title}.mp3`
-        },
-        { quoted: msg }
-      )
-
-    } catch (e) {
-      console.error(e)
-      await sock.sendMessage(msg.key.remoteJid, {
-        text: "❌ No pude descargar la música."
-      }, { quoted: msg })
+    if (!search.data.length) {
+      return sock.sendMessage(jid, { text: "❌ No se encontró nada." });
     }
+
+    const video = search.data[0];
+    const videoId = video.videoId;
+
+    // 2️⃣ Audio directo
+    const audioUrl = `https://yewtu.be/latest_version?id=${videoId}&itag=140`;
+
+    // 3️⃣ Enviar audio
+    await sock.sendMessage(jid, {
+      audio: { url: audioUrl },
+      mimetype: "audio/mp4",
+      fileName: `${video.title}.m4a`
+    });
   }
-}
+};
