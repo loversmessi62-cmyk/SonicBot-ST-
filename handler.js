@@ -78,23 +78,18 @@ const handler = async (sock, msg) => {
 
 
 
-      // =====================================
-// 🔐 ADMIN MATCH DEFINITIVO (ANTI-LID)
+     // =====================================
+// 🔐 ADMIN MATCH DEFINITIVO (SAFE MODE)
 // =====================================
-
-let isAdmin = false
-let isBotAdmin = false
 
 if (m.isGroup && groupMetadata?.participants) {
 
-  // normaliza a SOLO números
   const normalize = jid =>
     jid?.toString().replace(/[^0-9]/g, '') || null
 
   const senderNum = normalize(m.sender)
   const botNum = normalize(conn.user?.jid)
 
-  // obtener admins reales del grupo
   const adminNums = new Set(
     groupMetadata.participants
       .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
@@ -102,7 +97,6 @@ if (m.isGroup && groupMetadata?.participants) {
       .filter(Boolean)
   )
 
-  // checks finales
   isAdmin = adminNums.has(senderNum)
   isBotAdmin = adminNums.has(botNum)
 }
