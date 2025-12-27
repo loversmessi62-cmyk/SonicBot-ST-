@@ -77,6 +77,37 @@ let admins = [];
 let isAdmin = false;  
 let isBotAdmin = false;  
   
+// =====================================
+// 🔐 ADMIN MATCH REAL (FIX DEFINITIVO)
+// =====================================
+if (isGroup) {
+  try {
+    metadata = await sock.groupMetadata(jid);
+    groupCache[jid] = metadata;
+
+    const normalize = jid =>
+      jid?.toString().replace(/[^0-9]/g, "") || null;
+
+    const senderNum = normalize(realSender);
+    const botNum = normalize(sock.user?.id);
+
+    admins = metadata.participants
+      .filter(p => p.admin === "admin" || p.admin === "superadmin")
+      .map(p => p.id);
+
+    const adminNums = new Set(
+      admins.map(id => normalize(id)).filter(Boolean)
+    );
+
+    isAdmin = adminNums.has(senderNum);
+    isBotAdmin = adminNums.has(botNum);
+
+  } catch (e) {
+    console.error("❌ Error admin:", e);
+    isAdmin = false;
+    isBotAdmin = false;
+  }
+}
 
 // ===============================  
 // 🔇 SISTEMA MUTE REAL (CORRECTO)  
