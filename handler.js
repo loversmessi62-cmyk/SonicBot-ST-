@@ -78,11 +78,10 @@ let isAdmin = false;
 let isBotAdmin = false;  
   
 
-// ================================
+
+      // ================================
 // 🔐 ADMIN CHECK REAL (HANDLER)
 // ================================
-
-const isGroup = jid.endsWith("@g.us")
 
 const getRealSender = m => {
   return (
@@ -105,6 +104,7 @@ const normalizeAll = jid => {
 let isAdmin = false
 let isBotAdmin = false
 
+// 👇 USA el isGroup que YA TIENES
 if (isGroup) {
   try {
     const metadata = await sock.groupMetadata(jid)
@@ -121,9 +121,7 @@ if (isGroup) {
     isAdmin = adminNums.includes(senderNum)
     isBotAdmin = adminNums.includes(botNum)
 
-    // 🧪 DEBUG (borra luego)
     console.log("🧪 ADMIN DEBUG", {
-      senderJid,
       senderNum,
       adminNums,
       isAdmin,
