@@ -34,6 +34,7 @@ export const plugins = {};
 
 export const loadPlugins = async () => {
   try {
+
     const dir = "./plugins";
     const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"));
 
@@ -63,13 +64,18 @@ export const loadPlugins = async () => {
 const handler = async (sock, msg) => {
   try {
     const jid = msg.key.remoteJid;
-    const isGroup = jid.endsWith("@g.us");
-    const sender = msg.key.participant || msg.key.remoteJid;
-    let realSender = sender;
+    const isGroup = jid?.endsWith("@g.us");
+
+    let realSender =
+      msg.key.participant ||
+      msg.message?.extendedTextMessage?.contextInfo?.participant ||
+      jid;
+
     let metadata = null;
     let admins = [];
     let isAdmin = false;
     let isBotAdmin = false;
+
 
 
           // =====================================
@@ -80,18 +86,13 @@ if (isGroup) {
     metadata = await sock.groupMetadata(jid);
     groupCache[jid] = metadata;
 
-    // ─── recolectar TODAS las identidades posibles del sender ───
     const senderIds = new Set();
+    const push = v => v && senderIds.add(v);
 
-    const pushSender = v => {
-      if (v && typeof v === "string") senderIds.add(v);
-    };
+    push(realSender);
+    push(msg.key.participant);
+    push(msg.message?.extendedTextMessage?.contextInfo?.participant);
 
-    pushSender(msg.key.participant);
-    pushSender(msg.key.remoteJid);
-    pushSender(msg.message?.extendedTextMessage?.contextInfo?.participant);
-
-    // normalizaciones sender
     [...senderIds].forEach(id => {
       const num = id.replace(/[^0-9]/g, "");
       if (num) {
@@ -102,31 +103,31 @@ if (isGroup) {
       }
     });
 
-    // ─── recolectar TODAS las identidades de los admins ───
+    const adminParticipants = metadata.participants
+      .filter(p => p.admin === "admin" || p.admin === "superadmin");
+
+    admins = adminParticipants.map(p => p.id);
+
     const adminIds = new Set();
 
-    metadata.participants
-      .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .forEach(p => {
-        adminIds.add(p.id);
+    adminParticipants.forEach(p => {
+      adminIds.add(p.id);
+      const num = p.id.replace(/[^0-9]/g, "");
+      if (num) {
+        adminIds.add(num);
+        adminIds.add(num + "@s.whatsapp.net");
+        adminIds.add(num + "@c.us");
+        adminIds.add(num + "@lid");
+      }
+    });
 
-        const num = p.id.replace(/[^0-9]/g, "");
-        if (num) {
-          adminIds.add(num);
-          adminIds.add(num + "@s.whatsapp.net");
-          adminIds.add(num + "@c.us");
-          adminIds.add(num + "@lid");
-        }
-      });
-
-    // ─── detección FINAL usuario ───
     isAdmin = [...senderIds].some(id => adminIds.has(id));
 
-    // ─── BOT admin (FIX) ───
     const botIds = new Set();
+    const botId = sock.user.id;
+    botIds.add(botId);
 
-    botIds.add(sock.user.id);
-    const botNum = sock.user.id.replace(/[^0-9]/g, "");
+    const botNum = botId.replace(/[^0-9]/g, "");
     if (botNum) {
       botIds.add(botNum);
       botIds.add(botNum + "@s.whatsapp.net");
@@ -136,20 +137,13 @@ if (isGroup) {
 
     isBotAdmin = [...botIds].some(id => adminIds.has(id));
 
-    // 🔍 DEBUG
-    console.log("===== ADMIN MATCH TOTAL (FIX) =====");
-    console.log("Sender IDs:", [...senderIds]);
-    console.log("Admin IDs:", [...adminIds]);
-    console.log("Es Admin?", isAdmin);
-    console.log("Es Bot Admin?", isBotAdmin);
-    console.log("==================================");
-
   } catch (e) {
-    console.error("❌ Error admin ultra:", e);
+    console.error("❌ Error admin:", e);
     isAdmin = false;
     isBotAdmin = false;
   }
 }
+
     // ===============================
     // 🔇 SISTEMA MUTE REAL (CORRECTO)
     // ===============================
@@ -213,6 +207,11 @@ if (isGroup) {
       else if (m.documentMessage) type = "DOCUMENTO";
       else if (m.reactionMessage) type = "REACCIÓN";
       else if (m.viewOnceMessage || m.viewOnceMessageV2) type = "VIEWONCE";
+      console.log("🧪 CHECK ADMIN FINAL");
+      console.log("Sender:", realSender);
+      console.log("Admins:", admins);
+      console.log("isAdmin:", isAdmin);
+
 
       const preview =
         fixedText && fixedText.length > 40
