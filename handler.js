@@ -78,47 +78,77 @@ const handler = async (sock, msg) => {
 
 
 
-         // =====================================
-// ✅ SISTEMA ADMIN MATCH REAL (LID + NORMAL)
+        // =====================================
+// ✅ ADMIN MATCH DEFINITIVO (LID + NORMAL)
 // =====================================
 if (isGroup) {
   try {
     metadata = await sock.groupMetadata(jid);
     groupCache[jid] = metadata;
 
-    const normalize = jid => jid?.replace(/[^0-9]/g, "");
+    // ──────────────
+    // 🔑 IDS DEL MENSAJE
+    // ──────────────
+    const senderJid =
+      msg.key.participant ||
+      msg.message?.extendedTextMessage?.contextInfo?.participant;
 
-    const senderNum = normalize(realSender);
+    const senderLid =
+      msg.key.participantLid ||
+      msg.message?.extendedTextMessage?.contextInfo?.participantLid ||
+      null;
 
-    const adminNums = new Set(
-      metadata.participants
-        .filter(p => p.admin === "admin" || p.admin === "superadmin")
-        .map(p => normalize(p.id))
-        .filter(Boolean)
-    );
+    // ──────────────
+    // 👑 ADMINS DEL GRUPO
+    // ──────────────
+    const adminParticipants = metadata.participants
+      .filter(p => p.admin === "admin" || p.admin === "superadmin");
 
-    admins = metadata.participants
-      .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => p.id);
+    admins = adminParticipants.map(p => p.id); // solo info
 
-    isAdmin = adminNums.has(senderNum);
+    const adminLids = new Set(adminParticipants.map(p => p.id));
 
-    const botNum = normalize(sock.user.id);
-    isBotAdmin = adminNums.has(botNum);
+    // ──────────────
+    // ✅ MATCH REAL
+    // ──────────────
+    isAdmin = false;
+
+    // ✔ Match por LID (comunidades / grupos nuevos)
+    if (senderLid && adminLids.has(senderLid)) {
+      isAdmin = true;
+    }
+
+    // ✔ Fallback grupos viejos
+    if (!isAdmin && senderJid && adminLids.has(senderJid)) {
+      isAdmin = true;
+    }
+
+    // ──────────────
+    // 🤖 BOT ADMIN
+    // ──────────────
+    const botLid = sock.user.lid || null;
+    const botJid = sock.user.id;
+
+    isBotAdmin =
+      (botLid && adminLids.has(botLid)) ||
+      adminLids.has(botJid);
 
     // 🔍 DEBUG (puedes borrar luego)
-    console.log("ADMIN CHECK REAL");
-    console.log("SenderNum:", senderNum);
-    console.log("AdminNums:", [...adminNums]);
+    console.log("===== ADMIN MATCH REAL =====");
+    console.log("SenderJid:", senderJid);
+    console.log("SenderLid:", senderLid);
+    console.log("AdminLids:", [...adminLids]);
     console.log("isAdmin:", isAdmin);
     console.log("isBotAdmin:", isBotAdmin);
+    console.log("============================");
 
   } catch (e) {
-    console.error("❌ Error admin:", e);
+    console.error("❌ Error admin definitivo:", e);
     isAdmin = false;
     isBotAdmin = false;
   }
 }
+
 
     // ===============================
     // 🔇 SISTEMA MUTE REAL (CORRECTO)
