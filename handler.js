@@ -78,67 +78,33 @@ const handler = async (sock, msg) => {
 
 
 
-       // =====================================
-// ✅ ADMIN MATCH FINAL (ANTI-LID BUG)
+      // =====================================
+// 🔐 ADMIN MATCH DEFINITIVO (ANTI-LID)
 // =====================================
-if (isGroup) {
-  try {
-    metadata = await sock.groupMetadata(jid);
-    groupCache[jid] = metadata;
 
-    const normalize = v => v?.replace(/[^0-9]/g, "");
+let isAdmin = false
+let isBotAdmin = false
 
-    const senderNum = normalize(
-      msg.key.participant ||
-      msg.message?.extendedTextMessage?.contextInfo?.participant
-    );
+if (m.isGroup && groupMetadata?.participants) {
 
-    let senderParticipant = null;
+  // normaliza a SOLO números
+  const normalize = jid =>
+    jid?.toString().replace(/[^0-9]/g, '') || null
 
-    for (const p of metadata.participants) {
-      const pNum = normalize(p.id);
+  const senderNum = normalize(m.sender)
+  const botNum = normalize(conn.user?.jid)
 
-      // MATCH REAL POR NÚMERO
-      if (pNum && senderNum && pNum.endsWith(senderNum)) {
-        senderParticipant = p;
-        break;
-      }
-    }
+  // obtener admins reales del grupo
+  const adminNums = new Set(
+    groupMetadata.participants
+      .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
+      .map(p => normalize(p.id))
+      .filter(Boolean)
+  )
 
-    isAdmin =
-      senderParticipant &&
-      (senderParticipant.admin === "admin" ||
-       senderParticipant.admin === "superadmin");
-
-    admins = metadata.participants
-      .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => p.id);
-
-    // BOT ADMIN
-    const botNum = normalize(sock.user.id);
-
-    isBotAdmin = metadata.participants.some(p => {
-      const pNum = normalize(p.id);
-      return (
-        pNum &&
-        pNum.endsWith(botNum) &&
-        (p.admin === "admin" || p.admin === "superadmin")
-      );
-    });
-
-    // 🔍 DEBUG
-    console.log("===== ADMIN MATCH FINAL =====");
-    console.log("SenderNum:", senderNum);
-    console.log("SenderParticipant:", senderParticipant?.id);
-    console.log("isAdmin:", isAdmin);
-    console.log("isBotAdmin:", isBotAdmin);
-    console.log("=============================");
-
-  } catch (e) {
-    console.error("❌ Error admin final:", e);
-    isAdmin = false;
-    isBotAdmin = false;
-  }
+  // checks finales
+  isAdmin = adminNums.has(senderNum)
+  isBotAdmin = adminNums.has(botNum)
 }
 
 
