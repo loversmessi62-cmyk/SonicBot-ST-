@@ -78,64 +78,40 @@ const handler = async (sock, msg) => {
 
 
 
-          // =====================================
-// SISTEMA ADMIN MATCH TOTAL (ULTRA) [FIX]
+         // =====================================
+// ✅ SISTEMA ADMIN MATCH REAL (LID + NORMAL)
 // =====================================
 if (isGroup) {
   try {
     metadata = await sock.groupMetadata(jid);
     groupCache[jid] = metadata;
 
-    const senderIds = new Set();
-    const push = v => v && senderIds.add(v);
+    const normalize = jid => jid?.replace(/[^0-9]/g, "");
 
-    push(realSender);
-    push(msg.key.participant);
-    push(msg.message?.extendedTextMessage?.contextInfo?.participant);
+    const senderNum = normalize(realSender);
 
-    [...senderIds].forEach(id => {
-      const num = id.replace(/[^0-9]/g, "");
-      if (num) {
-        senderIds.add(num);
-        senderIds.add(num + "@s.whatsapp.net");
-        senderIds.add(num + "@c.us");
-        senderIds.add(num + "@lid");
-      }
-    });
+    const adminNums = new Set(
+      metadata.participants
+        .filter(p => p.admin === "admin" || p.admin === "superadmin")
+        .map(p => normalize(p.id))
+        .filter(Boolean)
+    );
 
-    const adminParticipants = metadata.participants
-      .filter(p => p.admin === "admin" || p.admin === "superadmin");
+    admins = metadata.participants
+      .filter(p => p.admin === "admin" || p.admin === "superadmin")
+      .map(p => p.id);
 
-    admins = adminParticipants.map(p => p.id);
+    isAdmin = adminNums.has(senderNum);
 
-    const adminIds = new Set();
+    const botNum = normalize(sock.user.id);
+    isBotAdmin = adminNums.has(botNum);
 
-    adminParticipants.forEach(p => {
-      adminIds.add(p.id);
-      const num = p.id.replace(/[^0-9]/g, "");
-      if (num) {
-        adminIds.add(num);
-        adminIds.add(num + "@s.whatsapp.net");
-        adminIds.add(num + "@c.us");
-        adminIds.add(num + "@lid");
-      }
-    });
-
-    isAdmin = [...senderIds].some(id => adminIds.has(id));
-
-    const botIds = new Set();
-    const botId = sock.user.id;
-    botIds.add(botId);
-
-    const botNum = botId.replace(/[^0-9]/g, "");
-    if (botNum) {
-      botIds.add(botNum);
-      botIds.add(botNum + "@s.whatsapp.net");
-      botIds.add(botNum + "@c.us");
-      botIds.add(botNum + "@lid");
-    }
-
-    isBotAdmin = [...botIds].some(id => adminIds.has(id));
+    // 🔍 DEBUG (puedes borrar luego)
+    console.log("ADMIN CHECK REAL");
+    console.log("SenderNum:", senderNum);
+    console.log("AdminNums:", [...adminNums]);
+    console.log("isAdmin:", isAdmin);
+    console.log("isBotAdmin:", isBotAdmin);
 
   } catch (e) {
     console.error("❌ Error admin:", e);
