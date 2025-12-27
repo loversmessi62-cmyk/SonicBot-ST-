@@ -77,40 +77,64 @@ let admins = [];
 let isAdmin = false;  
 let isBotAdmin = false;  
   
+
+// ================================
+// 🔐 ADMIN CHECK REAL (HANDLER)
+// ================================
+
+const isGroup = jid.endsWith("@g.us")
+
+const getRealSender = m => {
+  return (
+    m.key?.participant ||
+    m.message?.extendedTextMessage?.contextInfo?.participant ||
+    m.key?.remoteJid
+  )
+}
+
+const normalizeAll = jid => {
+  if (!jid) return null
+  return jid
+    .toString()
+    .replace(/@s\.whatsapp\.net/g, "")
+    .replace(/@lid/g, "")
+    .replace(/:\d+/g, "")
+    .replace(/[^0-9]/g, "")
+}
+
+let isAdmin = false
+let isBotAdmin = false
+
 if (isGroup) {
   try {
-    const metadata = await sock.groupMetadata(jid);
+    const metadata = await sock.groupMetadata(jid)
 
-    const normalize = jid =>
-      jid?.toString().replace(/[^0-9]/g, "") || null;
+    const senderJid = getRealSender(m)
+    const senderNum = normalizeAll(senderJid)
+    const botNum = normalizeAll(sock.user?.id)
 
-    const senderNum = normalize(realSender);
-    const botNum = normalize(sock.user?.id);
-
-    const admins = metadata.participants
+    const adminNums = metadata.participants
       .filter(p => p.admin === "admin" || p.admin === "superadmin")
-      .map(p => p.id);
+      .map(p => normalizeAll(p.id))
+      .filter(Boolean)
 
-    const adminNums = new Set(
-      admins.map(id => normalize(id)).filter(Boolean)
-    );
+    isAdmin = adminNums.includes(senderNum)
+    isBotAdmin = adminNums.includes(botNum)
 
-    isAdmin = adminNums.has(senderNum);
-    isBotAdmin = adminNums.has(botNum);
-
-    console.log("🔎 DEBUG ADMIN", {
+    // 🧪 DEBUG (borra luego)
+    console.log("🧪 ADMIN DEBUG", {
+      senderJid,
       senderNum,
-      admins: [...adminNums],
+      adminNums,
       isAdmin,
       isBotAdmin
-    });
+    })
 
-  } catch (e) {
-    console.error("❌ Error admin:", e);
-    isAdmin = false;
-    isBotAdmin = false;
+  } catch (err) {
+    console.error("❌ ADMIN CHECK ERROR:", err)
   }
 }
+
 // ===============================  
 // 🔇 SISTEMA MUTE REAL (CORRECTO)  
 // ===============================  
