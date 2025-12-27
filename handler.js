@@ -122,11 +122,11 @@ isBotAdmin = adminIds.includes(botNum)
     
 
     console.log("🧪 ADMIN DEBUG", {
-      senderNum,
-      adminNums,
-      isAdmin,
-      isBotAdmin
-    })
+  senderNum,
+  adminIds,
+  isAdmin,
+  isBotAdmin
+})
 
   } catch (err) {
     console.error("❌ ADMIN CHECK ERROR:", err)
