@@ -119,11 +119,19 @@ if (isGroup) {
     // 👤 ADMIN USUARIO
     isAdmin = adminIds.includes(senderNum)
 
-    // 🤖 ADMIN BOT (FIX DEFINITIVO)
-    isBotAdmin = admins.some(p => {
-      const pid = normalizeAll(p.id)
-      return pid === botNum || p.id?.includes(botNum)
-    })
+    // 🤖 BOT ADMIN (MISMO MÉTODO QUE USUARIO)
+const botJid = sock.user?.id
+const botNum2 = normalizeAll(botJid)
+
+isBotAdmin = false
+
+for (const p of admins) {
+  const pid = normalizeAll(p.id)
+  if (pid === botNum2) {
+    isBotAdmin = true
+    break
+  }
+}
 
     console.log("🧪 ADMIN DEBUG", {
       senderNum,
