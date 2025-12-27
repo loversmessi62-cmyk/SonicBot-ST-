@@ -112,12 +112,14 @@ if (isGroup) {
       p => p.admin === "admin" || p.admin === "superadmin"
     )
 
-    const adminNums = admins
-      .map(p => normalizeAll(p.id))
-      .filter(Boolean)
+    const adminIds = admins.flatMap(p => [
+  normalizeAll(p.id),
+  normalizeAll(p.jid)
+]).filter(Boolean)
 
-    isAdmin = adminNums.includes(senderNum)
-    isBotAdmin = adminNums.includes(botNum)
+isAdmin = adminIds.includes(senderNum)
+isBotAdmin = adminIds.includes(botNum)
+    
 
     console.log("🧪 ADMIN DEBUG", {
       senderNum,
