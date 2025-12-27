@@ -79,8 +79,7 @@ let isBotAdmin = false;
   
 
 
-      
-  // ================================
+   // ================================
 // 🔐 ADMIN CHECK REAL (HANDLER)
 // ================================
 
@@ -113,20 +112,26 @@ if (isGroup) {
     )
 
     const adminIds = admins.flatMap(p => [
-  normalizeAll(p.id),
-  normalizeAll(p.jid)
-]).filter(Boolean)
+      normalizeAll(p.id),
+      normalizeAll(p.jid)
+    ]).filter(Boolean)
 
-isAdmin = adminIds.includes(senderNum)
-isBotAdmin = adminIds.includes(botNum)
-    
+    // 👤 ADMIN USUARIO
+    isAdmin = adminIds.includes(senderNum)
+
+    // 🤖 ADMIN BOT (FIX DEFINITIVO)
+    isBotAdmin = admins.some(p => {
+      const pid = normalizeAll(p.id)
+      return pid === botNum || p.id?.includes(botNum)
+    })
 
     console.log("🧪 ADMIN DEBUG", {
-  senderNum,
-  adminIds,
-  isAdmin,
-  isBotAdmin
-})
+      senderNum,
+      botNum,
+      adminIds,
+      isAdmin,
+      isBotAdmin
+    })
 
   } catch (err) {
     console.error("❌ ADMIN CHECK ERROR:", err)
