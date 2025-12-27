@@ -79,17 +79,16 @@ let isBotAdmin = false;
   
 
 
-      // ================================
+      
+  // ================================
 // 🔐 ADMIN CHECK REAL (HANDLER)
 // ================================
 
-const getRealSender = m => {
-  return (
-    m.key?.participant ||
-    m.message?.extendedTextMessage?.contextInfo?.participant ||
-    m.key?.remoteJid
-  )
-}
+const getRealSender = m => (
+  m.key?.participant ||
+  m.message?.extendedTextMessage?.contextInfo?.participant ||
+  m.key?.remoteJid
+)
 
 const normalizeAll = jid => {
   if (!jid) return null
@@ -101,20 +100,19 @@ const normalizeAll = jid => {
     .replace(/[^0-9]/g, "")
 }
 
-let isAdmin = false
-let isBotAdmin = false
-
-// 👇 USA el isGroup que YA TIENES
 if (isGroup) {
   try {
-    const metadata = await sock.groupMetadata(jid)
+    metadata = await sock.groupMetadata(jid)
 
-    const senderJid = getRealSender(m)
+    const senderJid = getRealSender(msg)
     const senderNum = normalizeAll(senderJid)
     const botNum = normalizeAll(sock.user?.id)
 
-    const adminNums = metadata.participants
-      .filter(p => p.admin === "admin" || p.admin === "superadmin")
+    admins = metadata.participants.filter(
+      p => p.admin === "admin" || p.admin === "superadmin"
+    )
+
+    const adminNums = admins
       .map(p => normalizeAll(p.id))
       .filter(Boolean)
 
@@ -130,6 +128,8 @@ if (isGroup) {
 
   } catch (err) {
     console.error("❌ ADMIN CHECK ERROR:", err)
+    isAdmin = false
+    isBotAdmin = false
   }
 }
 
