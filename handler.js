@@ -177,7 +177,7 @@ if (isGroup) {
       .replace(/@s\.whatsapp\.net|@lid/g, "")
       .replace(/:\d+/g, "");
 
-    store.chats[jid][senderId] = Date.now();
+    store.chats[jid][senderId] = true; // SOLO MARCAR QUE HABLÓ
   }
 }
 
