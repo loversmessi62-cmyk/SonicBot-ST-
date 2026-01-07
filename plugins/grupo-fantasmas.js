@@ -12,44 +12,45 @@ export default {
     } = ctx;
 
     if (!store.chats[jid]) store.chats[jid] = {};
-
     const chat = store.chats[jid];
-    const now = Date.now();
 
-  
-    // obtener admins
+    // 🛡️ obtener admins
     const adminIds = groupAdmins.map(a =>
       a.id.replace(/@s\.whatsapp\.net|@lid/g, "").replace(/:\d+/g, "")
     );
 
-    // 👻 detectar fantasmas
+    // 👻 FANTASMAS = usuarios que NUNCA hablaron
     const fantasmas = participants.filter(p => {
-      const id = p.id.replace(/@s\.whatsapp\.net|@lid/g, "").replace(/:\d+/g, "");
+      const id = p.id
+        .replace(/@s\.whatsapp\.net|@lid/g, "")
+        .replace(/:\d+/g, "");
 
-      // ❌ no tocar admins
+      // ❌ no admins
       if (adminIds.includes(id)) return false;
 
-      const last = chat[id];
+      // ❌ si alguna vez habló
+      if (chat[id]) return false;
 
-      // nunca habló o pasó el tiempo
-      return !last || now - last > INACTIVITY_TIME;
+      // ✅ nunca mandó mensaje
+      return true;
     });
 
     // =========================
     // 👻 .fantasmas
     // =========================
-    if (ctx.args.length === 0 && ctx.msg.message?.conversation?.includes("fantasmas")) {
+    if (msg.message?.conversation?.startsWith(".fantasmas")) {
 
-      if (!fantasmas.length)
+      if (!fantasmas.length) {
         return sock.sendMessage(jid, {
-          text: "✨ No se detectaron fantasmas con más de *2 días* de inactividad."
+          text: "✨ No se detectaron fantasmas.\nTodos han enviado al menos un mensaje."
         });
+      }
 
       return sock.sendMessage(jid, {
         text:
           "🕯️ *POSIBLES FANTASMAS DEL GRUPO*\n\n" +
-          "⚠️ *Aviso:* este listado *no es 100% exacto*.\n" +
-          "Se detectan usuarios con *2 días o más* sin actividad.\n\n" +
+          "⚠️ *Aviso:* este listado *NO es 100% exacto*.\n" +
+          "Solo se muestran usuarios que *nunca han enviado ningún mensaje* desde que el bot está en el grupo.\n\n" +
           fantasmas.map(u => `👻 @${u.id.split("@")[0]}`).join("\n") +
           "\n\n🗑️ Para eliminarlos escribe:\n" +
           "👉 *.kickfantasmas confirmar*",
@@ -60,39 +61,44 @@ export default {
     // =========================
     // 🗑️ .kickfantasmas confirmar
     // =========================
-    if (ctx.args[0] !== "confirmar") {
-      return sock.sendMessage(jid, {
+    if (msg.message?.conversation?.startsWith(".kickfantasmas")) {
+
+      if (args[0] !== "confirmar") {
+        return sock.sendMessage(jid, {
+          text:
+            "⚠️ *Confirmación requerida*\n\n" +
+            "Este comando eliminará usuarios que *nunca han enviado mensajes*.\n\n" +
+            "Para continuar escribe:\n" +
+            "👉 *.kickfantasmas confirmar*"
+        });
+      }
+
+      if (!isBotAdmin) {
+        return sock.sendMessage(jid, {
+          text: "❌ Necesito ser administrador para expulsar usuarios."
+        });
+      }
+
+      if (!fantasmas.length) {
+        return sock.sendMessage(jid, {
+          text: "✨ No hay fantasmas para expulsar."
+        });
+      }
+
+      const ids = fantasmas.map(u => u.id);
+
+      await sock.sendMessage(jid, {
         text:
-          "⚠️ *Confirmación requerida*\n\n" +
-          "Este comando eliminará usuarios con *2 días o más* de inactividad.\n\n" +
-          "Para continuar escribe:\n" +
-          "👉 *.kickfantasmas confirmar*"
-      });
-    }
-
-    if (!isBotAdmin)
-      return sock.sendMessage(jid, {
-        text: "❌ Necesito ser administrador para expulsar usuarios."
+          "🗑️ *Expulsando usuarios que nunca enviaron mensajes*\n\n" +
+          ids.map(x => `👻 @${x.split("@")[0]}`).join("\n"),
+        mentions: ids
       });
 
-    if (!fantasmas.length)
-      return sock.sendMessage(jid, {
-        text: "✨ No hay fantasmas para expulsar."
-      });
-
-    const ids = fantasmas.map(u => u.id);
-
-    await sock.sendMessage(jid, {
-      text:
-        "🗑️ *Expulsando fantasmas (2+ días inactivos)*\n\n" +
-        ids.map(x => `👻 @${x.split("@")[0]}`).join("\n"),
-      mentions: ids
-    });
-
-    try {
-      await sock.groupParticipantsUpdate(jid, ids, "remove");
-    } catch (e) {
-      console.log("❌ Error expulsando fantasmas:", e);
+      try {
+        await sock.groupParticipantsUpdate(jid, ids, "remove");
+      } catch (e) {
+        console.log("❌ Error expulsando fantasmas:", e);
+      }
     }
   }
 };
