@@ -167,17 +167,14 @@ if (isGroup && isMuted(jid, realSender)) {
 if (isGroup) {
   if (!store.chats[jid]) store.chats[jid] = {};
 
-  // normalizar ID del usuario
   const senderId = realSender
     .replace(/@s\.whatsapp\.net|@lid/g, "")
     .replace(/:\d+/g, "");
 
-  if (!store.chats[jid][senderId]) {
-    store.chats[jid][senderId] = 0;
-  }
-
-  store.chats[jid][senderId]++;
+  // ⏱️ guardar ÚLTIMA actividad
+  store.chats[jid][senderId] = Date.now();
 }
+
 
 // ===============================  
 // TEXTO NORMALIZADO  
