@@ -8,18 +8,21 @@ export default {
       participants,
       store,
       isBotAdmin,
-      groupAdmins
+      groupAdmins,
+      command
     } = ctx;
 
     if (!store.chats[jid]) store.chats[jid] = {};
     const chat = store.chats[jid];
 
-    // 🛡️ obtener admins
+    // 🛡️ admins normalizados
     const adminIds = groupAdmins.map(a =>
-      a.id.replace(/@s\.whatsapp\.net|@lid/g, "").replace(/:\d+/g, "")
+      a.id
+        .replace(/@s\.whatsapp\.net|@lid/g, "")
+        .replace(/:\d+/g, "")
     );
 
-    // 👻 FANTASMAS = usuarios que NUNCA hablaron
+    // 👻 fantasmas = NUNCA hablaron
     const fantasmas = participants.filter(p => {
       const id = p.id
         .replace(/@s\.whatsapp\.net|@lid/g, "")
@@ -31,18 +34,18 @@ export default {
       // ❌ si alguna vez habló
       if (chat[id]) return false;
 
-      // ✅ nunca mandó mensaje
       return true;
     });
 
     // =========================
     // 👻 .fantasmas
     // =========================
-    if (msg.message?.conversation?.startsWith(".fantasmas")) {
-
+    if (command === "fantasmas") {
       if (!fantasmas.length) {
         return sock.sendMessage(jid, {
-          text: "✨ No se detectaron fantasmas.\nTodos han enviado al menos un mensaje."
+          text:
+            "✨ No se detectaron fantasmas.\n" +
+            "Todos han enviado al menos un mensaje de texto."
         });
       }
 
@@ -50,29 +53,18 @@ export default {
         text:
           "🕯️ *POSIBLES FANTASMAS DEL GRUPO*\n\n" +
           "⚠️ *Aviso:* este listado *NO es 100% exacto*.\n" +
-          "Solo se muestran usuarios que *nunca han enviado ningún mensaje* desde que el bot está en el grupo.\n\n" +
+          "Solo se muestran usuarios que *nunca han enviado texto* desde que el bot está en el grupo.\n\n" +
           fantasmas.map(u => `👻 @${u.id.split("@")[0]}`).join("\n") +
-          "\n\n🗑️ Para eliminarlos escribe:\n" +
-          "👉 *.kickfantasmas confirmar*",
+          "\n\n🗑️ Para eliminarlos usa:\n" +
+          "👉 *.kickfantasmas*",
         mentions: fantasmas.map(u => u.id)
       });
     }
 
     // =========================
-    // 🗑️ .kickfantasmas confirmar
+    // 🗑️ .kickfantasmas (SIN CONFIRMACIÓN)
     // =========================
-    if (msg.message?.conversation?.startsWith(".kickfantasmas")) {
-
-      if (args[0] !== "confirmar") {
-        return sock.sendMessage(jid, {
-          text:
-            "⚠️ *Confirmación requerida*\n\n" +
-            "Este comando eliminará usuarios que *nunca han enviado mensajes*.\n\n" +
-            "Para continuar escribe:\n" +
-            "👉 *.kickfantasmas confirmar*"
-        });
-      }
-
+    if (command === "kickfantasmas") {
       if (!isBotAdmin) {
         return sock.sendMessage(jid, {
           text: "❌ Necesito ser administrador para expulsar usuarios."
