@@ -162,17 +162,47 @@ if (isGroup && isMuted(jid, realSender)) {
 }  
   
 // ===============================
-// 📊 CONTADOR DE ACTIVIDAD (FIX DEFINITIVO)
+// 📊 CONTADOR DE ACTIVIDAD (MATCH TOTAL)
 // ===============================
 if (isGroup) {
   if (!store.chats[jid]) store.chats[jid] = {};
 
-  const senderId = realSender
-    .replace(/@s\.whatsapp\.net|@lid/g, "")
-    .replace(/:\d+/g, "");
+  // ─── obtener TODAS las identidades posibles del sender ───
+  const senderIds = new Set();
 
-  // ⏱️ guardar ÚLTIMA actividad
-  store.chats[jid][senderId] = Date.now();
+  const push = v => {
+    if (v && typeof v === "string") senderIds.add(v);
+  };
+
+  // claves posibles
+  push(msg.key?.participant);
+  push(msg.key?.remoteJid);
+  push(msg.message?.extendedTextMessage?.contextInfo?.participant);
+  push(realSender);
+
+  // normalizador TOTAL (igual al de admins)
+  const normalize = id =>
+    id
+      ?.toString()
+      .replace(/@s\.whatsapp\.net/g, "")
+      .replace(/@lid/g, "")
+      .replace(/:\d+/g, "")
+      .replace(/[^0-9]/g, "");
+
+  // ─── SOLO CONTAR TEXTO REAL ───
+  const textMsg =
+    msg.message?.conversation ||
+    msg.message?.extendedTextMessage?.text;
+
+  if (textMsg) {
+    for (const rawId of senderIds) {
+      const cleanId = normalize(rawId);
+      if (!cleanId) continue;
+
+      // marcar que ESTE usuario ya habló
+      store.chats[jid][cleanId] = true;
+    }
+  }
 }
 
 
