@@ -1,145 +1,101 @@
 export default {
-  commands: ["fantasmas", "kickfantasmas"],
-  admin: true,
+  commands: ["fantasmas"],
+  admin: false,
 
   async run(sock, msg, args, ctx) {
     const {
       jid,
       participants,
       store,
-      isBotAdmin,
-      groupAdmins,
-      command
-    } = ctx;
+      groupMetadata
+    } = ctx
 
-    if (!store.chats[jid]) store.chats[jid] = {};
-    const chat = store.chats[jid];
+    if (!store.chats[jid]) store.chats[jid] = {}
 
-    // =========================
-    // 🛡️ ADMINS NORMALIZADOS
-    // =========================
-    const adminNums = groupAdmins.map(a =>
-      a.id
-        .replace(/@s\.whatsapp\.net|@lid/g, "")
+    const chat = store.chats[jid]
+
+    // ===============================
+    // 🔧 NORMALIZADOR
+    // ===============================
+    const normalize = jid =>
+      jid
+        ?.replace(/@s\.whatsapp\.net|@lid/g, "")
         .replace(/:\d+/g, "")
-    );
+        .replace(/[^0-9]/g, "")
 
-    // =========================
-    // 📋 TODOS LOS PARTICIPANTES
-    // =========================
-    const todos = participants.map(p => {
-      const num = p.id
-        .replace(/@s\.whatsapp\.net|@lid/g, "")
-        .replace(/:\d+/g, "");
-
+    // ===============================
+    // 📋 TODOS LOS USUARIOS DEL GRUPO
+    // ===============================
+    const users = participants.map(p => {
+      const num = normalize(p.id)
       return {
         id: p.id,
         num,
-        isAdmin: adminNums.includes(num)
-      };
-    });
-
-    const activos = [];
-    const fantasmas = [];
-
-    // =========================
-    // 🔎 COMPARACIÓN REAL
-    // =========================
-    for (const u of todos) {
-      if (u.isAdmin) continue;
-
-      if (chat[u.num]) {
-        activos.push(u);
-      } else {
-        fantasmas.push(u);
+        habló: !!chat[num]
       }
+    })
+
+    const activos = users.filter(u => u.habló)
+    const fantasmas = users.filter(u => !u.habló)
+
+    // ===============================
+    // 🧪 LOG TIPO .TODOS (CONSOLA)
+    // ===============================
+    try {
+      const time = new Date().toLocaleTimeString("es-MX", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      })
+
+      console.log("══════════════════════════════════════")
+      console.log("🧪 CHECK FANTASMAS REAL")
+      console.log("🕒", time)
+      console.log("👥 Grupo:", groupMetadata?.subject || jid)
+      console.log("👤 Total usuarios:", users.length)
+      console.log("✅ Activos:", activos.length)
+      console.log("👻 Fantasmas:", fantasmas.length)
+      console.log("──────────────────────────────────────")
+
+      users.forEach(u => {
+        console.log(`@${u.num}`)
+        console.log(" ├ habló:", u.habló)
+        console.log(" └ data:", chat[u.num] || "NUNCA HABLÓ")
+      })
+
+      console.log("══════════════════════════════════════")
+    } catch (e) {
+      console.error("❌ Error log fantasmas:", e)
     }
 
-    // =========================
-    // 🖥️ DEBUG TIPO ".TODOS"
-    // =========================
-    console.log("══════════════════════════════");
-    console.log("👻 FANTASMAS CHECK");
-    console.log("Grupo:", jid);
-    console.log("Total:", todos.length);
-    console.log("Activos:", activos.length);
-    console.log("Fantasmas:", fantasmas.length);
-    console.log("──────────────────────────────");
-
-    todos.forEach(u => {
-      console.log(`@${u.num}`);
-      console.log(" ├ admin:", u.isAdmin);
-      console.log(" ├ habló:", !!chat[u.num]);
-      console.log(" └ data:", chat[u.num] || "NUNCA VISTO");
-    });
-
-    console.log("══════════════════════════════");
-
-    // =========================
-    // 👻 .fantasmas
-    // =========================
-    if (command === "fantasmas") {
-
-      if (!fantasmas.length) {
-        return sock.sendMessage(jid, {
-          text:
-            "✨ *No se detectaron fantasmas*\n\n" +
-            "⚠️ Este sistema *NO es 100% exacto*.\n" +
-            "Solo se basa en mensajes que el bot ha visto."
-        });
-      }
-
-      let text =
-        "👻 *POSIBLES FANTASMAS DEL GRUPO*\n\n" +
-        "⚠️ *Aviso:* este sistema *NO es 100% exacto*.\n" +
-        "Solo detecta usuarios de los que el bot *nunca ha visto mensajes*.\n\n";
-
-      text += fantasmas.map(u => `👻 @${u.num}`).join("\n");
-
-      text +=
-        "\n\n✅ *Usuarios con actividad detectada:*\n" +
-        (activos.length
-          ? activos.map(u => `• @${u.num}`).join("\n")
-          : "Ninguno");
-
+    // ===============================
+    // 📩 RESPUESTA EN EL GRUPO
+    // ===============================
+    if (!fantasmas.length) {
       return sock.sendMessage(jid, {
-        text,
-        mentions: [...fantasmas, ...activos].map(u => u.id)
-      });
-    }
-
-    // =========================
-    // 🗑️ .kickfantasmas
-    // =========================
-    if (command === "kickfantasmas") {
-
-      if (!isBotAdmin) {
-        return sock.sendMessage(jid, {
-          text: "❌ Necesito ser administrador para expulsar usuarios."
-        });
-      }
-
-      if (!fantasmas.length) {
-        return sock.sendMessage(jid, {
-          text: "✨ No hay fantasmas para expulsar."
-        });
-      }
-
-      const ids = fantasmas.map(u => u.id);
-
-      await sock.sendMessage(jid, {
         text:
-          "🗑️ *Expulsando usuarios que nunca enviaron mensajes*\n\n" +
-          "⚠️ Esto *NO es 100% exacto*.\n\n" +
-          fantasmas.map(u => `👻 @${u.num}`).join("\n"),
-        mentions: ids
-      });
-
-      try {
-        await sock.groupParticipantsUpdate(jid, ids, "remove");
-      } catch (e) {
-        console.log("❌ Error expulsando fantasmas:", e);
-      }
+          "✨ *No hay fantasmas*\n\n" +
+          "Todos los usuarios han enviado al menos un mensaje " +
+          "desde que el bot está encendido."
+      })
     }
+
+    let text =
+      "👻 *FANTASMAS DEL GRUPO*\n\n" +
+      "Estos usuarios *NO han enviado ningún mensaje* desde que el bot está activo:\n\n"
+
+    text += fantasmas.map(u => `👻 @${u.num}`).join("\n")
+
+    text +=
+      "\n\n📌 *Criterio real:*\n" +
+      "• Se detecta solo actividad vista por el bot\n" +
+      "• Admins incluidos\n" +
+      "• Sin suposiciones\n" +
+      "• 100% basado en mensajes reales"
+
+    return sock.sendMessage(jid, {
+      text,
+      mentions: fantasmas.map(u => u.id)
+    })
   }
-};
+}
