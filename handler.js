@@ -120,20 +120,42 @@ if (isGroup) {
     isAdmin = adminIds.includes(senderNum)
 
     
-// 🤖 BOT ADMIN REAL (FIX DEFINITIVO)
+// ===============================
+// 🤖 BOT ADMIN REAL (TEL + LID OK)
+// ===============================
+const normalizeAll = jid => {
+  if (!jid) return null;
+  return jid
+    .toString()
+    .replace(/@s\.whatsapp\.net/g, "")
+    .replace(/@lid/g, "")
+    .replace(/:\d+/g, "")
+    .replace(/[^0-9]/g, "");
+};
+
+const botNum = normalizeAll(sock.user?.id);
 
 isBotAdmin = metadata.participants.some(p =>
   (p.admin === "admin" || p.admin === "superadmin") &&
-  normalizeAll(p.id) === botNum
-)
+  (
+    normalizeAll(p.id) === botNum ||
+    normalizeAll(p.jid) === botNum
+  )
+);
 
-    console.log("🧪 ADMIN DEBUG", {
-      senderNum,
-      botNum,
-      adminIds,
-      isAdmin,
-      isBotAdmin
-    })
+console.log("🤖 BOT ADMIN CHECK", {
+  botNum,
+  isBotAdmin,
+  admins: metadata.participants
+    .filter(p => p.admin)
+    .map(p => ({
+      id: p.id,
+      jid: p.jid,
+      numId: normalizeAll(p.id),
+      numJid: normalizeAll(p.jid)
+    }))
+});
+
 
   } catch (err) {
     console.error("❌ ADMIN CHECK ERROR:", err)
