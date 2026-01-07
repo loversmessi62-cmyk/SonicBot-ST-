@@ -164,16 +164,23 @@ if (isGroup && isMuted(jid, realSender)) {
 // ===============================
 // 📊 ACTIVIDAD REAL (CUALQUIER MENSAJE)
 // ===============================
+
+// 🔑 NORMALIZADOR ÚNICO (OBLIGATORIO)
+const normalizeUser = jid =>
+  jid
+    ?.toString()
+    .replace(/@s\.whatsapp\.net|@lid/g, "")
+    .replace(/:\d+/g, "")
+    .replace(/\D/g, "");
+
 if (isGroup) {
   if (!store.chats[jid]) store.chats[jid] = {};
 
-  const senderId = realSender
-    .replace(/@s\.whatsapp\.net|@lid/g, "")
-    .replace(/:\d+/g, "");
+  const senderNum = normalizeUser(realSender);
 
-  // ❗ cualquier tipo de mensaje cuenta
-  if (msg.message) {
-    store.chats[jid][senderId] = {
+  // ❗ cualquier tipo de mensaje cuenta como actividad
+  if (msg.message && senderNum) {
+    store.chats[jid][senderNum] = {
       time: Date.now(),
       type: Object.keys(msg.message)[0]
     };
