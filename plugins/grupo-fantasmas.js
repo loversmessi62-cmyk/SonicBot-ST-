@@ -16,9 +16,7 @@ export default {
     const chat = store.chats[jid];
     const now = Date.now();
 
-    // ⏱️ 2 días en ms
-    const INACTIVITY_TIME = 1000 * 60 * 60 * 24 * 2;
-
+  
     // obtener admins
     const adminIds = groupAdmins.map(a =>
       a.id.replace(/@s\.whatsapp\.net|@lid/g, "").replace(/:\d+/g, "")
