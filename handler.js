@@ -119,19 +119,14 @@ if (isGroup) {
     // 👤 ADMIN USUARIO
     isAdmin = adminIds.includes(senderNum)
 
-    // 🤖 BOT ADMIN (MISMO MÉTODO QUE USUARIO)
-const botJid = sock.user?.id
-const botNum2 = normalizeAll(botJid)
+    
+// 🤖 BOT ADMIN REAL (FIX DEFINITIVO)
+const botNum = normalizeAll(sock.user?.id)
 
-isBotAdmin = false
-
-for (const p of admins) {
-  const pid = normalizeAll(p.id)
-  if (pid === botNum2) {
-    isBotAdmin = true
-    break
-  }
-}
+isBotAdmin = metadata.participants.some(p =>
+  (p.admin === "admin" || p.admin === "superadmin") &&
+  normalizeAll(p.id) === botNum
+)
 
     console.log("🧪 ADMIN DEBUG", {
       senderNum,
