@@ -121,7 +121,6 @@ if (isGroup) {
 
     
 // 🤖 BOT ADMIN REAL (FIX DEFINITIVO)
-const botNum = normalizeAll(sock.user?.id)
 
 isBotAdmin = metadata.participants.some(p =>
   (p.admin === "admin" || p.admin === "superadmin") &&
