@@ -203,65 +203,48 @@ if (!fixedText && msg.message) {
 }  
 
 
-
 // =====================================
-// 📟 LOG GLOBAL DE MENSAJES (FUENTE REAL)
+// 📟 LOG DE MENSAJES (FUENTE DE VERDAD)
 // =====================================
 try {
-  // Inicialización global
   global.messageLog ??= {};
-  global.messageLog[jid] ??= {};
+  global.messageLog[jid] ??= {
+    numbers: new Set(),
+    records: []
+  };
 
-  // Normalizador ABSOLUTO (jid / lid / num / basura)
-  const normalizeAll = v =>
-    v?.toString()
-      .replace(/@s\.whatsapp\.net/g, "")
-      .replace(/@lid/g, "")
-      .replace(/:\d+/g, "")
-      .replace(/[^0-9]/g, "");
+  const normalize = v =>
+    v?.toString().replace(/\D/g, "");
 
-  // Datos base
-  const sender = realSender;              // ← sender REAL
-  const num = normalizeAll(sender);
-  const time = Date.now();
+  if (msg.message && isGroup) {
+    const num = normalize(realSender);
 
-  // Tipo de mensaje
-  const m = msg.message || {};
-  const type = Object.keys(m)[0] || "DESCONOCIDO";
+    // Guardar número activo
+    global.messageLog[jid].numbers.add(num);
 
-  // ===============================
-  // 🧠 GUARDADO ÚNICO DEL MENSAJE
-  // ===============================
-  if (msg.message) {
-    global.messageLog[jid][sender] = {
-      sender,                    // jid o lid completo
-      participant: sender,       // compatibilidad fantasmas
-      jid,                       // grupo
-      lid: sender.includes("@lid") ? sender : null,
-      num,                       // número limpio
-      time,                      // timestamp
-      type                       // tipo de mensaje
-    };
+    // Guardar record visual (debug)
+    global.messageLog[jid].records.push({
+      num,
+      rawSender: realSender,
+      time: Date.now(),
+      type: Object.keys(msg.message)[0]
+    });
+
+    // ===============================
+    // 🧪 LOG VISUAL EN CONSOLA
+    // ===============================
+    console.log("════════════════════════════════════");
+    console.log("📩 MESSAGE LOG");
+    console.log("👥 Grupo:", metadata?.subject || jid);
+    console.log("👤 Sender RAW:", realSender);
+    console.log("🔢 Num:", num);
+    console.log("📎 Tipo:", Object.keys(msg.message)[0]);
+    console.log("📊 Total activos:", global.messageLog[jid].numbers.size);
+    console.log("════════════════════════════════════");
   }
 
-  // ===============================
-  // 🧪 LOG VISUAL COMPLETO (DEBUG)
-  // ===============================
-  console.log("══════════════════════════════════════");
-  console.log("📩 MESSAGE LOG (FUENTE DE VERDAD)");
-  console.log("👥 Grupo:", jid);
-  console.log("👤 Sender:", sender);
-  console.log("🆔 JID:", sender?.includes("@s.whatsapp.net") ? sender : null);
-  console.log("🆔 LID:", sender?.includes("@lid") ? sender : null);
-  console.log("🔢 Num:", num);
-  console.log("📎 Tipo:", type);
-  console.log("🕒 Hora:", new Date(time).toLocaleTimeString("es-MX"));
-  console.log("📦 GUARDADO:");
-  console.log(global.messageLog[jid][sender]);
-  console.log("══════════════════════════════════════");
-
 } catch (e) {
-  console.error("❌ ERROR EN MESSAGE LOG:", e);
+  console.error("❌ Error en messageLog:", e);
 }
 
 // =====================================
