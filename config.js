@@ -1,5 +1,5 @@
 export default {
-    owners: ["5215656481656"], // CAMBIA ESTO
+    owners: ["5215657481656"], // CAMBIA ESTO
     prefix: ".",
     botName: "ADRIBOT",
 
