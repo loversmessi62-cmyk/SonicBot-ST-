@@ -123,7 +123,6 @@ if (isGroup) {
 // ===============================
 // 🤖 BOT ADMIN REAL (TEL + LID OK)
 // ===============================
-const botNum = normalizeAll(sock.user?.id);
 
 isBotAdmin = metadata.participants.some(p => {
   const pid = normalizeAll(p.id);
