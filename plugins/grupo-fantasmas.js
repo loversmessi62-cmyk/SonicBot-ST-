@@ -3,91 +3,59 @@ export default {
   admin: true,
 
   async run(sock, msg, args, ctx) {
-    const { jid, participants, store, groupMetadata } = ctx;
+    const { jid, participants, groupMetadata } = ctx;
 
-    // ===============================
-    // 🔧 NORMALIZADOR (IDÉNTICO AL HANDLER)
-    // ===============================
-    const normalizeAll = jid => {
-      if (!jid) return null;
-      return jid
-        .toString()
+    const normalizeAll = v =>
+      v?.toString()
         .replace(/@s\.whatsapp\.net/g, "")
         .replace(/@lid/g, "")
         .replace(/:\d+/g, "")
         .replace(/[^0-9]/g, "");
-    };
 
-    if (!store.chats[jid]) store.chats[jid] = {};
-    const chat = store.chats[jid];
+    const messageLog = global.messageLog?.[jid] || {};
 
-    // ===============================
-    // 📦 STORE NORMALIZADO (FUENTE REAL)
-    // ===============================
-    const activityMap = {};
-    for (const raw in chat) {
-      const n = normalizeAll(raw);
-      if (n) activityMap[n] = chat[raw];
-    }
-
-    // ===============================
-    // 👥 USUARIOS NORMALIZADOS
-    // ===============================
-    const users = participants.map(p => {
+    const usuarios = participants.map(p => {
       const num = normalizeAll(p.id);
-      const data = activityMap[num];
+
+      const habló =
+        Boolean(messageLog[p.id]) ||
+        Boolean(messageLog[num]) ||
+        Object.values(messageLog).some(r =>
+          r.sender === p.id ||
+          r.participant === p.id ||
+          normalizeAll(r.sender) === num
+        );
 
       return {
-        raw: p.id,
+        id: p.id,
         num,
         admin: p.admin === "admin" || p.admin === "superadmin",
-        habló: Boolean(data),
-        data
+        habló
       };
     });
 
-    const activos = users.filter(u => u.habló);
-    const fantasmas = users.filter(u => !u.habló);
+    const fantasmas = usuarios.filter(u => !u.habló);
+    const activos = usuarios.filter(u => u.habló);
 
     // ===============================
-    // 📟 LOG CLON DEL LOG DE MENSAJES
+    // 🧪 LOG TIPO .TODOS (COMPLETO)
     // ===============================
-    try {
-      const time = new Date().toLocaleTimeString("es-MX", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-      });
+    console.log("══════════════════════════════════════");
+    console.log("👻 FANTASMAS CHECK (MISMO NIVEL ADMINS)");
+    console.log("Grupo:", groupMetadata?.subject || jid);
+    console.log("Total:", usuarios.length);
+    console.log("Activos:", activos.length);
+    console.log("Fantasmas:", fantasmas.length);
+    console.log("──────────────────────────────────────");
 
-      const groupName = groupMetadata?.subject || "DESCONOCIDO";
+    usuarios.forEach(u => {
+      console.log(`Usuario: ${u.num}`);
+      console.log(" ├ id:", u.id);
+      console.log(" ├ admin:", u.admin);
+      console.log(" ├ habló:", u.habló);
+    });
 
-      console.log(
-`╔════════════════════════════════════╗
-║ 🕒 ${time} ║ 👥 ${groupName} ║ 👻 FANTASMAS LOG ║
-╚════════════════════════════════════╝`
-      );
-
-      users.forEach(u => {
-        const tipo = u.habló ? "ACTIVO" : "FANTASMA";
-        const msgType = u.data?.type || "NUNCA";
-        const lastTime = u.data?.time
-          ? new Date(u.data.time).toLocaleTimeString("es-MX")
-          : "--:--";
-
-        console.log(
-`╔════════════════════════════════════╗
-║ 👤 ${u.num}
-║ 📎 Estado: ${tipo}
-║ 🛡️ Admin: ${u.admin}
-║ 🕒 Último: ${lastTime}
-║ 💬 Tipo: ${msgType}
-╚════════════════════════════════════╝`
-        );
-      });
-
-    } catch (e) {
-      console.error("❌ Error en log de fantasmas:", e);
-    }
+    console.log("══════════════════════════════════════");
 
     // ===============================
     // 📩 RESPUESTA EN WHATSAPP
@@ -98,13 +66,11 @@ export default {
       });
     }
 
-    const text =
-      "👻 *Usuarios que NO han enviado mensajes*\n\n" +
-      fantasmas.map(u => `👻 @${u.num}`).join("\n");
-
     return sock.sendMessage(jid, {
-      text,
-      mentions: fantasmas.map(u => u.raw)
+      text:
+        "👻 *USUARIOS QUE NO HAN ENVIADO MENSAJES*\n\n" +
+        fantasmas.map(u => `👻 @${u.num}`).join("\n"),
+      mentions: fantasmas.map(u => u.id)
     });
   }
 };
