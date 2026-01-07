@@ -123,38 +123,34 @@ if (isGroup) {
 // ===============================
 // 🤖 BOT ADMIN REAL (TEL + LID OK)
 // ===============================
-const normalizeAll = jid => {
-  if (!jid) return null;
-  return jid
-    .toString()
-    .replace(/@s\.whatsapp\.net/g, "")
-    .replace(/@lid/g, "")
-    .replace(/:\d+/g, "")
-    .replace(/[^0-9]/g, "");
-};
-
 const botNum = normalizeAll(sock.user?.id);
 
-isBotAdmin = metadata.participants.some(p =>
-  (p.admin === "admin" || p.admin === "superadmin") &&
-  (
-    normalizeAll(p.id) === botNum ||
-    normalizeAll(p.jid) === botNum
-  )
-);
+isBotAdmin = metadata.participants.some(p => {
+  const pid = normalizeAll(p.id);
+  const pjid = normalizeAll(p.jid);
 
-console.log("🤖 BOT ADMIN CHECK", {
-  botNum,
-  isBotAdmin,
-  admins: metadata.participants
+  return (
+    (p.admin === "admin" || p.admin === "superadmin") &&
+    (pid === botNum || pjid === botNum)
+  );
+});
+
+// 🔍 LOG CLARO Y LEGIBLE
+console.log("🤖 BOT ADMIN CHECK");
+console.log("🤖 Bot Num:", botNum);
+console.log("🤖 Es admin?:", isBotAdmin);
+console.log(
+  "👥 Admins:",
+  metadata.participants
     .filter(p => p.admin)
     .map(p => ({
-      id: p.id,
-      jid: p.jid,
-      numId: normalizeAll(p.id),
-      numJid: normalizeAll(p.jid)
+      rawId: p.id,
+      rawJid: p.jid,
+      id: normalizeAll(p.id),
+      jid: normalizeAll(p.jid),
+      role: p.admin
     }))
-});
+);
 
 
   } catch (err) {
