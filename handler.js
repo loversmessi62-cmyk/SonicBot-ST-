@@ -384,6 +384,7 @@ const ctx = {
   isBotAdmin,  
   isGroup,  
   args,  
+  command,
   groupMetadata: metadata,  
   participants: metadata?.participants || [],  
   groupAdmins: admins,  
