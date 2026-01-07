@@ -204,45 +204,43 @@ if (!fixedText && msg.message) {
 
 
 // =====================================
-// 📟 LOG DE MENSAJES (FUENTE DE VERDAD)
+// 📟 LOG DE MENSAJES (TRAZABLE REAL)
 // =====================================
 try {
   global.messageLog ??= {};
   global.messageLog[jid] ??= {
     numbers: new Set(),
-    records: []
+    full: []
   };
 
-  const normalize = v =>
-    v?.toString().replace(/\D/g, "");
+  const normalize = v => v?.toString().replace(/\D/g, "");
 
   if (msg.message && isGroup) {
-    const num = normalize(realSender);
+    const rawSender = realSender;
+    const num = normalize(rawSender);
 
-    // Guardar número activo
     global.messageLog[jid].numbers.add(num);
 
-    // Guardar record visual (debug)
-    global.messageLog[jid].records.push({
+    const record = {
+      rawSender,
+      jid,
+      isLid: rawSender.includes("@lid"),
       num,
-      rawSender: realSender,
-      time: Date.now(),
-      type: Object.keys(msg.message)[0]
-    });
+      type: Object.keys(msg.message)[0],
+      time: new Date().toLocaleTimeString("es-MX")
+    };
 
-    // ===============================
-    // 🧪 LOG VISUAL EN CONSOLA
-    // ===============================
+    global.messageLog[jid].full.push(record);
+
+    // 🔎 LOG HUMANO (NO CONFUSO)
     console.log("════════════════════════════════════");
-    console.log("📩 MESSAGE LOG");
-    console.log("👥 Grupo:", metadata?.subject || jid);
-    console.log("👤 Sender RAW:", realSender);
-    console.log("🔢 Num:", num);
-    console.log("📎 Tipo:", Object.keys(msg.message)[0]);
-    console.log("📊 Total activos:", global.messageLog[jid].numbers.size);
+    console.log("📩 MENSAJE DETECTADO");
+    console.log("👤 RAW:", rawSender);
+    console.log("🔢 NUM:", num);
+    console.log("📎 TIPO:", record.type);
+    console.log("🕒 HORA:", record.time);
     console.log("════════════════════════════════════");
   }
-
 } catch (e) {
   console.error("❌ Error en messageLog:", e);
 }
