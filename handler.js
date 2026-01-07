@@ -182,7 +182,6 @@ if (isGroup) {
 
 
 
-
 // ===============================  
 // TEXTO NORMALIZADO  
 // ===============================  
@@ -203,61 +202,102 @@ if (!fixedText && msg.message) {
   fixedText = `[${key}]`;  
 }  
 
-// =====================================  
-// 📟 LOG DE MENSAJES  
-// =====================================  
-try {  
-  const time = new Date().toLocaleTimeString("es-MX", {  
-    hour: "2-digit",  
-    minute: "2-digit",  
-    second: "2-digit"  
-  });  
-
-  const senderNum = realSender.split("@")[0];  
-  let groupName = "PRIVADO";  
-  if (isGroup && metadata) groupName = metadata.subject;  
-
-  const m = msg.message || {};  
-  let type = "DESCONOCIDO";  
-  if (m.conversation || m.extendedTextMessage) type = "TEXTO";  
-  else if (m.imageMessage) type = "IMAGEN";  
-  else if (m.videoMessage) type = "VIDEO";  
-  else if (m.stickerMessage) type = "STICKER";  
-  else if (m.audioMessage) type = "AUDIO";  
-  else if (m.documentMessage) type = "DOCUMENTO";  
-  else if (m.reactionMessage) type = "REACCIÓN";  
-  else if (m.viewOnceMessage || m.viewOnceMessageV2) type = "VIEWONCE";  
-  console.log("🧪 CHECK ADMIN FINAL");  
-  console.log("Sender:", realSender);  
-  console.log("Admins:", admins);  
-  console.log("isAdmin:", isAdmin);  
 
 
-  const preview =  
-    fixedText && fixedText.length > 40  
-      ? fixedText.slice(0, 40) + "..."  
-      : fixedText || "[SIN TEXTO]";  
+// =====================================
+// 📟 LOG DE MENSAJES (FUENTE DE VERDAD)
+// =====================================
+try {
+  global.messageLog ??= {};
+  global.messageLog[jid] ??= {};
 
-  console.log(  
-    `╔════════════════════════════════════╗
+  const time = new Date().toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
 
-║ 🕒 ${time} ║ 👤 ${senderNum} ║ 👥 ${groupName} ║ 📎 Tipo: ${type} ║ 💬 ${preview}
-╚════════════════════════════════════╝`
-);
+  const normalizeAll = v =>
+    v?.toString()
+      .replace(/@s\.whatsapp\.net/g, "")
+      .replace(/@lid/g, "")
+      .replace(/:\d+/g, "")
+      .replace(/[^0-9]/g, "");
+
+  const sender = realSender;
+  const senderNum = normalizeAll(sender);
+
+  let groupName = "PRIVADO";
+  if (isGroup && metadata) groupName = metadata.subject;
+
+  const m = msg.message || {};
+  let type = "DESCONOCIDO";
+
+  if (m.conversation || m.extendedTextMessage) type = "TEXTO";
+  else if (m.imageMessage) type = "IMAGEN";
+  else if (m.videoMessage) type = "VIDEO";
+  else if (m.stickerMessage) type = "STICKER";
+  else if (m.audioMessage) type = "AUDIO";
+  else if (m.documentMessage) type = "DOCUMENTO";
+  else if (m.reactionMessage) type = "REACCIÓN";
+  else if (m.viewOnceMessage || m.viewOnceMessageV2) type = "VIEWONCE";
+
+  const preview =
+    fixedText && fixedText.length > 40
+      ? fixedText.slice(0, 40) + "..."
+      : fixedText || "[SIN TEXTO]";
+
+  // ===============================
+  // 🧠 REGISTRO GLOBAL (CLAVE)
+  // ===============================
+  const record = {
+    id: msg.key.id || null,
+    jid,
+    sender,
+    participant: msg.key.participant || null,
+    num: senderNum,
+    lid: sender?.includes("@lid") ? sender : null,
+    type,
+    text: fixedText || null,
+    time: Date.now()
+  };
+
+  // guardar por TODAS las variantes posibles
+  global.messageLog[jid][sender] = record;
+  if (senderNum) global.messageLog[jid][senderNum] = record;
+  if (record.lid) global.messageLog[jid][record.lid] = record;
+
+  // ===============================
+  // 🧪 LOG VISUAL COMPLETO
+  // ===============================
+  console.log("════════════════════════════════════");
+  console.log("📩 MESSAGE LOG");
+  console.log("🕒 Hora:", time);
+  console.log("👥 Grupo:", groupName);
+  console.log("👤 Sender:", sender);
+  console.log("🔢 Num:", senderNum);
+  console.log("🆔 MsgID:", record.id);
+  console.log("📎 Tipo:", type);
+  console.log("💬 Preview:", preview);
+  console.log("────────────────────────────────────");
+  console.log("📦 RECORD GUARDADO:");
+  console.log(record);
+  console.log("════════════════════════════════════");
+
 } catch (e) {
-console.error("❌ Error en log:", e);
+  console.error("❌ Error en log:", e);
 }
 
-// =====================================  
-// 🚀 LOG GARANTIZADO DE COMANDOS  
-// =====================================  
-if (fixedText?.startsWith(".")) {  
-  const tmp = fixedText.slice(1).trim().split(/\s+/);  
-  const cmd = tmp.shift()?.toLowerCase();  
-  console.log(  
-    `🚀 COMANDO DETECTADO → .${cmd} | Args: ${tmp.join(" ") || "NINGUNO"}`  
-  );  
-}  
+// =====================================
+// 🚀 LOG GARANTIZADO DE COMANDOS
+// =====================================
+if (fixedText?.startsWith(".")) {
+  const tmp = fixedText.slice(1).trim().split(/\s+/);
+  const cmd = tmp.shift()?.toLowerCase();
+  console.log(
+    `🚀 COMANDO DETECTADO → .${cmd} | Args: ${tmp.join(" ") || "NINGUNO"}`
+  );
+}
 
 // =========================================================  
 // SISTEMA ANTILINK  
