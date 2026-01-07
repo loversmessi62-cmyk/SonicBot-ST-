@@ -9,7 +9,7 @@ export default {
       store,
       isBotAdmin,
       groupAdmins,
-      command
+      command // ✅ IMPORTANTE
     } = ctx;
 
     if (!store.chats[jid]) store.chats[jid] = {};
