@@ -162,24 +162,24 @@ if (isGroup && isMuted(jid, realSender)) {
 } 
   
 // ===============================
-// 📊 CONTADOR DE ACTIVIDAD REAL (FIX)
+// 📊 ACTIVIDAD REAL (CUALQUIER MENSAJE)
 // ===============================
 if (isGroup) {
   if (!store.chats[jid]) store.chats[jid] = {};
 
-  const text =
-    msg.message?.conversation ||
-    msg.message?.extendedTextMessage?.text;
+  const senderId = realSender
+    .replace(/@s\.whatsapp\.net|@lid/g, "")
+    .replace(/:\d+/g, "");
 
-  // ❌ NO contar comandos
-  if (text && !text.startsWith(".")) {
-    const senderId = realSender
-      .replace(/@s\.whatsapp\.net|@lid/g, "")
-      .replace(/:\d+/g, "");
-
-    store.chats[jid][senderId] = true; // SOLO MARCAR QUE HABLÓ
+  // ❗ cualquier tipo de mensaje cuenta
+  if (msg.message) {
+    store.chats[jid][senderId] = {
+      time: Date.now(),
+      type: Object.keys(msg.message)[0]
+    };
   }
 }
+
 
 
 
