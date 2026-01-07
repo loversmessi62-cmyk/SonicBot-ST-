@@ -3,10 +3,16 @@ export default {
   admin: true,
 
   async run(sock, msg, args, ctx) {
-    const { jid, participants, groupMetadata, store } = ctx;
+    const {
+      jid,
+      participants,
+      groupMetadata,
+      store,
+      isBotAdmin
+    } = ctx;
 
     // ===============================
-    // 🔑 NORMALIZADOR (MISMO DEL HANDLER)
+    // 🔑 NORMALIZADOR (MISMO HANDLER)
     // ===============================
     const normalizeUser = jid =>
       jid
@@ -19,7 +25,7 @@ export default {
     const ahora = Date.now();
 
     // ===============================
-    // 👥 MAPEAR USUARIOS DEL GRUPO
+    // 👥 MAPEAR USUARIOS
     // ===============================
     const usuarios = participants.map(p => {
       const num = normalizeUser(p.id);
@@ -38,7 +44,7 @@ export default {
     const activos = usuarios.filter(u => u.habló);
 
     // ===============================
-    // 🧪 LOG CONSOLA (TU IDEA, TIPO .ADMINS)
+    // 🧪 DEBUG CONSOLA (TU IDEA)
     // ===============================
     console.log("══════════════════════════════");
     console.log("👻 FANTASMAS CHECK");
@@ -63,19 +69,56 @@ export default {
     console.log("══════════════════════════════");
 
     // ===============================
-    // 📩 RESPUESTA EN WHATSAPP
+    // 🧹 KICK FANTASMAS
+    // ===============================
+    if (args[0] === "kick") {
+      if (!isBotAdmin) {
+        return sock.sendMessage(jid, {
+          text: "❌ El bot no es admin, no puedo expulsar."
+        });
+      }
+
+      if (args[1] !== "confirmar") {
+        return sock.sendMessage(jid, {
+          text:
+            "⚠️ *CONFIRMACIÓN REQUERIDA*\n\n" +
+            "Esto expulsará a TODOS los fantasmas.\n\n" +
+            "Usa:\n.fantasmas kick confirmar"
+        });
+      }
+
+      const expulsables = fantasmas.filter(u => !u.admin);
+
+      for (const u of expulsables) {
+        await sock.groupParticipantsUpdate(jid, [u.id], "remove");
+      }
+
+      return sock.sendMessage(jid, {
+        text:
+          `🧹 *LIMPIEZA COMPLETA*\n\n` +
+          `👻 Fantasmas detectados: ${fantasmas.length}\n` +
+          `🚫 Expulsados: ${expulsables.length}\n` +
+          `🛡️ Admins protegidos`
+      });
+    }
+
+    // ===============================
+    // 📩 SOLO LISTA
     // ===============================
     if (!fantasmas.length) {
       return sock.sendMessage(jid, {
-        text: "✅ *No se detectaron fantasmas.*\nTodos han enviado al menos un mensaje desde que el bot está en el grupo."
+        text:
+          "✅ *No se detectaron fantasmas.*\n" +
+          "Todos han enviado al menos un mensaje desde que el bot está en el grupo."
       });
     }
 
     return sock.sendMessage(jid, {
       text:
         "👻 *USUARIOS QUE NUNCA HAN HABLADO*\n" +
-        "⚠️ _Basado desde que el bot entró_\n\n" +
-        fantasmas.map(u => `👻 @${u.num}`).join("\n"),
+        "⚠️ _Desde que el bot entró al grupo_\n\n" +
+        fantasmas.map(u => `👻 @${u.num}`).join("\n") +
+        "\n\n🧹 Usa: *.fantasmas kick*",
       mentions: fantasmas.map(u => u.id)
     });
   }
