@@ -1,5 +1,5 @@
 export default {
-  commands: ["fantasmas", "kickfantasmas"],
+  commands: ["fantasmas"],
   admin: true,
 
   async run(sock, msg, args, ctx) {
@@ -7,90 +7,49 @@ export default {
       jid,
       participants,
       store,
-      isBotAdmin,
-      groupAdmins,
-      command // ✅ IMPORTANTE
+      groupAdmins
     } = ctx;
 
     if (!store.chats[jid]) store.chats[jid] = {};
     const chat = store.chats[jid];
 
-    // 🛡️ admins normalizados
+    // 🔒 admins normalizados
     const adminIds = groupAdmins.map(a =>
       a.id
         .replace(/@s\.whatsapp\.net|@lid/g, "")
         .replace(/:\d+/g, "")
     );
 
-    // 👻 fantasmas = NUNCA hablaron
-    const fantasmas = participants.filter(p => {
+    // ✅ ACTIVOS = los que hablaron alguna vez
+    const activos = participants.filter(p => {
       const id = p.id
         .replace(/@s\.whatsapp\.net|@lid/g, "")
         .replace(/:\d+/g, "");
 
-      // ❌ no admins
+      // no contar admins
       if (adminIds.includes(id)) return false;
 
-      // ❌ si alguna vez habló
-      if (chat[id]) return false;
-
-      return true;
+      return Boolean(chat[id]);
     });
 
-    // =========================
-    // 👻 .fantasmas
-    // =========================
-    if (command === "fantasmas") {
-      if (!fantasmas.length) {
-        return sock.sendMessage(jid, {
-          text:
-            "✨ No se detectaron fantasmas.\n" +
-            "Todos han enviado al menos un mensaje de texto."
-        });
-      }
-
+    if (!activos.length) {
       return sock.sendMessage(jid, {
         text:
-          "🕯️ *POSIBLES FANTASMAS DEL GRUPO*\n\n" +
-          "⚠️ *Aviso:* este listado *NO es 100% exacto*.\n" +
-          "Solo se muestran usuarios que *nunca han enviado texto* desde que el bot está en el grupo.\n\n" +
-          fantasmas.map(u => `👻 @${u.id.split("@")[0]}`).join("\n") +
-          "\n\n🗑️ Para eliminarlos usa:\n" +
-          "👉 *.kickfantasmas*",
-        mentions: fantasmas.map(u => u.id)
+          "⚠️ Aún no hay registros de actividad.\n" +
+          "Escribe algo primero y luego usa *.fantasmas*."
       });
     }
 
-    // =========================
-    // 🗑️ .kickfantasmas (SIN CONFIRMACIÓN)
-    // =========================
-    if (command === "kickfantasmas") {
-      if (!isBotAdmin) {
-        return sock.sendMessage(jid, {
-          text: "❌ Necesito ser administrador para expulsar usuarios."
-        });
-      }
-
-      if (!fantasmas.length) {
-        return sock.sendMessage(jid, {
-          text: "✨ No hay fantasmas para expulsar."
-        });
-      }
-
-      const ids = fantasmas.map(u => u.id);
-
-      await sock.sendMessage(jid, {
-        text:
-          "🗑️ *Expulsando usuarios que nunca enviaron mensajes*\n\n" +
-          ids.map(x => `👻 @${x.split("@")[0]}`).join("\n"),
-        mentions: ids
-      });
-
-      try {
-        await sock.groupParticipantsUpdate(jid, ids, "remove");
-      } catch (e) {
-        console.log("❌ Error expulsando fantasmas:", e);
-      }
-    }
+    return sock.sendMessage(jid, {
+      text:
+        "📊 *USUARIOS ACTIVOS DETECTADOS*\n\n" +
+        `✅ Activos: *${activos.length}*\n` +
+        `👥 Total grupo: *${participants.length}*\n\n` +
+        "🕯️ *FANTASMAS*\n" +
+        "Los usuarios que *NO aparecen mencionados* abajo\n" +
+        "son los que *nunca han enviado mensajes* desde que el bot está en el grupo.\n\n" +
+        activos.map(u => `👤 @${u.id.split("@")[0]}`).join("\n"),
+      mentions: activos.map(u => u.id)
+    });
   }
 };
