@@ -1,6 +1,6 @@
 export default {
   commands: ["fantasmas"],
-  admin: false,
+  admin: true,
 
   async run(sock, msg, args, ctx) {
     const {
@@ -8,94 +8,85 @@ export default {
       participants,
       store,
       groupMetadata
-    } = ctx
-
-    if (!store.chats[jid]) store.chats[jid] = {}
-
-    const chat = store.chats[jid]
+    } = ctx;
 
     // ===============================
-    // 🔧 NORMALIZADOR
+    // 🔧 NORMALIZADOR (MISMO QUE ADMINS)
     // ===============================
-    const normalize = jid =>
-      jid
-        ?.replace(/@s\.whatsapp\.net|@lid/g, "")
+    const normalizeAll = jid => {
+      if (!jid) return null;
+      return jid
+        .toString()
+        .replace(/@s\.whatsapp\.net/g, "")
+        .replace(/@lid/g, "")
         .replace(/:\d+/g, "")
-        .replace(/[^0-9]/g, "")
+        .replace(/[^0-9]/g, "");
+    };
+
+    if (!store.chats[jid]) store.chats[jid] = {};
+    const chat = store.chats[jid];
 
     // ===============================
-    // 📋 TODOS LOS USUARIOS DEL GRUPO
+    // 📋 PARTICIPANTES NORMALIZADOS
     // ===============================
     const users = participants.map(p => {
-      const num = normalize(p.id)
+      const num = normalizeAll(p.id);
       return {
         id: p.id,
         num,
-        habló: !!chat[num]
-      }
-    })
+        admin: p.admin === "admin" || p.admin === "superadmin",
+        habló: Boolean(chat[num]),
+        data: chat[num] || null
+      };
+    });
 
-    const activos = users.filter(u => u.habló)
-    const fantasmas = users.filter(u => !u.habló)
+    // ===============================
+    // 📊 CLASIFICACIÓN REAL
+    // ===============================
+    const activos = users.filter(u => u.habló);
+    const fantasmas = users.filter(u => !u.habló);
 
     // ===============================
     // 🧪 LOG TIPO .TODOS (CONSOLA)
     // ===============================
-    try {
-      const time = new Date().toLocaleTimeString("es-MX", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-      })
+    console.log("══════════════════════════════════════");
+    console.log("👻 FANTASMAS CHECK (REAL)");
+    console.log("Grupo:", groupMetadata?.subject || jid);
+    console.log("Total usuarios:", users.length);
+    console.log("Activos:", activos.length);
+    console.log("Fantasmas:", fantasmas.length);
+    console.log("──────────────────────────────────────");
 
-      console.log("══════════════════════════════════════")
-      console.log("🧪 CHECK FANTASMAS REAL")
-      console.log("🕒", time)
-      console.log("👥 Grupo:", groupMetadata?.subject || jid)
-      console.log("👤 Total usuarios:", users.length)
-      console.log("✅ Activos:", activos.length)
-      console.log("👻 Fantasmas:", fantasmas.length)
-      console.log("──────────────────────────────────────")
-
-      users.forEach(u => {
-        console.log(`@${u.num}`)
-        console.log(" ├ habló:", u.habló)
-        console.log(" └ data:", chat[u.num] || "NUNCA HABLÓ")
-      })
-
-      console.log("══════════════════════════════════════")
-    } catch (e) {
-      console.error("❌ Error log fantasmas:", e)
+    for (const u of users) {
+      console.log(u.num);
+      console.log(" ├ admin:", u.admin);
+      console.log(" ├ habló:", u.habló);
+      console.log(" └ data:", u.data || "NUNCA HABLÓ");
     }
 
+    console.log("══════════════════════════════════════");
+
     // ===============================
-    // 📩 RESPUESTA EN EL GRUPO
+    // 📩 RESPUESTA EN WHATSAPP
     // ===============================
     if (!fantasmas.length) {
       return sock.sendMessage(jid, {
         text:
-          "✨ *No hay fantasmas*\n\n" +
-          "Todos los usuarios han enviado al menos un mensaje " +
-          "desde que el bot está encendido."
-      })
+          "✨ *No hay fantasmas detectados*\n\n" +
+          "Todos los usuarios han enviado al menos un mensaje\n" +
+          "desde que el bot está activo."
+      });
     }
 
     let text =
-      "👻 *FANTASMAS DEL GRUPO*\n\n" +
-      "Estos usuarios *NO han enviado ningún mensaje* desde que el bot está activo:\n\n"
+      "👻 *USUARIOS SIN MENSAJES DETECTADOS*\n\n" +
+      "📌 Detección basada en mensajes vistos por el bot.\n\n";
 
-    text += fantasmas.map(u => `👻 @${u.num}`).join("\n")
-
-    text +=
-      "\n\n📌 *Criterio real:*\n" +
-      "• Se detecta solo actividad vista por el bot\n" +
-      "• Admins incluidos\n" +
-      "• Sin suposiciones\n" +
-      "• 100% basado en mensajes reales"
+    text += fantasmas.map(u => `👻 @${u.num}`).join("\n");
 
     return sock.sendMessage(jid, {
       text,
       mentions: fantasmas.map(u => u.id)
-    })
+    });
   }
-}
+};
