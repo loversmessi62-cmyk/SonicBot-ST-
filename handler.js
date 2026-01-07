@@ -160,6 +160,24 @@ if (isGroup && isMuted(jid, realSender)) {
     return;  
   }  
 }  
+  
+// ===============================
+// 📊 CONTADOR DE ACTIVIDAD (FIX DEFINITIVO)
+// ===============================
+if (isGroup) {
+  if (!store.chats[jid]) store.chats[jid] = {};
+
+  // normalizar ID del usuario
+  const senderId = realSender
+    .replace(/@s\.whatsapp\.net|@lid/g, "")
+    .replace(/:\d+/g, "");
+
+  if (!store.chats[jid][senderId]) {
+    store.chats[jid][senderId] = 0;
+  }
+
+  store.chats[jid][senderId]++;
+}
 
 // ===============================  
 // TEXTO NORMALIZADO  
