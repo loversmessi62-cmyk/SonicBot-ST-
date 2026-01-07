@@ -6,7 +6,7 @@ export default {
     const { jid, participants, store, groupMetadata } = ctx;
 
     // ===============================
-    // 🔧 NORMALIZADOR (CLON DEL HANDLER)
+    // 🔧 NORMALIZADOR (IDÉNTICO AL HANDLER)
     // ===============================
     const normalizeAll = jid => {
       if (!jid) return null;
@@ -22,25 +22,27 @@ export default {
     const chat = store.chats[jid];
 
     // ===============================
-    // 📦 STORE NORMALIZADO (CLAVE)
+    // 📦 STORE NORMALIZADO (FUENTE REAL)
     // ===============================
-    const activeMap = {};
-    for (const rawId in chat) {
-      const n = normalizeAll(rawId);
-      if (n) activeMap[n] = chat[rawId];
+    const activityMap = {};
+    for (const raw in chat) {
+      const n = normalizeAll(raw);
+      if (n) activityMap[n] = chat[raw];
     }
 
     // ===============================
-    // 👥 PARTICIPANTES NORMALIZADOS
+    // 👥 USUARIOS NORMALIZADOS
     // ===============================
     const users = participants.map(p => {
       const num = normalizeAll(p.id);
+      const data = activityMap[num];
+
       return {
         raw: p.id,
         num,
         admin: p.admin === "admin" || p.admin === "superadmin",
-        habló: Boolean(activeMap[num]),
-        data: activeMap[num] || null
+        habló: Boolean(data),
+        data
       };
     });
 
@@ -48,38 +50,56 @@ export default {
     const fantasmas = users.filter(u => !u.habló);
 
     // ===============================
-    // 🧪 LOG EXACTO TIPO .TODOS
+    // 📟 LOG CLON DEL LOG DE MENSAJES
     // ===============================
-    console.log("══════════════════════════════════════");
-    console.log("👻 FANTASMAS CHECK (ADMIN-LEVEL)");
-    console.log("Grupo:", groupMetadata?.subject || jid);
-    console.log("Total usuarios:", users.length);
-    console.log("Activos:", activos.length);
-    console.log("Fantasmas:", fantasmas.length);
-    console.log("──────────────────────────────────────");
+    try {
+      const time = new Date().toLocaleTimeString("es-MX", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
 
-    users.forEach(u => {
-      console.log(u.num);
-      console.log(" ├ admin:", u.admin);
-      console.log(" ├ habló:", u.habló);
-      console.log(" └ data:", u.data || "NUNCA HABLÓ");
-    });
+      const groupName = groupMetadata?.subject || "DESCONOCIDO";
 
-    console.log("══════════════════════════════════════");
+      console.log(
+`╔════════════════════════════════════╗
+║ 🕒 ${time} ║ 👥 ${groupName} ║ 👻 FANTASMAS LOG ║
+╚════════════════════════════════════╝`
+      );
+
+      users.forEach(u => {
+        const tipo = u.habló ? "ACTIVO" : "FANTASMA";
+        const msgType = u.data?.type || "NUNCA";
+        const lastTime = u.data?.time
+          ? new Date(u.data.time).toLocaleTimeString("es-MX")
+          : "--:--";
+
+        console.log(
+`╔════════════════════════════════════╗
+║ 👤 ${u.num}
+║ 📎 Estado: ${tipo}
+║ 🛡️ Admin: ${u.admin}
+║ 🕒 Último: ${lastTime}
+║ 💬 Tipo: ${msgType}
+╚════════════════════════════════════╝`
+        );
+      });
+
+    } catch (e) {
+      console.error("❌ Error en log de fantasmas:", e);
+    }
 
     // ===============================
-    // 📩 RESPUESTA WHATSAPP
+    // 📩 RESPUESTA EN WHATSAPP
     // ===============================
     if (!fantasmas.length) {
       return sock.sendMessage(jid, {
-        text:
-          "✅ *Todos los usuarios han enviado mensajes*\n\n" +
-          "La verificación se hizo con el mismo sistema que admins."
+        text: "✅ *Todos los usuarios han enviado mensajes desde que el bot está activo.*"
       });
     }
 
     const text =
-      "👻 *USUARIOS SIN MENSAJES DETECTADOS*\n\n" +
+      "👻 *Usuarios que NO han enviado mensajes*\n\n" +
       fantasmas.map(u => `👻 @${u.num}`).join("\n");
 
     return sock.sendMessage(jid, {
