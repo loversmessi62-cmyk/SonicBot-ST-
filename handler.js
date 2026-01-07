@@ -159,51 +159,28 @@ if (isGroup && isMuted(jid, realSender)) {
     } catch {}  
     return;  
   }  
-}  
+} 
   
 // ===============================
-// 📊 CONTADOR DE ACTIVIDAD (MATCH TOTAL)
+// 📊 CONTADOR DE ACTIVIDAD REAL
 // ===============================
 if (isGroup) {
   if (!store.chats[jid]) store.chats[jid] = {};
 
-  // ─── obtener TODAS las identidades posibles del sender ───
-  const senderIds = new Set();
-
-  const push = v => {
-    if (v && typeof v === "string") senderIds.add(v);
-  };
-
-  // claves posibles
-  push(msg.key?.participant);
-  push(msg.key?.remoteJid);
-  push(msg.message?.extendedTextMessage?.contextInfo?.participant);
-  push(realSender);
-
-  // normalizador TOTAL (igual al de admins)
-  const normalize = id =>
-    id
-      ?.toString()
-      .replace(/@s\.whatsapp\.net/g, "")
-      .replace(/@lid/g, "")
-      .replace(/:\d+/g, "")
-      .replace(/[^0-9]/g, "");
-
-  // ─── SOLO CONTAR TEXTO REAL ───
-  const textMsg =
+  // ✅ SOLO TEXTO REAL DEL USUARIO
+  const text =
     msg.message?.conversation ||
     msg.message?.extendedTextMessage?.text;
 
-  if (textMsg) {
-    for (const rawId of senderIds) {
-      const cleanId = normalize(rawId);
-      if (!cleanId) continue;
+  if (text) {
+    const senderId = realSender
+      .replace(/@s\.whatsapp\.net|@lid/g, "")
+      .replace(/:\d+/g, "");
 
-      // marcar que ESTE usuario ya habló
-      store.chats[jid][cleanId] = true;
-    }
+    store.chats[jid][senderId] = Date.now(); // ⏱️ timestamp real
   }
 }
+
 
 
 // ===============================  
