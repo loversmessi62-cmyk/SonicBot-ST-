@@ -205,18 +205,14 @@ if (!fixedText && msg.message) {
 
 
 // =====================================
-// 📟 LOG DE MENSAJES (FUENTE DE VERDAD)
+// 📟 LOG GLOBAL DE MENSAJES (FUENTE REAL)
 // =====================================
 try {
+  // Inicialización global
   global.messageLog ??= {};
   global.messageLog[jid] ??= {};
 
-  const time = new Date().toLocaleTimeString("es-MX", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  });
-
+  // Normalizador ABSOLUTO (jid / lid / num / basura)
   const normalizeAll = v =>
     v?.toString()
       .replace(/@s\.whatsapp\.net/g, "")
@@ -224,78 +220,58 @@ try {
       .replace(/:\d+/g, "")
       .replace(/[^0-9]/g, "");
 
-  const sender = realSender;
-  const senderNum = normalizeAll(sender);
+  // Datos base
+  const sender = realSender;              // ← sender REAL
+  const num = normalizeAll(sender);
+  const time = Date.now();
 
-  let groupName = "PRIVADO";
-  if (isGroup && metadata) groupName = metadata.subject;
-
+  // Tipo de mensaje
   const m = msg.message || {};
-  let type = "DESCONOCIDO";
-
-  if (m.conversation || m.extendedTextMessage) type = "TEXTO";
-  else if (m.imageMessage) type = "IMAGEN";
-  else if (m.videoMessage) type = "VIDEO";
-  else if (m.stickerMessage) type = "STICKER";
-  else if (m.audioMessage) type = "AUDIO";
-  else if (m.documentMessage) type = "DOCUMENTO";
-  else if (m.reactionMessage) type = "REACCIÓN";
-  else if (m.viewOnceMessage || m.viewOnceMessageV2) type = "VIEWONCE";
-
-  const preview =
-    fixedText && fixedText.length > 40
-      ? fixedText.slice(0, 40) + "..."
-      : fixedText || "[SIN TEXTO]";
+  const type = Object.keys(m)[0] || "DESCONOCIDO";
 
   // ===============================
-  // 🧠 REGISTRO GLOBAL (CLAVE)
+  // 🧠 GUARDADO ÚNICO DEL MENSAJE
   // ===============================
-  const record = {
-    id: msg.key.id || null,
-    jid,
-    sender,
-    participant: msg.key.participant || null,
-    num: senderNum,
-    lid: sender?.includes("@lid") ? sender : null,
-    type,
-    text: fixedText || null,
-    time: Date.now()
-  };
-
-  // guardar por TODAS las variantes posibles
-  global.messageLog[jid][sender] = record;
-  if (senderNum) global.messageLog[jid][senderNum] = record;
-  if (record.lid) global.messageLog[jid][record.lid] = record;
+  if (msg.message) {
+    global.messageLog[jid][sender] = {
+      sender,                    // jid o lid completo
+      participant: sender,       // compatibilidad fantasmas
+      jid,                       // grupo
+      lid: sender.includes("@lid") ? sender : null,
+      num,                       // número limpio
+      time,                      // timestamp
+      type                       // tipo de mensaje
+    };
+  }
 
   // ===============================
-  // 🧪 LOG VISUAL COMPLETO
+  // 🧪 LOG VISUAL COMPLETO (DEBUG)
   // ===============================
-  console.log("════════════════════════════════════");
-  console.log("📩 MESSAGE LOG");
-  console.log("🕒 Hora:", time);
-  console.log("👥 Grupo:", groupName);
+  console.log("══════════════════════════════════════");
+  console.log("📩 MESSAGE LOG (FUENTE DE VERDAD)");
+  console.log("👥 Grupo:", jid);
   console.log("👤 Sender:", sender);
-  console.log("🔢 Num:", senderNum);
-  console.log("🆔 MsgID:", record.id);
+  console.log("🆔 JID:", sender?.includes("@s.whatsapp.net") ? sender : null);
+  console.log("🆔 LID:", sender?.includes("@lid") ? sender : null);
+  console.log("🔢 Num:", num);
   console.log("📎 Tipo:", type);
-  console.log("💬 Preview:", preview);
-  console.log("────────────────────────────────────");
-  console.log("📦 RECORD GUARDADO:");
-  console.log(record);
-  console.log("════════════════════════════════════");
+  console.log("🕒 Hora:", new Date(time).toLocaleTimeString("es-MX"));
+  console.log("📦 GUARDADO:");
+  console.log(global.messageLog[jid][sender]);
+  console.log("══════════════════════════════════════");
 
 } catch (e) {
-  console.error("❌ Error en log:", e);
+  console.error("❌ ERROR EN MESSAGE LOG:", e);
 }
 
 // =====================================
-// 🚀 LOG GARANTIZADO DE COMANDOS
+// 🚀 LOG DE COMANDOS (GARANTIZADO)
 // =====================================
 if (fixedText?.startsWith(".")) {
   const tmp = fixedText.slice(1).trim().split(/\s+/);
   const cmd = tmp.shift()?.toLowerCase();
   console.log(
-    `🚀 COMANDO DETECTADO → .${cmd} | Args: ${tmp.join(" ") || "NINGUNO"}`
+    `🚀 COMANDO → .${cmd} | Args: ${tmp.join(" ") || "NINGUNO"}`
   );
 }
 
