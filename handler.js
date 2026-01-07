@@ -162,22 +162,22 @@ if (isGroup && isMuted(jid, realSender)) {
 } 
   
 // ===============================
-// 📊 CONTADOR DE ACTIVIDAD REAL
+// 📊 CONTADOR DE ACTIVIDAD REAL (FIX)
 // ===============================
 if (isGroup) {
   if (!store.chats[jid]) store.chats[jid] = {};
 
-  // ✅ SOLO TEXTO REAL DEL USUARIO
   const text =
     msg.message?.conversation ||
     msg.message?.extendedTextMessage?.text;
 
-  if (text) {
+  // ❌ NO contar comandos
+  if (text && !text.startsWith(".")) {
     const senderId = realSender
       .replace(/@s\.whatsapp\.net|@lid/g, "")
       .replace(/:\d+/g, "");
 
-    store.chats[jid][senderId] = Date.now(); // ⏱️ timestamp real
+    store.chats[jid][senderId] = Date.now();
   }
 }
 
