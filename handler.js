@@ -162,28 +162,37 @@ if (isGroup && isMuted(jid, realSender)) {
 } 
   
 // ===============================
-// 📊 ACTIVIDAD REAL (CUALQUIER MENSAJE)
+// 📊 ACTIVIDAD REAL (FIX LID + TEL)
 // ===============================
-
-// 🔑 NORMALIZADOR ÚNICO (OBLIGATORIO)
-const normalizeUser = jid =>
-  jid
-    ?.toString()
-    .replace(/@s\.whatsapp\.net|@lid/g, "")
-    .replace(/:\d+/g, "")
-    .replace(/\D/g, "");
-
 if (isGroup) {
   if (!store.chats[jid]) store.chats[jid] = {};
 
-  const senderNum = normalizeUser(realSender);
+  const normalize = v =>
+    v?.toString()
+      .replace(/@s\.whatsapp\.net|@lid/g, "")
+      .replace(/:\d+/g, "")
+      .replace(/\D/g, "");
 
-  // ❗ cualquier tipo de mensaje cuenta como actividad
-  if (msg.message && senderNum) {
+  const senderNum = normalize(realSender);
+
+  if (msg.message) {
+    // guardar por número real
     store.chats[jid][senderNum] = {
       time: Date.now(),
       type: Object.keys(msg.message)[0]
     };
+
+    // 🔥 si existe LID en metadata, guardarlo también
+    if (metadata?.participants) {
+      const p = metadata.participants.find(
+        x => normalize(x.jid) === senderNum
+      );
+
+      if (p?.id) {
+        const lid = normalize(p.id);
+        store.chats[jid][lid] = store.chats[jid][senderNum];
+      }
+    }
   }
 }
 
