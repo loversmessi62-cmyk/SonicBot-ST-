@@ -40,10 +40,18 @@ const sock = makeWASocket({
 // 👇 LISTENER DE REACCIONES (bien colocado)
 sock.ev.on("messages.reaction", async (reactions) => {
   const r = reactions[0];
-  console.log("⚡ EVENTO RAW REACTION:", JSON.stringify(r, null, 2));
+  if (!r) return;
 
   const user = r.participant || r.key.participant;
   if (!user) return;
+
+  // 👇 Si la reacción es del bot, no hacemos nada
+  if (user === sock.user.id) {
+    console.log("🤖 Reacción del bot ignorada");
+    return;
+  }
+
+  console.log("⚡ REACCIÓN REAL DE USUARIO:", user);
 
   const tag = "@" + user.split("@")[0];
 
