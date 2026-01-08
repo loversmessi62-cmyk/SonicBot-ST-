@@ -1,141 +1,55 @@
-const partidas = {};
-
-const normalize = jid =>
-  jid?.split("@")[0].replace(/[^0-9]/g, "");
-
 export default {
   command: ["4vs4"],
+  async run(sock, msg, args, ctx) {
+    const jid = ctx.jid;
+    if (!ctx.isGroup) return;
 
-  run: async (sock, msg, args) => {
-    const jid = msg.key.remoteJid;
-    const modo = (args[0] || "").toLowerCase();
-    const horaMX = args[1];
+    const participants = ctx.participants.map(p => p.id || p.jid).filter(Boolean);
 
-    if (!["fem", "masc", "mixto"].includes(modo) || !horaMX) {
-      return sock.sendMessage(jid, {
-        text: "❌ Uso correcto:\n.4vs4 fem 2mx\n.4vs4 masc 9mx\n.4vs4 mixto 7mx"
-      }, { quoted: msg });
-    }
+    const teamPlayers = {};
+    const teamSubs = {};
+    const used = new Set();
 
-    const mx = parseInt(horaMX.replace("mx", ""));
-    if (isNaN(mx)) {
-      return sock.sendMessage(jid, { text: "❌ Hora inválida. Ej: 2mx" }, { quoted: msg });
-    }
+    const baseList = participants.map(j => {
+      const num = j.split("@")[0];
+      const tag = `@${num}`;
+      return tag;
+    }).join("\n");
 
-    const col = (mx + 1) % 24;
-    const titulo =
-      modo === "fem" ? "4 VS 4 FEMENIL" :
-      modo === "masc" ? "4 VS 4 VARONIL" :
-      "4 VS 4 MIXTO";
-
-    const texto = `
-⚔️ *${titulo}* ⚔️
-
-🕒 *HORARIOS*
-🇲🇽 México: ${mx}MX
-🇨🇴 Colombia: ${col}COL
-
-━━━━━━━━━━━━━━━
-
-🎮 *JUGADORES* ❤️
-1. —
-2. —
-3. —
-4. —
-
-🪑 *SUPLENTES* 👍
-1. —
-2. —
-
-📌 *Reacciona para anotarte*
-❤️ = Jugador
-👍 = Suplente
-`.trim();
-
-    const enviado = await sock.sendMessage(jid, { text: texto, mentions: [] }, { quoted: msg });
-
-    partidas[enviado.key.id] = {
-      jugadores: [],
-      suplentes: [],
-      modo,
-      jid,
-      keyMsg: enviado.key
-    };
-
-    console.log("✅ Partida creada con ID:", enviado.key.id);
-  },
-
-  onMessage: async (sock, msg) => {
-    const m = msg.message?.reactionMessage;
-    if (!m) return;
-
-    const reactedID = m.key?.id;
-    const userJid = m.key?.participant || m.participant || msg.key.participant || m.key.remoteJid;
-    const userNum = normalize(userJid);
-
-    console.log("🔍 Reacción 4vs4 recibida:");
-    console.log("MessageID:", reactedID);
-    console.log("User JID:", userJid);
-    console.log("User NUM:", userNum);
-    console.log("Emoji:", m.text);
-
-    if (!partidas[reactedID]) {
-      console.log("❌ No es una partida activa");
-      return;
-    }
-
-    const partida = partidas[reactedID];
-    const jid = partida.jid;
-
-    // Buscamos coincidencia en participants
-    const participants = partida.participants || partida.groupMetadata?.participants || [];
-
-    const match = participants.find(p => {
-      const pid = normalize(p.id || p.jid);
-      const pjid = normalize(p.jid);
-      return pid === userNum || pjid === userNum || pjid === normalize(userJid);
+    const listMsg = await sock.sendMessage(jid, {
+      text: `4vs4 🔥\n\n👥 Reacciona para entrar:\n❤️ Jugador\n👍 Suplente\n\n${baseList}`,
+      mentions: participants
     });
 
-    if (!match) {
-      console.log("❌ Usuario no coincide con ningún participant");
-      return;
-    }
+    // Listener local al mensaje 4vs4
+    sock.ev.on("messages.reaction", async (reactions) => {
+      for (const r of reactions) {
+        const reaction = r.reaction?.text;
+        const key = r.key;
+        const userJid = r.participant;
 
-    const finalJid = match.jid || match.id || match.jid;
-    const tag = `@${finalJid.split("@")[0]}`;
+        if (key.id !== listMsg.key.id) continue;
 
-    // Anotar en lista
-    if (m.text === "❤️") {
-      if (!partida.jugadores.includes(finalJid)) partida.jugadores.push(finalJid);
-    }
+        const userNum = userJid.split("@")[0];
+        const tag = `@${userNum}`;
 
-    if (m.text === "👍") {
-      if (!partida.suplentes.includes(finalJid)) partida.suplentes.push(finalJid);
-    }
+        if (used.has(userJid)) continue;
+        used.add(userJid);
 
-    const jugs = partida.jugadores.map(j => `@${j.split("@")[0]}`);
-    const sups = partida.suplentes.map(s => `@${s.split("@")[0]}`);
+        if (reaction === "❤️") {
+          teamPlayers[userJid] = tag;
+        } else if (reaction === "👍") {
+          teamSubs[userJid] = tag;
+        }
 
-    const nuevaLista = `
-⚔️ *4 VS 4 ${partida.modo.toUpperCase()}* ⚔️
+        const playerList = Object.values(teamPlayers).join("\n") || "—";
+        const subList = Object.values(teamSubs).join("\n") || "—";
 
-🎮 *JUGADORES* ❤️
-1. ${jugs[0] || "—"}
-2. ${jugs[1] || "—"}
-3. ${jugs[2] || "—"}
-4. ${jugs[3] || "—"}
-
-🪑 *SUPLENTES* 👍
-1. ${sups[0] || "—"}
-2. ${sups[1] || "—"}
-
-`.trim();
-
-    await sock.sendMessage(jid, {
-      text: nuevaLista,
-      mentions: [...partida.jugadores, ...partida.suplentes]
+        await sock.sendMessage(jid, {
+          text: `4vs4 actualizado ⚡\n\n❤️ Jugadores:\n${playerList}\n\n👍 Suplentes:\n${subList}`,
+          mentions: [...Object.keys(teamPlayers), ...Object.keys(teamSubs)]
+        });
+      }
     });
-
-    console.log("🔥 Usuario anotado como:", tag);
   }
 };
