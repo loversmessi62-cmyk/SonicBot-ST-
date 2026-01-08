@@ -38,7 +38,7 @@ export default {
 3. —
 4. —
 
-🎮 *SUPLENTES* 👍
+🪑 *SUPLENTES* 👍
 1. —
 2. —
 
@@ -47,13 +47,18 @@ export default {
 👍 = Suplente
 `.trim();
 
-    const enviado = await sock.sendMessage(msg.key.remoteJid, { text: texto }, { quoted: msg });
+    const enviado = await sock.sendMessage(msg.key.remoteJid, {
+      text: texto,
+      mentions: []
+    }, { quoted: msg });
 
+    // Guardamos la partida y la KEY correcta del mensaje del bot
     partidas[enviado.key.id] = {
       jugadores: [],
       suplentes: [],
       modo,
-      jid: msg.key.remoteJid
+      jid: msg.key.remoteJid,
+      keyMsg: enviado.key // 👈 ESTA es la key buena
     };
   },
 
@@ -67,7 +72,6 @@ export default {
     if (!partidas[messageID]) return;
 
     const partida = partidas[messageID];
-    const jid = partida.jid;
 
     if (reaction.text === "❤️") {
       if (partida.jugadores.length < 4 && !partida.jugadores.includes(userJid)) {
@@ -81,28 +85,12 @@ export default {
       }
     }
 
-    // Si no hay más slots
-    if (
-      (reaction.text === "❤️" && partida.jugadores.length >= 4) ||
-      (reaction.text === "👍" && partida.suplentes.length >= 2)
-    ) {
-      if (!partida.jugadores.includes(userJid) && !partida.suplentes.includes(userJid)) {
-        return sock.sendMessage(jid, { text: "❌ Ya no hay espacios disponibles." }, { quoted: msg });
-      }
-    }
-
-    // 🔁 RECONSTRUIR MENSAJE ACTUALIZADO
+    // Reconstruimos mensaje con tags
     const jugadoresTags = partida.jugadores.map(j => `@${j.split("@")[0]}`);
     const suplentesTags = partida.suplentes.map(j => `@${j.split("@")[0]}`);
 
     const actualizado = `
 ⚔️ *4 VS 4 ${partida.modo.toUpperCase()}* ⚔️
-
-🕒 *HORARIOS*
-🇲🇽 México
-🇨🇴 Colombia
-
-━━━━━━━━━━━━━━━
 
 🎮 *JUGADORES* ❤️
 1. ${jugadoresTags[0] || "—"}
@@ -110,7 +98,7 @@ export default {
 3. ${jugadoresTags[2] || "—"}
 4. ${jugadoresTags[3] || "—"}
 
-🎮 *SUPLENTES* 👍
+🪑 *SUPLENTES* 👍
 1. ${suplentesTags[0] || "—"}
 2. ${suplentesTags[1] || "—"}
 
@@ -119,15 +107,15 @@ export default {
 👍 = Suplente
 `.trim();
 
-    // 📩 ENVIAR MENSAJE EDITADO (FORMATO COMPATIBLE CON BAILEYS)
-    await sock.sendMessage(jid, {
+    // 🧠 Aquí editamos usando la key correcta guardada
+    await sock.sendMessage(partida.jid, {
       text: actualizado,
       mentions: [...partida.jugadores, ...partida.suplentes],
       message: {
         protocolMessage: {
-          key: msg.key,
+          key: partida.keyMsg, // 👈 Ahora SÍ usa la key del mensaje original
           type: 14,
-          editedMessage: { conversation: actualizado, mentions: [...partida.jugadores, ...partida.suplentes] }
+          editedMessage: { conversation: actualizado }
         }
       }
     });
