@@ -4,11 +4,12 @@
 
 import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
-import handler, { loadPlugins } from "./handler.js";
+import handler, { loadPlugins, store } from "./handler.js";
 import fs from "fs";
 
 import groupAdmins from "./events/groupAdmins.js";
 import groupSettings from "./events/groupSettings.js";
+const groupCache = {}; // 👈 Declara groupCache para que la limpieza no falle
 
 import {
   isWelcomeEnabled,
@@ -37,29 +38,41 @@ const sock = makeWASocket({
   browser: ["ADRIBOT", "Chrome", "6.0"]
 });
 
-// 👇 LISTENER DE REACCIONES (bien colocado)
-sock.ev.on("messages.reaction", async (reactions) => {
-  const r = reactions[0];
-  if (!r) return;
 
-  const user = r.participant || r.key.participant;
-  if (!user) return;
+// 👇 LISTENER DE REACCIONES (protegido para no hacer leak)
+if (!sock.ev.listenerCount("messages.reaction")) {
+  sock.ev.on("messages.reaction", async (reactions) => {
+    const r = reactions[0];
+    if (!r) return;
 
-  // 👇 Si la reacción es del bot, no hacemos nada
-  if (user === sock.user.id) {
-    console.log("🤖 Reacción del bot ignorada");
-    return;
-  }
+    const user = r.participant || r.key.participant;
+    if (!user) return;
 
-  console.log("⚡ REACCIÓN REAL DE USUARIO:", user);
+    if (user === sock.user.id) {
+      console.log("🤖 Reacción del bot ignorada");
+      return;
+    }
 
-  const tag = "@" + user.split("@")[0];
+    console.log("⚡ REACCIÓN REAL DE USUARIO:", user);
+    const tag = "@" + user.split("@")[0];
 
-  await sock.sendMessage(r.key.remoteJid, {
-    text: `👀 Reacción detectada de ${tag}`,
-    mentions: [user]
+    await sock.sendMessage(r.key.remoteJid, {
+      text: `👀 Reacción detectada de ${tag}`,
+      mentions: [user]
+    });
   });
-});
+}
+
+// 🧹 LIMPIEZA AUTOMÁTICA CADA 1 HORA (ya no fallará)
+setInterval(() => {
+  console.log("🧹 Ejecutando limpieza automática del bot...");
+  store.chats = {}; // limpia store
+  for (let g in groupCache) delete groupCache[g]; // limpia cache
+  if (global.messageLog) global.messageLog = {};
+  if (global.match4) global.match4 = {};
+  if (global.gc) global.gc();
+  console.log("✅ Limpieza completada. Memoria liberada.");
+}, 60 * 60 * 1000);
 
 // =====================
 // EVENTOS EXTERNOS (solo 1 vez)
