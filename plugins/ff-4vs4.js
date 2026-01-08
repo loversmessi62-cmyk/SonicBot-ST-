@@ -1,5 +1,8 @@
 const partidas = {};
 
+const normalize = jid =>
+  jid?.split("@")[0].replace(/[^0-9]/g, "");
+
 export default {
   command: ["4vs4"],
 
@@ -21,9 +24,9 @@ export default {
 
     const col = (mx + 1) % 24;
     const titulo =
-      modo === "fem" ? "💗 4 VS 4 FEMENIL 💗" :
-      modo === "masc" ? "💪 4 VS 4 VARONIL 💪" :
-      "⚖️ 4 VS 4 MIXTO ⚖️";
+      modo === "fem" ? "4 VS 4 FEMENIL" :
+      modo === "masc" ? "4 VS 4 VARONIL" :
+      "4 VS 4 MIXTO";
 
     const texto = `
 ⚔️ *${titulo}* ⚔️
@@ -49,12 +52,8 @@ export default {
 👍 = Suplente
 `.trim();
 
-    const enviado = await sock.sendMessage(jid, {
-      text: texto,
-      mentions: []
-    }, { quoted: msg });
+    const enviado = await sock.sendMessage(jid, { text: texto, mentions: [] }, { quoted: msg });
 
-    // Guardamos el ID del mensaje del bot para compararlo después
     partidas[enviado.key.id] = {
       jugadores: [],
       suplentes: [],
@@ -63,39 +62,80 @@ export default {
       keyMsg: enviado.key
     };
 
-    console.log("✅ Mensaje 4vs4 enviado con ID:", enviado.key.id);
+    console.log("✅ Partida creada con ID:", enviado.key.id);
   },
 
-  // =======================================
-  // 🔍 DEBUG DE REACCIONES DENTRO DEL MISMO PLUGIN
-  // =======================================
   onMessage: async (sock, msg) => {
-    const reaction = msg.message?.reactionMessage;
-    if (!reaction) return;
+    const m = msg.message?.reactionMessage;
+    if (!m) return;
 
-    const m = msg.message.reactionMessage;
+    const reactedID = m.key?.id;
+    const userJid = m.key?.participant || m.participant || msg.key.participant || m.key.remoteJid;
+    const userNum = normalize(userJid);
 
-    const userInfo = {
-      reactedMessageID: m.key?.id,
-      remoteJid: m.key?.remoteJid,
-      participant: m.key?.participant,
-      sender: m.sender,
-      userJid: m.sender,
-      pushName: msg.pushName,
-      fromMe: msg.key?.fromMe,
-      botID: sock.user?.id,
-      emoji: m.text
-    };
+    console.log("🔍 Reacción 4vs4 recibida:");
+    console.log("MessageID:", reactedID);
+    console.log("User JID:", userJid);
+    console.log("User NUM:", userNum);
+    console.log("Emoji:", m.text);
 
-    console.log("\n========= 🔍 4VS4 REACTION DEBUG =========");
-    console.log("📩 ID mensaje reaccionado:", userInfo.reactedMessageID);
-    console.log("🌐 Grupo:", userInfo.remoteJid);
-    console.log("👤 Participant:", userInfo.participant);
-    console.log("🔢 Sender:", userInfo.sender);
-    console.log("🏷️ Nombre:", msg.pushName);
-    console.log("🤖 Bot ID:", sock.user?.id);
-    console.log("❤️ Emoji reaccionado:", m.text);
-    console.log("📦 JSON evento completo:", JSON.stringify(msg, null, 2));
-    console.log("========= 🔍 END DEBUG =========\n");
+    if (!partidas[reactedID]) {
+      console.log("❌ No es una partida activa");
+      return;
+    }
+
+    const partida = partidas[reactedID];
+    const jid = partida.jid;
+
+    // Buscamos coincidencia en participants
+    const participants = partida.participants || partida.groupMetadata?.participants || [];
+
+    const match = participants.find(p => {
+      const pid = normalize(p.id || p.jid);
+      const pjid = normalize(p.jid);
+      return pid === userNum || pjid === userNum || pjid === normalize(userJid);
+    });
+
+    if (!match) {
+      console.log("❌ Usuario no coincide con ningún participant");
+      return;
+    }
+
+    const finalJid = match.jid || match.id || match.jid;
+    const tag = `@${finalJid.split("@")[0]}`;
+
+    // Anotar en lista
+    if (m.text === "❤️") {
+      if (!partida.jugadores.includes(finalJid)) partida.jugadores.push(finalJid);
+    }
+
+    if (m.text === "👍") {
+      if (!partida.suplentes.includes(finalJid)) partida.suplentes.push(finalJid);
+    }
+
+    const jugs = partida.jugadores.map(j => `@${j.split("@")[0]}`);
+    const sups = partida.suplentes.map(s => `@${s.split("@")[0]}`);
+
+    const nuevaLista = `
+⚔️ *4 VS 4 ${partida.modo.toUpperCase()}* ⚔️
+
+🎮 *JUGADORES* ❤️
+1. ${jugs[0] || "—"}
+2. ${jugs[1] || "—"}
+3. ${jugs[2] || "—"}
+4. ${jugs[3] || "—"}
+
+🪑 *SUPLENTES* 👍
+1. ${sups[0] || "—"}
+2. ${sups[1] || "—"}
+
+`.trim();
+
+    await sock.sendMessage(jid, {
+      text: nuevaLista,
+      mentions: [...partida.jugadores, ...partida.suplentes]
+    });
+
+    console.log("🔥 Usuario anotado como:", tag);
   }
 };
