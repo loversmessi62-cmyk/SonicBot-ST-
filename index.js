@@ -51,11 +51,6 @@ sock.ev.on("messages.reaction", async (reactions) => {
     text: `👀 Reacción detectada de ${tag}`,
     mentions: [user]
   });
-
-  // Reenviar para que plugins lo reciban
-  await sock.sendMessage(r.key.remoteJid, {
-    forward: r.key
-  });
 });
 
 // =====================
