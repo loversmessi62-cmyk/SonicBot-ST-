@@ -1,92 +1,88 @@
-import fs from "fs";
-
-const reactionList = {}; // { groupJid: [tags...] }
-const matchPlayers = {}; // { groupJid: { id, lid, jid, num } }
 
 export default {
-  name: "4vs4",
-  once: true,
-  execute(sock) {
+command: ["4vs4"],
+run: async (sock, msg, args) => {
 
-    // 👇 Comando para iniciar 4vs4
-    sock.ev.on("messages.upsert", async ({ messages }) => {
-      const msg = messages[0];
-      if (!msg.message || msg.key.fromMe) return;
+// =========================  
+// VALIDAR ARGUMENTOS  
+// =========================  
+// Ej: .4vs4 fem 2mx  
+const modo = (args[0] || "").toLowerCase()  
+const horaMX = args[1]  
 
-      const text = msg.message.conversation || "";
-      const group = msg.key.remoteJid;
+if (!["fem", "masc", "mixto"].includes(modo) || !horaMX) {  
+  return sock.sendMessage(msg.key.remoteJid, {  
+    text: "❌ Uso correcto:\n.4vs4 fem 2mx\n.4vs4 masc 9mx\n.4vs4 mixto 7mx"  
+  }, { quoted: msg })  
+}  
 
-      if (text.startsWith("!4vs4")) {
-        const parts = text.split(" ");
-        if (parts.length < 5) {
-          return sock.sendMessage(group, { text: "Uso: !4vs4 id lid jid num" });
-        }
+// =========================  
+// CALCULAR HORAS  
+// =========================  
+const mx = parseInt(horaMX.replace("mx", ""))  
+if (isNaN(mx)) {  
+  return sock.sendMessage(msg.key.remoteJid, {  
+    text: "❌ Hora inválida. Ejemplo: 2mx"  
+  }, { quoted: msg })  
+}  
 
-        const [_, id, lid, jid, num] = parts;
+const col = (mx + 1) % 24  
 
-        matchPlayers[group] = { id, lid, jid, num };
-        reactionList[group] = [];
+// =========================  
+// TITULO SEGÚN MODO  
+// =========================  
+const titulo =  
+  modo === "fem" ? "💗 4 VS 4 FEMENIL 💗" :  
+  modo === "masc" ? "💪 4 VS 4 VARONIL 💪" :  
+  "⚖️ 4 VS 4 MIXTO ⚖️"  
 
-        await sock.sendMessage(group, {
-          text: `🔥 *4VS4 INICIADO*\nJugadores a detectar:\n• id: ${id}\n• lid: ${lid}\n• jid: ${jid}\n• num: ${num}`
-        });
+// =========================  
+// MENSAJE FINAL  
+// =========================  
+const texto = `
 
-        console.log("⚔ 4vs4 creado en:", group, matchPlayers[group]);
-      }
-    });
+⚔️ ${titulo} ⚔️
 
-    // 👇 Listener de reacciones para anotar jugadores
-    if (!sock.ev.listenerCount("messages.reaction")) {
-      sock.ev.on("messages.reaction", async (reactions) => {
-        const r = reactions[0];
-        if (!r) return;
+🕒 HORARIOS
+🇲🇽 México: ${mx}MX
+🇨🇴 Colombia: ${col}COL
 
-        const user = r.participant || r.key.participant;
-        const group = r.key.remoteJid;
+━━━━━━━━━━━━━━━
 
-        if (!matchPlayers[group]) return; // si no hay partida, ignora
-        if (user === sock.user.id) return; // ignora reacciones del bot
+🎮 JUGADORES
 
-        const tag = "@" + user.split("@")[0];
+1. —
 
-        const { id, lid, jid, num } = matchPlayers[group];
 
-        // 👇 Si coincide con alguno de los 4 valores
-        if (
-          user.includes(id) ||
-          user.includes(lid) ||
-          user.includes(jid) ||
-          user.includes(num)
-        ) {
-          reactionList[group].push(tag);
+2. —
 
-          await sock.sendMessage(group, {
-            text: `🎯 *Jugador detectado:* ${tag}\n📋 *Lista actual:* ${reactionList[group].join(", ")}`,
-            mentions: [user]
-          });
 
-          console.log("✔ Coincidencia 4vs4:", user, matchPlayers[group]);
-        }
-      });
-    }
+3. —
 
-    // 👇 Limpieza automática cada 5 o 10 minutos
-    setInterval(() => {
-      console.log("🧽 Limpieza automática 4vs4 (reacciones y lista)...");
 
-      for (const g in reactionList) {
-        reactionList[g] = [];
-      }
+4. —
 
-      for (const g in matchPlayers) {
-        delete matchPlayers[g];
-      }
 
-      if (global.messageLog) global.messageLog = {};
-      if (global.match4) global.match4 = {};
 
-      console.log("✅ Limpieza 4vs4 completada, listas vacías y partidas borradas.");
-    }, 10 * 60 * 1000); // 10 minutos (puedes cambiar a 5 si quieres)
+🪑 SUPLENTES
 
-  }
-};
+1. —
+
+
+2. —
+
+
+
+📌 Anótate escribiendo tu nombre
+🔥 Modo serio
+`.trim()
+
+await sock.sendMessage(msg.key.remoteJid, {  
+  text: texto  
+}, { quoted: msg })
+
+}
+}
+
+
+
