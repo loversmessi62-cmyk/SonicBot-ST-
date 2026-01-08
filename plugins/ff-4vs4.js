@@ -1,66 +1,92 @@
+import fs from "fs";
+
+const reactionList = {}; // { groupJid: [tags...] }
+const matchPlayers = {}; // { groupJid: { id, lid, jid, num } }
+
 export default {
-  command: ["4vs4"],
-  run: async (sock, msg, args, ctx) => {
-    const jid = ctx.jid;
-    const group = ctx.groupMetadata;
-    if (!group) return;
+  name: "4vs4",
+  once: true,
+  execute(sock) {
 
-    global.match4 = global.match4 || {};
-    if (!global.match4[jid]) {
-      global.match4[jid] = { team: [], sub: [], lastMessage: null };
-    }
+    // 👇 Comando para iniciar 4vs4
+    sock.ev.on("messages.upsert", async ({ messages }) => {
+      const msg = messages[0];
+      if (!msg.message || msg.key.fromMe) return;
 
-    const data = global.match4[jid];
+      const text = msg.message.conversation || "";
+      const group = msg.key.remoteJid;
 
-    if (args[0] === "lista") {
-      return sock.sendMessage(jid, {
-        text: `👥 *4vs4 Match*\n\n❤️ *Titulares:*\n${
-          data.team.map(u => `❤️ @${u.split("@")[0]}`).join("\n") || "Vacío"
-        }\n\n👍 *Suplentes:*\n${
-          data.sub.map(u => `👍 @${u.split("@")[0]}`).join("\n") || "Vacío"
-        }`,
-        mentions: [...data.team, ...data.sub]
-      });
-    }
+      if (text.startsWith("!4vs4")) {
+        const parts = text.split(" ");
+        if (parts.length < 5) {
+          return sock.sendMessage(group, { text: "Uso: !4vs4 id lid jid num" });
+        }
 
-    const sent = await sock.sendMessage(jid, {
-      text: `🎮 *4vs4 - Reacciona para unirte*\n\n❤️ = Titular (máx 4)\n👍 = Suplente\n\n⚡ Reacciona ahora`,
-      mentions: []
+        const [_, id, lid, jid, num] = parts;
+
+        matchPlayers[group] = { id, lid, jid, num };
+        reactionList[group] = [];
+
+        await sock.sendMessage(group, {
+          text: `🔥 *4VS4 INICIADO*\nJugadores a detectar:\n• id: ${id}\n• lid: ${lid}\n• jid: ${jid}\n• num: ${num}`
+        });
+
+        console.log("⚔ 4vs4 creado en:", group, matchPlayers[group]);
+      }
     });
 
-    data.lastMessage = sent.key.id;
-
+    // 👇 Listener de reacciones para anotar jugadores
     if (!sock.ev.listenerCount("messages.reaction")) {
-      sock.ev.on("messages.reaction", async reactions => {
-        try {
-          const r = reactions[0];
-          const user = r.participant || r.key.participant || r.key.remoteJid;
-          const emoji = r.reaction?.text;
-          const msgId = r.key.id;
-          const num = user.split("@")[0];
+      sock.ev.on("messages.reaction", async (reactions) => {
+        const r = reactions[0];
+        if (!r) return;
 
-          if (msgId !== data.lastMessage) return;
+        const user = r.participant || r.key.participant;
+        const group = r.key.remoteJid;
 
-          const groupJids = group.participants.map(p => p.id || p.jid).filter(Boolean);
-          if (!groupJids.includes(user)) return;
+        if (!matchPlayers[group]) return; // si no hay partida, ignora
+        if (user === sock.user.id) return; // ignora reacciones del bot
 
-          if (emoji === "❤️" && data.team.length < 4) {
-            if (!data.team.includes(user)) data.team.push(user);
-          }
+        const tag = "@" + user.split("@")[0];
 
-          if (emoji === "👍") {
-            if (!data.sub.includes(user)) data.sub.push(user);
-          }
+        const { id, lid, jid, num } = matchPlayers[group];
 
-          await sock.sendMessage(r.key.remoteJid, {
-            text: `✔️ Anotado @${num}`,
+        // 👇 Si coincide con alguno de los 4 valores
+        if (
+          user.includes(id) ||
+          user.includes(lid) ||
+          user.includes(jid) ||
+          user.includes(num)
+        ) {
+          reactionList[group].push(tag);
+
+          await sock.sendMessage(group, {
+            text: `🎯 *Jugador detectado:* ${tag}\n📋 *Lista actual:* ${reactionList[group].join(", ")}`,
             mentions: [user]
           });
 
-        } catch (e) {
-          console.error("❌ Error reaction:", e);
+          console.log("✔ Coincidencia 4vs4:", user, matchPlayers[group]);
         }
       });
     }
+
+    // 👇 Limpieza automática cada 5 o 10 minutos
+    setInterval(() => {
+      console.log("🧽 Limpieza automática 4vs4 (reacciones y lista)...");
+
+      for (const g in reactionList) {
+        reactionList[g] = [];
+      }
+
+      for (const g in matchPlayers) {
+        delete matchPlayers[g];
+      }
+
+      if (global.messageLog) global.messageLog = {};
+      if (global.match4) global.match4 = {};
+
+      console.log("✅ Limpieza 4vs4 completada, listas vacías y partidas borradas.");
+    }, 10 * 60 * 1000); // 10 minutos (puedes cambiar a 5 si quieres)
+
   }
 };
