@@ -30,26 +30,46 @@ async function startBot() {
 
   const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
-  const sock = makeWASocket({
-    logger: pino({ level: "silent" }),
-    printQRInTerminal: true,
-    auth: state,
-    browser: ["ADRIBOT", "Chrome", "6.0"]
+const sock = makeWASocket({
+  logger: pino({ level: "silent" }),
+  printQRInTerminal: true,
+  auth: state,
+  browser: ["ADRIBOT", "Chrome", "6.0"]
+});
+
+// 👇 LISTENER DE REACCIONES (bien colocado)
+sock.ev.on("messages.reaction", async (reactions) => {
+  const r = reactions[0];
+  console.log("⚡ EVENTO RAW REACTION:", JSON.stringify(r, null, 2));
+
+  const user = r.participant || r.key.participant;
+  if (!user) return;
+
+  const tag = "@" + user.split("@")[0];
+
+  await sock.sendMessage(r.key.remoteJid, {
+    text: `👀 Reacción detectada de ${tag}`,
+    mentions: [user]
   });
 
-  // =====================
-  // EVENTOS EXTERNOS
-  // =====================
-  groupAdmins(sock);
-  groupSettings(sock);
+  // Reenviar para que plugins lo reciban
+  await sock.sendMessage(r.key.remoteJid, {
+    forward: r.key
+  });
+});
 
-  sock.ev.on("creds.update", saveCreds);
+// =====================
+// EVENTOS EXTERNOS (solo 1 vez)
+// =====================
+groupAdmins(sock);
+groupSettings(sock);
 
-  sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
+sock.ev.on("creds.update", saveCreds);
+
+sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
   if (connection === "open") {
     console.log("✅ ADRIBOT CONECTADO");
 
-    // 🔔 Aviso automático después del reinicio
     setTimeout(async () => {
       if (fs.existsSync("./restart.json")) {
         try {
@@ -83,20 +103,18 @@ async function startBot() {
   }
 });
 
-  // =====================
-  // MENSAJES (UN SOLO LISTENER)
-  // =====================
-  sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify") return;
+sock.ev.on("messages.upsert", async ({ messages, type }) => {
+  if (type !== "notify") return;
 
-    for (const msg of messages) {
-      if (!msg.message) continue;
-      if (msg.key.fromMe) continue;
-      if (msg.message?.reactionMessage) continue;
+  for (const msg of messages) {
+    if (!msg.message) continue;
+    if (msg.key.fromMe) continue;
+    if (msg.message?.reactionMessage) continue;
 
-      await handler(sock, msg);
-    }
-  });
+    await handler(sock, msg);
+  }
+});
+
 
 // =====================
 // WELCOME / BYE (FINAL)
