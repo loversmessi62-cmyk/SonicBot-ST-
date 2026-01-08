@@ -4,12 +4,11 @@
 
 import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
-import handler, { loadPlugins, store } from "./handler.js";
+import handler, { loadPlugins } from "./handler.js";
 import fs from "fs";
 
 import groupAdmins from "./events/groupAdmins.js";
 import groupSettings from "./events/groupSettings.js";
-const groupCache = {}; // 👈 Declara groupCache para que la limpieza no falle
 
 import {
   isWelcomeEnabled,
@@ -38,30 +37,6 @@ const sock = makeWASocket({
   browser: ["ADRIBOT", "Chrome", "6.0"]
 });
 
-
-// 👇 LISTENER DE REACCIONES (protegido para no hacer leak)
-if (!sock.ev.listenerCount("messages.reaction")) {
-  sock.ev.on("messages.reaction", async (reactions) => {
-    const r = reactions[0];
-    if (!r) return;
-
-    const user = r.participant || r.key.participant;
-    if (!user) return;
-
-    if (user === sock.user.id) {
-      console.log("🤖 Reacción del bot ignorada");
-      return;
-    }
-
-    console.log("⚡ REACCIÓN REAL DE USUARIO:", user);
-    const tag = "@" + user.split("@")[0];
-
-    await sock.sendMessage(r.key.remoteJid, {
-      text: `👀 Reacción detectada de ${tag}`,
-      mentions: [user]
-    });
-  });
-}
 
 // 🧹 LIMPIEZA AUTOMÁTICA CADA 1 HORA (ya no fallará)
 setInterval(() => {
