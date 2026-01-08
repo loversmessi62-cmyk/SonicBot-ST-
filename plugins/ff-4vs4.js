@@ -1,4 +1,4 @@
-const partidas = {}; // messageID → { jugadores: [], suplentes: [], modo }
+const partidas = {};
 
 export default {
   command: ["4vs4"],
@@ -32,62 +32,69 @@ export default {
 
 ━━━━━━━━━━━━━━━
 
-🎮 *JUGADORES*
+🎮 *JUGADORES* ❤️
 1. —
 2. —
 3. —
 4. —
 
-🪑 *SUPLENTES*
+🎮 *SUPLENTES* 👍
 1. —
 2. —
 
-📌 *Anótate reaccionando a este mensaje*
-🔥 = anotarme
-⚡ = anotarme
+📌 *Reacciona para anotarte*
+❤️ = Jugador
+👍 = Suplente
 `.trim();
 
     const enviado = await sock.sendMessage(msg.key.remoteJid, { text: texto }, { quoted: msg });
 
-    // Guardamos la partida asociada a ese mensaje
     partidas[enviado.key.id] = {
       jugadores: [],
       suplentes: [],
-      modo
+      modo,
+      jid: msg.key.remoteJid
     };
   },
 
-  // ===========================================
-  // ⚡ DETECTAR REACCIONES PARA ANOTARSE ⚡
-  // ===========================================
   onMessage: async (sock, msg) => {
     const reaction = msg.message?.reactionMessage;
     if (!reaction) return;
 
     const messageID = reaction.key.id;
-    const sender = reaction.sender.replace(/@s\.whatsapp\.net|@lid/g, "");
+    const userJid = reaction.sender;
 
-    if (!partidas[messageID]) return; // No es una partida activa
+    if (!partidas[messageID]) return;
 
     const partida = partidas[messageID];
+    const jid = partida.jid;
 
-    // Evitar duplicados
-    if (partida.jugadores.includes(sender) || partida.suplentes.includes(sender)) {
-      return sock.sendMessage(msg.key.remoteJid, { text: "⚠️ Ya estás anotado." });
+    if (reaction.text === "❤️") {
+      if (partida.jugadores.length < 4 && !partida.jugadores.includes(userJid)) {
+        partida.jugadores.push(userJid);
+      }
     }
 
-    // Meter a jugadores o suplentes
-    if (partida.jugadores.length < 4) {
-      partida.jugadores.push(sender);
-    } else if (partida.suplentes.length < 2) {
-      partida.suplentes.push(sender);
-    } else {
-      return sock.sendMessage(msg.key.remoteJid, { text: "❌ Ya no hay slots disponibles." });
+    if (reaction.text === "👍") {
+      if (partida.suplentes.length < 2 && !partida.suplentes.includes(userJid)) {
+        partida.suplentes.push(userJid);
+      }
     }
 
-    // =========================
-    // ACTUALIZAR MENSAJE
-    // =========================
+    // Si no hay más slots
+    if (
+      (reaction.text === "❤️" && partida.jugadores.length >= 4) ||
+      (reaction.text === "👍" && partida.suplentes.length >= 2)
+    ) {
+      if (!partida.jugadores.includes(userJid) && !partida.suplentes.includes(userJid)) {
+        return sock.sendMessage(jid, { text: "❌ Ya no hay espacios disponibles." }, { quoted: msg });
+      }
+    }
+
+    // 🔁 RECONSTRUIR MENSAJE ACTUALIZADO
+    const jugadoresTags = partida.jugadores.map(j => `@${j.split("@")[0]}`);
+    const suplentesTags = partida.suplentes.map(j => `@${j.split("@")[0]}`);
+
     const actualizado = `
 ⚔️ *4 VS 4 ${partida.modo.toUpperCase()}* ⚔️
 
@@ -97,23 +104,32 @@ export default {
 
 ━━━━━━━━━━━━━━━
 
-🎮 *JUGADORES*
-1. ${partida.jugadores[0] || "—"}
-2. ${partida.jugadores[1] || "—"}
-3. ${partida.jugadores[2] || "—"}
-4. ${partida.jugadores[3] || "—"}
+🎮 *JUGADORES* ❤️
+1. ${jugadoresTags[0] || "—"}
+2. ${jugadoresTags[1] || "—"}
+3. ${jugadoresTags[2] || "—"}
+4. ${jugadoresTags[3] || "—"}
 
-🪑 *SUPLENTES*
-1. ${partida.suplentes[0] || "—"}
-2. ${partida.suplentes[1] || "—"}
+🎮 *SUPLENTES* 👍
+1. ${suplentesTags[0] || "—"}
+2. ${suplentesTags[1] || "—"}
 
-📌 *Anótate reaccionando*
-🔥 / ⚡ = anotarme
+📌 *Reacciona para anotarte*
+❤️ = Jugador
+👍 = Suplente
 `.trim();
 
-    await sock.sendMessage(msg.key.remoteJid, {
+    // 📩 ENVIAR MENSAJE EDITADO (FORMATO COMPATIBLE CON BAILEYS)
+    await sock.sendMessage(jid, {
       text: actualizado,
-      edit: messageID
+      mentions: [...partida.jugadores, ...partida.suplentes],
+      message: {
+        protocolMessage: {
+          key: msg.key,
+          type: 14,
+          editedMessage: { conversation: actualizado, mentions: [...partida.jugadores, ...partida.suplentes] }
+        }
+      }
     });
   }
 };
