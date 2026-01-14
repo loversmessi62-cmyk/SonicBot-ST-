@@ -1,7 +1,3 @@
-// =====================
-// WELCOME / BYE (STABLE)
-// =====================
-
 import {
   isWelcomeEnabled,
   isByeEnabled,
@@ -9,42 +5,30 @@ import {
   getByeText
 } from "../utils/welcomeState.js";
 
-const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/mgqqcn.jpeg";
-const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
-
 export default function welcomeEvent(sock, groupCache) {
 
-  console.log("✅ Welcome event registrado");
+  const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/mgqqcn.jpeg";
+  const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
+
+  console.log("👋 Welcome event registrado");
 
   sock.ev.on("group-participants.update", async update => {
     try {
       const { id, participants, action } = update;
 
-      // 📦 metadata desde caché o fetch
+      // 🔁 metadata segura (cache + fallback)
       let metadata = groupCache[id];
       if (!metadata) {
-        try {
-          metadata = await sock.groupMetadata(id);
-          groupCache[id] = metadata;
-        } catch {
-          metadata = null;
-        }
+        metadata = await sock.groupMetadata(id);
+        groupCache[id] = metadata;
       }
-
-      const groupName = metadata?.subject || "Grupo";
-      const groupDesc = metadata?.desc || "Sin descripción";
-      const members = metadata?.participants || [];
 
       for (const user of participants) {
         if (user === sock.user.id) continue;
 
         const mention = user.split("@")[0];
-        const count =
-          action === "add"
-            ? members.length
-            : Math.max(members.length - 1, 0);
+        const count = metadata.participants.length;
 
-        // 🖼️ imagen
         let image;
         try {
           image = await sock.profilePictureUrl(user, "image");
@@ -54,7 +38,6 @@ export default function welcomeEvent(sock, groupCache) {
             : DEFAULT_BYE_IMG;
         }
 
-        // 🕒 fecha y hora
         const date = new Date();
         const formattedDate = date.toLocaleDateString("es-MX");
         const formattedTime = date.toLocaleTimeString("es-MX", {
@@ -62,24 +45,20 @@ export default function welcomeEvent(sock, groupCache) {
           minute: "2-digit"
         });
 
-        // 📛 nombre visible
-        const name =
-          members.find(p => p.id === user)?.notify ||
-          mention ||
-          "Usuario";
-
-        // =====================
-        // WELCOME
-        // =====================
+        // ===== WELCOME =====
         if (action === "add" && isWelcomeEnabled(id)) {
+
           const raw = getWelcomeText(id);
 
           const caption = raw
             .replace(/@user/g, `@${mention}`)
             .replace(/@id/g, mention)
-            .replace(/@name/g, name)
-            .replace(/@group/g, groupName)
-            .replace(/@desc/g, groupDesc)
+            .replace(
+              /@name/g,
+              metadata.participants.find(p => p.id === user)?.notify || "Usuario"
+            )
+            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@desc/g, metadata.desc || "Sin descripción")
             .replace(/@count/g, count)
             .replace(/@date/g, formattedDate)
             .replace(/@time/g, formattedTime);
@@ -91,19 +70,21 @@ export default function welcomeEvent(sock, groupCache) {
           });
         }
 
-        // =====================
-        // BYE
-        // =====================
+        // ===== BYE =====
         if (action === "remove" && isByeEnabled(id)) {
+
           const raw = getByeText(id);
 
           const caption = raw
             .replace(/@user/g, `@${mention}`)
             .replace(/@id/g, mention)
-            .replace(/@name/g, name)
-            .replace(/@group/g, groupName)
-            .replace(/@desc/g, groupDesc)
-            .replace(/@count/g, count)
+            .replace(
+              /@name/g,
+              metadata.participants.find(p => p.id === user)?.notify || "Usuario"
+            )
+            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@desc/g, metadata.desc || "Sin descripción")
+            .replace(/@count/g, count - 1)
             .replace(/@date/g, formattedDate)
             .replace(/@time/g, formattedTime);
 
