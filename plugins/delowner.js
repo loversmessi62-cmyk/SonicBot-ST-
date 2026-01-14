@@ -1,4 +1,6 @@
-import { removeOwner, isOwner } from "../utils/ownerState.js";
+import fs from "fs";
+import config from "../config.js";
+import { isOwner } from "../utils/isOwner.js";
 
 export default {
   commands: ["delowner"],
@@ -9,7 +11,7 @@ export default {
 
     if (!isOwner(sender)) {
       return sock.sendMessage(sender, {
-        text: "⛔ No eres owner del bot"
+        text: "⛔ Solo el OWNER principal puede usar esto"
       });
     }
 
@@ -22,12 +24,23 @@ export default {
       });
     }
 
-    const removed = removeOwner(target);
+    const number = target.split("@")[0];
+
+    if (!config.owners.includes(number)) {
+      return sock.sendMessage(sender, {
+        text: "⚠️ Ese usuario no es owner"
+      });
+    }
+
+    config.owners = config.owners.filter(o => o !== number);
+
+    fs.writeFileSync(
+      "./config.js",
+      `export default ${JSON.stringify(config, null, 2)};\n`
+    );
 
     await sock.sendMessage(sender, {
-      text: removed
-        ? `❌ @${target.split("@")[0]} ya no es OWNER`
-        : "⚠️ Ese usuario no era owner",
+      text: `❌ @${number} ya no es OWNER`,
       mentions: [target]
     });
   }
