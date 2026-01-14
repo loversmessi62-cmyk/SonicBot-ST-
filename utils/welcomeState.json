@@ -1,6 +1,12 @@
 {
-  "120363424871042604@g.us": {
-    "welcome": true,
-    "bye": true
+  "global": {
+    "welcome": false,
+    "bye": false
+  },
+  "groups": {
+    "120363424871042604@g.us": {
+      "welcome": true,
+      "bye": true
+    }
   }
 }
