@@ -26,6 +26,17 @@ const {
 let pluginsLoaded = false;
 
 // =====================
+// NORMALIZAR JID (@lid → real)
+// =====================
+function normalizeJid(jid) {
+  if (!jid) return jid;
+  if (jid.endsWith("@lid")) {
+    return jid.replace("@lid", "@s.whatsapp.net");
+  }
+  return jid;
+}
+
+// =====================
 // START BOT
 // =====================
 async function startBot() {
@@ -41,7 +52,7 @@ async function startBot() {
   });
 
   // =====================
-  // EVENTOS BASE (1 VEZ)
+  // EVENTOS BASE
   // =====================
   groupAdmins(sock);
   groupSettings(sock);
@@ -56,7 +67,6 @@ async function startBot() {
     if (connection === "open") {
       console.log("✅ ADRIBOT CONECTADO");
 
-      // Aviso post-reinicio
       setTimeout(async () => {
         if (fs.existsSync("./restart.json")) {
           try {
@@ -66,8 +76,6 @@ async function startBot() {
             await sock.sendMessage(data.jid, {
               text: "✅ *Bot encendido correctamente*\n🚀 Cambios aplicados y funcionando."
             });
-
-            console.log("✅ Aviso post-reinicio enviado");
           } catch (e) {
             console.error("❌ Error post-reinicio:", e);
           }
@@ -105,95 +113,103 @@ async function startBot() {
     }
   });
 
-// =====================
-// WELCOME / BYE (PFP + FALLBACK LOCAL)
-// =====================
+  // =====================
+  // WELCOME / BYE
+  // =====================
+  sock.ev.on("group-participants.update", async update => {
+    console.log("🔥 EVENTO group-participants.update:", update);
 
-sock.ev.on("group-participants.update", async update => {
-  console.log("🔥 EVENTO group-participants.update:", update);
+    try {
+      const { id, participants, action } = update;
+      if (!["add", "remove"].includes(action)) return;
 
-  try {
-    const { id, participants, action } = update;
-    if (!["add", "remove"].includes(action)) return;
+      const metadata = await sock.groupMetadata(id);
+      const count = metadata.participants.length;
 
-    const metadata = await sock.groupMetadata(id);
-    const count = metadata.participants.length;
+      const welcomeImg = fs.readFileSync("./media/welcome.png");
+      const byeImg = fs.readFileSync("./media/bye.png");
 
-    const welcomeImg = fs.readFileSync("./media/welcome.png");
-    const byeImg = fs.readFileSync("./media/bye.png");
+      for (const rawUser of participants) {
 
-    for (const user of participants) {
-      if (user === sock.user.id) continue;
+        const user = normalizeJid(rawUser);
+        const botJid = normalizeJid(sock.user.id);
 
-      const mention = user.split("@")[0];
-      const name =
-        metadata.participants.find(p => p.id === user)?.notify || "Usuario";
+        // ❌ evitar que el bot se detecte
+        if (user === botJid) continue;
 
-      const date = new Date();
-      const formattedDate = date.toLocaleDateString("es-MX");
-      const formattedTime = date.toLocaleTimeString("es-MX", {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
+        const mention = user.split("@")[0];
 
-      let image;
+        const member =
+          metadata.participants.find(p => normalizeJid(p.id) === user);
 
-      // 🔥 intentar foto de perfil
-      try {
-        image = { url: await sock.profilePictureUrl(user, "image") };
-      } catch {
-        // 🛡️ fallback local
-        image = action === "add" ? welcomeImg : byeImg;
-      }
+        const name = member?.notify || member?.name || "Usuario";
 
-      // ========= WELCOME =========
-      if (action === "add" && isWelcomeEnabled(id)) {
-
-        const raw = getWelcomeText(id);
-
-        const caption = raw
-          .replace(/@user/g, `@${mention}`)
-          .replace(/@id/g, mention)
-          .replace(/@name/g, name)
-          .replace(/@group/g, metadata.subject || "Grupo")
-          .replace(/@desc/g, metadata.desc || "Sin descripción")
-          .replace(/@count/g, count)
-          .replace(/@date/g, formattedDate)
-          .replace(/@time/g, formattedTime);
-
-        await sock.sendMessage(id, {
-          image,
-          caption,
-          mentions: [user]
+        const date = new Date();
+        const formattedDate = date.toLocaleDateString("es-MX");
+        const formattedTime = date.toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit"
         });
+
+        let image;
+
+        // intentar foto de perfil
+        try {
+          image = { url: await sock.profilePictureUrl(user, "image") };
+        } catch {
+          image = action === "add" ? welcomeImg : byeImg;
+        }
+
+        // ========= WELCOME =========
+        if (action === "add" && isWelcomeEnabled(id)) {
+
+          const raw = getWelcomeText(id);
+
+          const caption = raw
+            .replace(/@user/g, `@${mention}`)
+            .replace(/@id/g, mention)
+            .replace(/@name/g, name)
+            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@desc/g, metadata.desc || "Sin descripción")
+            .replace(/@count/g, count)
+            .replace(/@date/g, formattedDate)
+            .replace(/@time/g, formattedTime);
+
+          await sock.sendMessage(id, {
+            image,
+            caption,
+            mentions: [user]
+          });
+        }
+
+        // ========= BYE =========
+        if (action === "remove" && isByeEnabled(id)) {
+
+          const raw = getByeText(id);
+
+          const caption = raw
+            .replace(/@user/g, `@${mention}`)
+            .replace(/@id/g, mention)
+            .replace(/@name/g, name)
+            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@desc/g, metadata.desc || "Sin descripción")
+            .replace(/@count/g, count - 1)
+            .replace(/@date/g, formattedDate)
+            .replace(/@time/g, formattedTime);
+
+          await sock.sendMessage(id, {
+            image,
+            caption,
+            mentions: [user]
+          });
+        }
       }
 
-      // ========= BYE =========
-      if (action === "remove" && isByeEnabled(id)) {
-
-        const raw = getByeText(id);
-
-        const caption = raw
-          .replace(/@user/g, `@${mention}`)
-          .replace(/@id/g, mention)
-          .replace(/@name/g, name)
-          .replace(/@group/g, metadata.subject || "Grupo")
-          .replace(/@desc/g, metadata.desc || "Sin descripción")
-          .replace(/@count/g, count - 1)
-          .replace(/@date/g, formattedDate)
-          .replace(/@time/g, formattedTime);
-
-        await sock.sendMessage(id, {
-          image,
-          caption,
-          mentions: [user]
-        });
-      }
+    } catch (e) {
+      console.error("❌ Error welcome/bye:", e);
     }
+  });
 
-  } catch (e) {
-    console.error("❌ Error welcome/bye:", e);
-  }
-});
+}
 
 startBot();
