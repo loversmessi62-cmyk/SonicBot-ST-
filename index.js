@@ -113,103 +113,92 @@ async function startBot() {
     }
   });
 
-  // =====================
-  // WELCOME / BYE
-  // =====================
-  sock.ev.on("group-participants.update", async update => {
-    console.log("🔥 EVENTO group-participants.update:", update);
+ sock.ev.on("group-participants.update", async update => {
+  console.log("🔥 EVENTO group-participants.update:", update);
 
-    try {
-      const { id, participants, action } = update;
-      if (!["add", "remove"].includes(action)) return;
+  try {
+    const { id, participants, action } = update;
+    if (!["add", "remove"].includes(action)) return;
 
-      const metadata = await sock.groupMetadata(id);
-      const count = metadata.participants.length;
+    const metadata = await sock.groupMetadata(id);
+    const count = metadata.participants.length;
 
-      const welcomeImg = fs.readFileSync("./media/welcome.png");
-      const byeImg = fs.readFileSync("./media/bye.png");
+    const welcomeImg = fs.readFileSync("./media/welcome.png");
+    const byeImg = fs.readFileSync("./media/bye.png");
 
-      for (const rawUser of participants) {
+    const botJid = sock.user.id.replace(/:.*$/, "");
 
-        const user = normalizeJid(rawUser);
-        const botJid = normalizeJid(sock.user.id);
+    for (const user of participants) {
+      // ❌ ignorar solo si ES el bot
+      if (user === botJid) continue;
 
-        // ❌ evitar que el bot se detecte
-        if (user === botJid) continue;
+      const mention = user.split("@")[0];
 
-        const mention = user.split("@")[0];
+      const name =
+        metadata.participants.find(p =>
+          p.id?.includes(mention)
+        )?.notify || "Usuario";
 
-        const member =
-          metadata.participants.find(p => normalizeJid(p.id) === user);
+      const date = new Date();
+      const formattedDate = date.toLocaleDateString("es-MX");
+      const formattedTime = date.toLocaleTimeString("es-MX", {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
 
-        const name = member?.notify || member?.name || "Usuario";
-
-        const date = new Date();
-        const formattedDate = date.toLocaleDateString("es-MX");
-        const formattedTime = date.toLocaleTimeString("es-MX", {
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-
-        let image;
-
-        // intentar foto de perfil
-        try {
-          image = { url: await sock.profilePictureUrl(user, "image") };
-        } catch {
-          image = action === "add" ? welcomeImg : byeImg;
-        }
-
-        // ========= WELCOME =========
-        if (action === "add" && isWelcomeEnabled(id)) {
-
-          const raw = getWelcomeText(id);
-
-          const caption = raw
-            .replace(/@user/g, `@${mention}`)
-            .replace(/@id/g, mention)
-            .replace(/@name/g, name)
-            .replace(/@group/g, metadata.subject || "Grupo")
-            .replace(/@desc/g, metadata.desc || "Sin descripción")
-            .replace(/@count/g, count)
-            .replace(/@date/g, formattedDate)
-            .replace(/@time/g, formattedTime);
-
-          await sock.sendMessage(id, {
-            image,
-            caption,
-            mentions: [user]
-          });
-        }
-
-        // ========= BYE =========
-        if (action === "remove" && isByeEnabled(id)) {
-
-          const raw = getByeText(id);
-
-          const caption = raw
-            .replace(/@user/g, `@${mention}`)
-            .replace(/@id/g, mention)
-            .replace(/@name/g, name)
-            .replace(/@group/g, metadata.subject || "Grupo")
-            .replace(/@desc/g, metadata.desc || "Sin descripción")
-            .replace(/@count/g, count - 1)
-            .replace(/@date/g, formattedDate)
-            .replace(/@time/g, formattedTime);
-
-          await sock.sendMessage(id, {
-            image,
-            caption,
-            mentions: [user]
-          });
-        }
+      let image;
+      try {
+        image = { url: await sock.profilePictureUrl(user, "image") };
+      } catch {
+        image = action === "add" ? welcomeImg : byeImg;
       }
 
-    } catch (e) {
-      console.error("❌ Error welcome/bye:", e);
-    }
-  });
+      // ===== WELCOME =====
+      if (action === "add" && isWelcomeEnabled(id)) {
+        const raw = getWelcomeText(id);
 
-}
+        const caption = raw
+          .replace(/@user/g, `@${mention}`)
+          .replace(/@id/g, mention)
+          .replace(/@name/g, name)
+          .replace(/@group/g, metadata.subject || "Grupo")
+          .replace(/@desc/g, metadata.desc || "Sin descripción")
+          .replace(/@count/g, count)
+          .replace(/@date/g, formattedDate)
+          .replace(/@time/g, formattedTime);
+
+        await sock.sendMessage(id, {
+          image,
+          caption,
+          mentions: [user] // 🔥 LID REAL
+        });
+      }
+
+      // ===== BYE =====
+      if (action === "remove" && isByeEnabled(id)) {
+        const raw = getByeText(id);
+
+        const caption = raw
+          .replace(/@user/g, `@${mention}`)
+          .replace(/@id/g, mention)
+          .replace(/@name/g, name)
+          .replace(/@group/g, metadata.subject || "Grupo")
+          .replace(/@desc/g, metadata.desc || "Sin descripción")
+          .replace(/@count/g, count - 1)
+          .replace(/@date/g, formattedDate)
+          .replace(/@time/g, formattedTime);
+
+        await sock.sendMessage(id, {
+          image,
+          caption,
+          mentions: [user]
+        });
+      }
+    }
+
+  } catch (e) {
+    console.error("❌ Error welcome/bye:", e);
+  }
+});
 
 startBot();
