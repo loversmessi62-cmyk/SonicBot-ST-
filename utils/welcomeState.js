@@ -14,8 +14,10 @@ function load() {
           global: {
             welcome: true,
             bye: true,
-            welcomeText: "👋 Bienvenido @user a *@group*\n👥 Miembros: @count",
-            byeText: "👋 @user salió de *@group*\n👥 Quedan: @count"
+            welcomeText:
+              "👋 Bienvenido @user a *@group*\n👥 Miembros: @count",
+            byeText:
+              "👋 @user salió de *@group*\n👥 Quedan: @count"
           },
           groups: {}
         },
@@ -58,6 +60,13 @@ export function setWelcome(jid, state) {
   save(db);
 }
 
+export function setWelcomeText(jid, text) {
+  const db = load();
+  if (!db.groups[jid]) db.groups[jid] = {};
+  db.groups[jid].welcomeText = text;
+  save(db);
+}
+
 // =====================
 // BYE
 // =====================
@@ -81,5 +90,12 @@ export function setBye(jid, state) {
   const db = load();
   if (!db.groups[jid]) db.groups[jid] = {};
   db.groups[jid].bye = state;
+  save(db);
+}
+
+export function setByeText(jid, text) {
+  const db = load();
+  if (!db.groups[jid]) db.groups[jid] = {};
+  db.groups[jid].byeText = text;
   save(db);
 }
