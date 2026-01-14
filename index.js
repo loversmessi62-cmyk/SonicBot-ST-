@@ -219,5 +219,5 @@ if (typeof pfp === "string" && pfp.startsWith("http")) {
     console.error("❌ WELCOME/BYE PRO ERROR:", err);
   }
 });
-
+}
 startBot();
