@@ -108,7 +108,6 @@ async function startBot() {
 // =====================
 // WELCOME / BYE (PFP + FALLBACK LOCAL)
 // =====================
-import fs from "fs";
 
 sock.ev.on("group-participants.update", async update => {
   console.log("🔥 EVENTO group-participants.update:", update);
