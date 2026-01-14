@@ -10,7 +10,7 @@ export default {
     let text = args.join(" ").trim();
 
     if (!text) return sock.sendMessage(jid, { text: "⚠️ Ingresa un texto" }, { quoted: msg });
-    if (text.length > 40) return sock.sendMessage(jid, { text: "❌ Máximo 20 letras." }, { quoted: msg });
+    if (text.length > 50) return sock.sendMessage(jid, { text: "❌ Máximo 50 letras." }, { quoted: msg });
 
     try {
       const url = `https://api.delirius.store/canvas/brat?text=${encodeURIComponent(text)}`;
