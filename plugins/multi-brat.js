@@ -13,7 +13,7 @@ export default {
     if (text.length > 20) return sock.sendMessage(jid, { text: "❌ Máximo 20 letras." }, { quoted: msg });
 
     try {
-      const url = `https://ryuseiclub.xyz/ai/brat?text=${encodeURIComponent(text)}`;
+      const url = `https://api.delirius.store/canvas/brat?text=${encodeURIComponent(text)}`;
       const res = await axios.post(url, {}, { responseType: "arraybuffer" });
       const buffer = Buffer.from(res.data);
 
