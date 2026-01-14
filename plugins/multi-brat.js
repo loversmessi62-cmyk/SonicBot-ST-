@@ -35,7 +35,7 @@ export default {
       let username = msg.pushName || "Usuario";
       const stiker = await sticker(
         null,
-        `https://star-void-api.vercel.app/api/brat?text=${encodeURIComponent(text)}`,
+        `https://ryuseiclub.xyz/ai/brat?text=${encodeURIComponent(text)}&apikey=100`,
         text,
         username
       );
