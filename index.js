@@ -155,19 +155,22 @@ sock.ev.on("group-participants.update", async update => {
       // 📸 FOTO PERFIL (FIX REAL)
       // ==========================
       let image;
-      let pfp = null;
+let pfp = null;
 
-      try {
-        pfp = await sock.profilePictureUrl(user, "image");
-      } catch {
-        pfp = null;
-      }
+try {
+  pfp = await sock.profilePictureUrl(user, "image");
+} catch {
+  pfp = null;
+}
 
-      if (typeof pfp === "string" && pfp.startsWith("http")) {
-        image = { url: pfp };
-      } else {
-        image = action === "add" ? welcomeImg : byeImg;
-      }
+if (typeof pfp === "string" && pfp.startsWith("http")) {
+  image = { url: pfp };
+} else {
+  image = {
+    buffer: action === "add" ? welcomeImg : byeImg
+  };
+}
+
 
       // ========= WELCOME =========
       if (action === "add" && isWelcomeEnabled(id)) {
