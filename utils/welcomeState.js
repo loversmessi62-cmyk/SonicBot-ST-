@@ -15,7 +15,10 @@ function save(data) {
 
 // ===== WELCOME =====
 export function isWelcomeEnabled(jid) {
+
   const db = load();
+  console.log("WELCOME ENABLED:", isWelcomeEnabled(id));
+
   if (db.groups?.[jid]?.welcome !== undefined) {
     return db.groups[jid].welcome === true;
   }
