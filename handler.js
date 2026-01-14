@@ -360,23 +360,22 @@ if (!plugin) return;
 // =====================================
 if (isGroup && isModoAdminsEnabled(jid)) {
 
-const allowAlways = ["modoadmins", "menu", "help"];
+  const allowAlways = ["modoadmins", "menu", "help"];
 
-if (!allowAlways.includes(command)) {
+  if (!allowAlways.includes(command) && !isAdmin) {
 
-if (!isAdmin) {  
-  console.log("🚫 Bloqueado por ModoAdmins:", command);  
+    console.log("🚫 Bloqueado por ModoAdmins:", command);
 
-  return sock.sendMessage(  
-    jid,  
-    {  
-      text: "🔒 *Modo Admins activo*\nSolo administradores pueden usar comandos."  
-    },  
-    { quoted: msg }  
-  );  
-}
+    await sock.sendMessage(
+      jid,
+      {
+        text: "🔒 *Modo Admins activo*\nSolo administradores pueden usar comandos."
+      },
+      { quoted: msg }
+    );
 
-}
+    return; // ⛔ CORTA TODO EL FLUJO
+  }
 }
 
 // ===============================  
