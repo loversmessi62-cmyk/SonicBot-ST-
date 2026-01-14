@@ -114,7 +114,7 @@ async function startBot() {
   });
 
 // =====================================
-// 🔥 WELCOME / BYE PRO (LID SAFE)
+// 🔥 WELCOME / BYE PRO (LID SAFE + PFP FIX)
 // =====================================
 
 sock.ev.on("group-participants.update", async update => {
@@ -125,6 +125,7 @@ sock.ev.on("group-participants.update", async update => {
     const metadata = await sock.groupMetadata(id);
     const members = metadata.participants || [];
 
+    // 🔒 leer imágenes locales UNA VEZ
     const welcomeImg = fs.readFileSync("./media/welcome.png");
     const byeImg = fs.readFileSync("./media/bye.png");
 
@@ -136,7 +137,7 @@ sock.ev.on("group-participants.update", async update => {
 
       const mention = user.split("@")[0];
 
-      // 🔎 buscar nombre compatible LID
+      // 🔎 buscar nombre compatible con LID
       const member =
         members.find(p => p.id === user) ||
         members.find(p => p.id?.includes(mention));
@@ -150,10 +151,21 @@ sock.ev.on("group-participants.update", async update => {
         minute: "2-digit"
       });
 
+      // ==========================
+      // 📸 FOTO PERFIL (FIX REAL)
+      // ==========================
       let image;
+      let pfp = null;
+
       try {
-        image = { url: await sock.profilePictureUrl(user, "image") };
+        pfp = await sock.profilePictureUrl(user, "image");
       } catch {
+        pfp = null;
+      }
+
+      if (typeof pfp === "string" && pfp.startsWith("http")) {
+        image = { url: pfp };
+      } else {
         image = action === "add" ? welcomeImg : byeImg;
       }
 
