@@ -4,7 +4,10 @@ const FILE = "./utils/welcomeState.json";
 
 function load() {
   if (!fs.existsSync(FILE)) {
-    fs.writeFileSync(FILE, JSON.stringify({ global: {}, groups: {} }, null, 2));
+    fs.writeFileSync(
+      FILE,
+      JSON.stringify({ global: { welcome: true, bye: true }, groups: {} }, null, 2)
+    );
   }
   return JSON.parse(fs.readFileSync(FILE, "utf-8"));
 }
@@ -15,22 +18,11 @@ function save(data) {
 
 // ===== WELCOME =====
 export function isWelcomeEnabled(jid) {
-
   const db = load();
-  console.log("WELCOME ENABLED:", isWelcomeEnabled(id));
-
   if (db.groups?.[jid]?.welcome !== undefined) {
     return db.groups[jid].welcome === true;
   }
   return db.global?.welcome === true;
-}
-
-export function setWelcome(jid, value) {
-  const db = load();
-  if (!db.groups) db.groups = {};
-  if (!db.groups[jid]) db.groups[jid] = {};
-  db.groups[jid].welcome = value;
-  save(db);
 }
 
 export function getWelcomeText(jid) {
@@ -49,14 +41,6 @@ export function isByeEnabled(jid) {
     return db.groups[jid].bye === true;
   }
   return db.global?.bye === true;
-}
-
-export function setBye(jid, value) {
-  const db = load();
-  if (!db.groups) db.groups = {};
-  if (!db.groups[jid]) db.groups[jid] = {};
-  db.groups[jid].bye = value;
-  save(db);
 }
 
 export function getByeText(jid) {
