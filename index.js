@@ -22,6 +22,7 @@ const {
   useMultiFileAuthState,
   DisconnectReason
 } = baileys;
+
 let pluginsLoaded = false;
 let booted = false;
 
@@ -37,26 +38,20 @@ function registerWelcome(sock) {
     try {
       const { id, participants, action } = update;
 
-      // 🔁 intentamos usar caché
-      let metadata = groupCache[id];
-
-      // ❌ si no hay caché, intentamos pedirla
-      if (!metadata) {
-        try {
-          metadata = await sock.groupMetadata(id);
-          groupCache[id] = metadata;
-        } catch {
-          metadata = null;
-        }
-      }
+      // 🔁 usamos caché primero
+      let metadata = groupCache[id] || null;
 
       const groupName = metadata?.subject || "Grupo";
-      const count = metadata?.participants?.length || 0;
+      const groupDesc = metadata?.desc || "Sin descripción";
+      const members = metadata?.participants || [];
+      const count = members.length;
 
       for (const user of participants) {
         if (user === sock.user.id) continue;
 
         const mention = user.split("@")[0];
+        const name =
+          members.find(p => p.id === user)?.notify || "Usuario";
 
         let image;
         try {
@@ -74,13 +69,18 @@ function registerWelcome(sock) {
           minute: "2-digit"
         });
 
-        // ===== WELCOME =====
+        // =====================
+        // WELCOME
+        // =====================
         if (action === "add" && isWelcomeEnabled(id)) {
           const raw = getWelcomeText(id);
 
           const caption = raw
             .replace(/@user/g, `@${mention}`)
+            .replace(/@id/g, mention)
+            .replace(/@name/g, name)
             .replace(/@group/g, groupName)
+            .replace(/@desc/g, groupDesc)
             .replace(/@count/g, count)
             .replace(/@date/g, formattedDate)
             .replace(/@time/g, formattedTime);
@@ -92,13 +92,18 @@ function registerWelcome(sock) {
           });
         }
 
-        // ===== BYE =====
+        // =====================
+        // BYE
+        // =====================
         if (action === "remove" && isByeEnabled(id)) {
           const raw = getByeText(id);
 
           const caption = raw
             .replace(/@user/g, `@${mention}`)
+            .replace(/@id/g, mention)
+            .replace(/@name/g, name)
             .replace(/@group/g, groupName)
+            .replace(/@desc/g, groupDesc)
             .replace(/@count/g, Math.max(count - 1, 0))
             .replace(/@date/g, formattedDate)
             .replace(/@time/g, formattedTime);
@@ -132,16 +137,17 @@ async function startBot() {
   });
 
   sock.ev.on("creds.update", saveCreds);
+
+
   sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
 
     if (connection === "open" && !booted) {
       booted = true;
       console.log("✅ ADRIBOT CONECTADO");
 
-      // ⏳ dejamos respirar a WhatsApp
       setTimeout(async () => {
 
-        // 📦 cacheamos TODOS los grupos
+        // 📦 cacheamos metadata UNA VEZ
         try {
           const groups = await sock.groupFetchAllParticipating();
           for (const id in groups) {
@@ -152,7 +158,6 @@ async function startBot() {
           console.warn("⚠️ No se pudo cachear metadata");
         }
 
-        // 🔥 eventos
         groupAdmins(sock);
         groupSettings(sock);
         registerWelcome(sock);
@@ -163,23 +168,17 @@ async function startBot() {
           console.log("🔥 Plugins cargados correctamente.");
         }
 
-        // 🔁 aviso post-reinicio
         if (fs.existsSync("./restart.json")) {
-          try {
-            const data = JSON.parse(fs.readFileSync("./restart.json"));
-            fs.unlinkSync("./restart.json");
+          const data = JSON.parse(fs.readFileSync("./restart.json"));
+          fs.unlinkSync("./restart.json");
 
-            await sock.sendMessage(data.jid, {
-              text: "✅ *Bot encendido correctamente*\n🚀 Cambios aplicados y funcionando."
-            });
-          } catch (e) {
-            console.error("❌ Error post-reinicio:", e);
-          }
+          await sock.sendMessage(data.jid, {
+            text: "✅ *Bot encendido correctamente*"
+          });
         }
 
-      }, 4000);
+      }, 3000);
     }
-
 
                  if (connection === "close") {
       const code = lastDisconnect?.error?.output?.statusCode;
@@ -189,7 +188,6 @@ async function startBot() {
       }
     }
   });
-
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
@@ -205,3 +203,4 @@ async function startBot() {
 }
 
 startBot();
+
