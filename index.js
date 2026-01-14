@@ -22,9 +22,13 @@ const {
   useMultiFileAuthState,
   DisconnectReason
 } = baileys;
-
 let pluginsLoaded = false;
 let booted = false;
+
+// 📦 CACHÉ GLOBAL DE METADATA
+const groupCache = {};
+
+
 function registerWelcome(sock) {
   const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/mgqqcn.jpeg";
   const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
@@ -33,14 +37,26 @@ function registerWelcome(sock) {
     try {
       const { id, participants, action } = update;
 
-      // ⚠️ WhatsApp ya debe estar conectado aquí
-      const metadata = await sock.groupMetadata(id);
+      // 🔁 intentamos usar caché
+      let metadata = groupCache[id];
+
+      // ❌ si no hay caché, intentamos pedirla
+      if (!metadata) {
+        try {
+          metadata = await sock.groupMetadata(id);
+          groupCache[id] = metadata;
+        } catch {
+          metadata = null;
+        }
+      }
+
+      const groupName = metadata?.subject || "Grupo";
+      const count = metadata?.participants?.length || 0;
 
       for (const user of participants) {
         if (user === sock.user.id) continue;
 
         const mention = user.split("@")[0];
-        const count = metadata.participants.length;
 
         let image;
         try {
@@ -64,7 +80,7 @@ function registerWelcome(sock) {
 
           const caption = raw
             .replace(/@user/g, `@${mention}`)
-            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@group/g, groupName)
             .replace(/@count/g, count)
             .replace(/@date/g, formattedDate)
             .replace(/@time/g, formattedTime);
@@ -82,8 +98,8 @@ function registerWelcome(sock) {
 
           const caption = raw
             .replace(/@user/g, `@${mention}`)
-            .replace(/@group/g, metadata.subject || "Grupo")
-            .replace(/@count/g, count - 1)
+            .replace(/@group/g, groupName)
+            .replace(/@count/g, Math.max(count - 1, 0))
             .replace(/@date/g, formattedDate)
             .replace(/@time/g, formattedTime);
 
@@ -99,6 +115,8 @@ function registerWelcome(sock) {
     }
   });
 }
+
+
 async function startBot() {
   console.log("🚀 Iniciando ADRIBOT...");
 
@@ -123,7 +141,18 @@ async function startBot() {
       // ⏳ dejamos respirar a WhatsApp
       setTimeout(async () => {
 
-        // 🔥 ahora sí
+        // 📦 cacheamos TODOS los grupos
+        try {
+          const groups = await sock.groupFetchAllParticipating();
+          for (const id in groups) {
+            groupCache[id] = groups[id];
+          }
+          console.log("📦 Metadata cacheada:", Object.keys(groupCache).length);
+        } catch {
+          console.warn("⚠️ No se pudo cachear metadata");
+        }
+
+        // 🔥 eventos
         groupAdmins(sock);
         groupSettings(sock);
         registerWelcome(sock);
@@ -134,7 +163,7 @@ async function startBot() {
           console.log("🔥 Plugins cargados correctamente.");
         }
 
-        // aviso post-reinicio
+        // 🔁 aviso post-reinicio
         if (fs.existsSync("./restart.json")) {
           try {
             const data = JSON.parse(fs.readFileSync("./restart.json"));
@@ -148,10 +177,11 @@ async function startBot() {
           }
         }
 
-      }, 3000);
+      }, 4000);
     }
 
-    if (connection === "close") {
+
+                 if (connection === "close") {
       const code = lastDisconnect?.error?.output?.statusCode;
       if (code === DisconnectReason.loggedOut) {
         console.log("❌ Sesión cerrada. Borra /sessions/");
@@ -159,6 +189,8 @@ async function startBot() {
       }
     }
   });
+
+
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
 
