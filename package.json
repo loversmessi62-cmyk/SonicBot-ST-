@@ -14,6 +14,7 @@
     "qrcode-terminal": "^0.12.0",
     "axios": "^1.6.0",
     "yt-search": "*", 
+    "node-fetch": "latest",
     "moment-timezone": "^0.5.43",
     "jimp": "^0.16.13"
   }
