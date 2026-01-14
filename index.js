@@ -9,7 +9,13 @@ import fs from "fs";
 import handler, { loadPlugins } from "./handler.js";
 import groupAdmins from "./events/groupAdmins.js";
 import groupSettings from "./events/groupSettings.js";
-import welcomeEvent from "./events/welcome.js";
+
+import {
+  isWelcomeEnabled,
+  isByeEnabled,
+  getWelcomeText,
+  getByeText
+} from "./utils/welcomeState.js";
 
 const {
   default: makeWASocket,
@@ -18,58 +24,40 @@ const {
 } = baileys;
 
 let pluginsLoaded = false;
-let booted = false;
 
-// 📦 caché global de metadata
-const groupCache = {};
-
+// =====================
+// START BOT
+// =====================
 async function startBot() {
   console.log("🚀 Iniciando ADRIBOT...");
 
-  const { state, saveCreds } =
-    await useMultiFileAuthState("./sessions");
+  const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
   const sock = makeWASocket({
     logger: pino({ level: "silent" }),
     printQRInTerminal: true,
     auth: state,
-    browser: ["ADRIBOT", "Chrome", "6.0"],
-    connectTimeoutMs: 60_000
+    browser: ["ADRIBOT", "Chrome", "6.0"]
   });
+
+  // =====================
+  // EVENTOS BASE (1 VEZ)
+  // =====================
+  groupAdmins(sock);
+  groupSettings(sock);
 
   sock.ev.on("creds.update", saveCreds);
 
+  // =====================
+  // CONEXIÓN
+  // =====================
   sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
 
-    if (connection === "open" && !booted) {
-      booted = true;
+    if (connection === "open") {
       console.log("✅ ADRIBOT CONECTADO");
 
-      // 🔥 REGISTRAR WELCOME UNA SOLA VEZ
-      welcomeEvent(sock, groupCache);
-
+      // Aviso post-reinicio
       setTimeout(async () => {
-
-        // 📦 cachear grupos (opcional pero recomendado)
-        try {
-          const groups = await sock.groupFetchAllParticipating();
-          for (const id in groups) {
-            groupCache[id] = groups[id];
-          }
-          console.log("📦 Metadata cacheada:", Object.keys(groupCache).length);
-        } catch {
-          console.warn("⚠️ No se pudo cachear metadata");
-        }
-
-        groupAdmins(sock);
-        groupSettings(sock);
-
-        if (!pluginsLoaded) {
-          await loadPlugins();
-          pluginsLoaded = true;
-          console.log("🔥 Plugins cargados correctamente.");
-        }
-
         if (fs.existsSync("./restart.json")) {
           try {
             const data = JSON.parse(fs.readFileSync("./restart.json"));
@@ -78,12 +66,19 @@ async function startBot() {
             await sock.sendMessage(data.jid, {
               text: "✅ *Bot encendido correctamente*\n🚀 Cambios aplicados y funcionando."
             });
+
+            console.log("✅ Aviso post-reinicio enviado");
           } catch (e) {
             console.error("❌ Error post-reinicio:", e);
           }
         }
+      }, 4000);
 
-      }, 3000);
+      if (!pluginsLoaded) {
+        await loadPlugins();
+        pluginsLoaded = true;
+        console.log("🔥 Plugins cargados correctamente.");
+      }
     }
 
     if (connection === "close") {
@@ -95,6 +90,9 @@ async function startBot() {
     }
   });
 
+  // =====================
+  // MENSAJES
+  // =====================
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
 
@@ -104,6 +102,94 @@ async function startBot() {
       if (msg.message?.reactionMessage) continue;
 
       await handler(sock, msg);
+    }
+  });
+
+  // =====================
+  // WELCOME / BYE
+  // =====================
+  const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/mgqqcn.jpeg";
+  const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
+
+  sock.ev.on("group-participants.update", async update => {
+    try {
+      const { id, participants, action } = update;
+      const metadata = await sock.groupMetadata(id);
+
+      for (const user of participants) {
+        if (user === sock.user.id) continue;
+
+        const mention = user.split("@")[0];
+        const count = metadata.participants.length;
+
+        let image;
+        try {
+          image = await sock.profilePictureUrl(user, "image");
+        } catch {
+          image = action === "add"
+            ? DEFAULT_WELCOME_IMG
+            : DEFAULT_BYE_IMG;
+        }
+
+        const date = new Date();
+        const formattedDate = date.toLocaleDateString("es-MX");
+        const formattedTime = date.toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+
+        // ========= WELCOME =========
+        if (action === "add" && isWelcomeEnabled(id)) {
+
+          const raw = getWelcomeText(id);
+
+          const caption = raw
+            .replace(/@user/g, `@${mention}`)
+            .replace(/@id/g, mention)
+            .replace(
+              /@name/g,
+              metadata.participants.find(p => p.id === user)?.notify || "Usuario"
+            )
+            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@desc/g, metadata.desc || "Sin descripción")
+            .replace(/@count/g, count)
+            .replace(/@date/g, formattedDate)
+            .replace(/@time/g, formattedTime);
+
+          await sock.sendMessage(id, {
+            image: { url: image },
+            caption,
+            mentions: [user]
+          });
+        }
+
+        // ========= BYE =========
+        if (action === "remove" && isByeEnabled(id)) {
+
+          const raw = getByeText(id);
+
+          const caption = raw
+            .replace(/@user/g, `@${mention}`)
+            .replace(/@id/g, mention)
+            .replace(
+              /@name/g,
+              metadata.participants.find(p => p.id === user)?.notify || "Usuario"
+            )
+            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@desc/g, metadata.desc || "Sin descripción")
+            .replace(/@count/g, count - 1)
+            .replace(/@date/g, formattedDate)
+            .replace(/@time/g, formattedTime);
+
+          await sock.sendMessage(id, {
+            image: { url: image },
+            caption,
+            mentions: [user]
+          });
+        }
+      }
+    } catch (e) {
+      console.error("❌ Error welcome/bye:", e);
     }
   });
 }
