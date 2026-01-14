@@ -1,3 +1,7 @@
+// =====================
+// WELCOME / BYE (STABLE)
+// =====================
+
 import {
   isWelcomeEnabled,
   isByeEnabled,
@@ -9,14 +13,14 @@ const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/mgqqcn.jpeg";
 const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
 
 export default function welcomeEvent(sock, groupCache) {
-  console.log("🟢 Welcome event registrado");
 
-  sock.ev.on("group-participants.update", async (update) => {
-    console.log("📥 Evento group-participants.update:", update);
+  console.log("✅ Welcome event registrado");
 
+  sock.ev.on("group-participants.update", async update => {
     try {
       const { id, participants, action } = update;
 
+      // 📦 metadata desde caché o fetch
       let metadata = groupCache[id];
       if (!metadata) {
         try {
@@ -28,13 +32,19 @@ export default function welcomeEvent(sock, groupCache) {
       }
 
       const groupName = metadata?.subject || "Grupo";
-      const count = metadata?.participants?.length || 0;
+      const groupDesc = metadata?.desc || "Sin descripción";
+      const members = metadata?.participants || [];
 
       for (const user of participants) {
         if (user === sock.user.id) continue;
 
         const mention = user.split("@")[0];
+        const count =
+          action === "add"
+            ? members.length
+            : Math.max(members.length - 1, 0);
 
+        // 🖼️ imagen
         let image;
         try {
           image = await sock.profilePictureUrl(user, "image");
@@ -44,14 +54,35 @@ export default function welcomeEvent(sock, groupCache) {
             : DEFAULT_BYE_IMG;
         }
 
-        // ===== WELCOME =====
+        // 🕒 fecha y hora
+        const date = new Date();
+        const formattedDate = date.toLocaleDateString("es-MX");
+        const formattedTime = date.toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+
+        // 📛 nombre visible
+        const name =
+          members.find(p => p.id === user)?.notify ||
+          mention ||
+          "Usuario";
+
+        // =====================
+        // WELCOME
+        // =====================
         if (action === "add" && isWelcomeEnabled(id)) {
-          const raw = getWelcomeText(id) || "Bienvenido @user a @group";
+          const raw = getWelcomeText(id);
 
           const caption = raw
             .replace(/@user/g, `@${mention}`)
+            .replace(/@id/g, mention)
+            .replace(/@name/g, name)
             .replace(/@group/g, groupName)
-            .replace(/@count/g, count);
+            .replace(/@desc/g, groupDesc)
+            .replace(/@count/g, count)
+            .replace(/@date/g, formattedDate)
+            .replace(/@time/g, formattedTime);
 
           await sock.sendMessage(id, {
             image: { url: image },
@@ -60,14 +91,21 @@ export default function welcomeEvent(sock, groupCache) {
           });
         }
 
-        // ===== BYE =====
+        // =====================
+        // BYE
+        // =====================
         if (action === "remove" && isByeEnabled(id)) {
-          const raw = getByeText(id) || "Adiós @user";
+          const raw = getByeText(id);
 
           const caption = raw
             .replace(/@user/g, `@${mention}`)
+            .replace(/@id/g, mention)
+            .replace(/@name/g, name)
             .replace(/@group/g, groupName)
-            .replace(/@count/g, Math.max(count - 1, 0));
+            .replace(/@desc/g, groupDesc)
+            .replace(/@count/g, count)
+            .replace(/@date/g, formattedDate)
+            .replace(/@time/g, formattedTime);
 
           await sock.sendMessage(id, {
             image: { url: image },
@@ -76,6 +114,7 @@ export default function welcomeEvent(sock, groupCache) {
           });
         }
       }
+
     } catch (e) {
       console.error("❌ Error welcome/bye:", e);
     }
