@@ -112,6 +112,7 @@ async function startBot() {
   const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
 
   sock.ev.on("group-participants.update", async update => {
+    console.log("🔥 EVENTO group-participants.update:", update);
     try {
       const { id, participants, action } = update;
       const metadata = await sock.groupMetadata(id);
