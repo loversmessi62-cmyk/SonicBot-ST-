@@ -37,7 +37,6 @@ async function startBot() {
     connectTimeoutMs: 60_000
   });
 
-    welcomeEvent(sock, groupCache);
     sock.ev.on("creds.update", saveCreds);
   sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
 
@@ -45,6 +44,9 @@ async function startBot() {
       booted = true;
       console.log("✅ ADRIBOT CONECTADO");
 
+       // 🔥 REGISTRAR AQUÍ
+  welcomeEvent(sock, groupCache);
+      
       setTimeout(async () => {
 
         try {
