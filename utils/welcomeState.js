@@ -108,8 +108,8 @@ const FILE = "./utils/welcomeState.json";
 function load() {
   const defaults = {
     global: {
-      welcome: true,
-      bye: true,
+      welcome: false,
+      bye: false,
       welcomeText: "Bienvenido @user a *@group*\n🍷 Miembros: @count",
       byeText: "☕ @user salió de *@group*\n🪐 Quedan: @count"
     },
