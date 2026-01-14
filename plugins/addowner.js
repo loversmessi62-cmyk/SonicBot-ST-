@@ -1,4 +1,6 @@
-import { addOwner, isOwner } from "../utils/ownerState.js";
+import fs from "fs";
+import config from "../config.js";
+import { isOwner } from "../utils/isOwner.js";
 
 export default {
   commands: ["addowner"],
@@ -7,10 +9,9 @@ export default {
   async run(sock, msg) {
     const sender = msg.key.participant || msg.key.remoteJid;
 
-    // 🔒 solo owners
     if (!isOwner(sender)) {
       return sock.sendMessage(sender, {
-        text: "⛔ No eres owner del bot"
+        text: "⛔ Solo el OWNER principal puede usar esto"
       });
     }
 
@@ -23,12 +24,24 @@ export default {
       });
     }
 
-    const added = addOwner(target);
+    const number = target.split("@")[0];
+
+    if (config.owners.includes(number)) {
+      return sock.sendMessage(sender, {
+        text: "⚠️ Ese usuario ya es owner"
+      });
+    }
+
+    config.owners.push(number);
+
+    // 🔥 guardar en config.js
+    fs.writeFileSync(
+      "./config.js",
+      `export default ${JSON.stringify(config, null, 2)};\n`
+    );
 
     await sock.sendMessage(sender, {
-      text: added
-        ? `✅ @${target.split("@")[0]} ahora es OWNER`
-        : "⚠️ Ese usuario ya es owner",
+      text: `✅ @${number} ahora es OWNER`,
       mentions: [target]
     });
   }
