@@ -14,7 +14,7 @@ export default {
 
     try {
       const url = `https://api.delirius.store/canvas/brat?text=${encodeURIComponent(text)}`;
-      const res = await axios.post(url, {}, { responseType: "arraybuffer" });
+      const res = await axios.get(url, {}, { responseType: "arraybuffer" });
       const buffer = Buffer.from(res.data);
 
       const webp = await sticker(buffer);
