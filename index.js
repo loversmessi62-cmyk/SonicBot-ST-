@@ -29,7 +29,7 @@ async function startBot() {
   const { state, saveCreds } =
     await useMultiFileAuthState("./sessions");
 
-    const sock = makeWASocket({
+  const sock = makeWASocket({
     logger: pino({ level: "silent" }),
     printQRInTerminal: true,
     auth: state,
@@ -37,18 +37,20 @@ async function startBot() {
     connectTimeoutMs: 60_000
   });
 
-    sock.ev.on("creds.update", saveCreds);
+  sock.ev.on("creds.update", saveCreds);
+
   sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
 
     if (connection === "open" && !booted) {
       booted = true;
       console.log("✅ ADRIBOT CONECTADO");
 
-       // 🔥 REGISTRAR AQUÍ
-  welcomeEvent(sock, groupCache);
-      
+      // 🔥 REGISTRAR WELCOME UNA SOLA VEZ
+      welcomeEvent(sock, groupCache);
+
       setTimeout(async () => {
 
+        // 📦 cachear grupos (opcional pero recomendado)
         try {
           const groups = await sock.groupFetchAllParticipating();
           for (const id in groups) {
@@ -81,7 +83,7 @@ async function startBot() {
           }
         }
 
-      }, 4000);
+      }, 3000);
     }
 
     if (connection === "close") {
@@ -93,7 +95,7 @@ async function startBot() {
     }
   });
 
-    sock.ev.on("messages.upsert", async ({ messages, type }) => {
+  sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
 
     for (const msg of messages) {
@@ -107,5 +109,3 @@ async function startBot() {
 }
 
 startBot();
-
-
