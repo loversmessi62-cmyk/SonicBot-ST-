@@ -13,6 +13,7 @@
     "pino": "^8.0.0",
     "qrcode-terminal": "^0.12.0",
     "axios": "^1.6.0",
+    "yt-search": "*", 
     "moment-timezone": "^0.5.43",
     "jimp": "^0.16.13"
   }
