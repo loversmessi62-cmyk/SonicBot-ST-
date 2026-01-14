@@ -1,7 +1,3 @@
-// =====================
-// ADRI-BOT (Baileys)
-// =====================
-
 import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
 import fs from "fs";
@@ -25,9 +21,6 @@ const {
 
 let pluginsLoaded = false;
 
-// =====================
-// NORMALIZAR JID (@lid → real)
-// =====================
 function normalizeJid(jid) {
   if (!jid) return jid;
   if (jid.endsWith("@lid")) {
@@ -36,9 +29,6 @@ function normalizeJid(jid) {
   return jid;
 }
 
-// =====================
-// START BOT
-// =====================
 async function startBot() {
   console.log("🚀 Iniciando ADRIBOT...");
 
@@ -51,19 +41,12 @@ async function startBot() {
     browser: ["ADRIBOT", "Chrome", "6.0"]
   });
 
-  // =====================
-  // EVENTOS BASE
-  // =====================
   groupAdmins(sock);
   groupSettings(sock);
 
   sock.ev.on("creds.update", saveCreds);
 
-  // =====================
-  // CONEXIÓN
-  // =====================
   sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
-
     if (connection === "open") {
       console.log("✅ ADRIBOT CONECTADO");
 
@@ -72,7 +55,6 @@ async function startBot() {
           try {
             const data = JSON.parse(fs.readFileSync("./restart.json"));
             fs.unlinkSync("./restart.json");
-
             await sock.sendMessage(data.jid, {
               text: "✅ *Bot encendido correctamente*\n🚀 Cambios aplicados y funcionando."
             });
@@ -98,9 +80,6 @@ async function startBot() {
     }
   });
 
-  // =====================
-  // MENSAJES
-  // =====================
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
 
@@ -113,114 +92,86 @@ async function startBot() {
     }
   });
 
-// =====================================
-// 🔥 WELCOME / BYE PRO (LID SAFE + PFP FIX)
-// =====================================
+  sock.ev.on("group-participants.update", async update => {
+    try {
+      const { id, participants, action } = update;
+      if (!["add", "remove"].includes(action)) return;
 
-sock.ev.on("group-participants.update", async update => {
-  try {
-    const { id, participants, action } = update;
-    if (!["add", "remove"].includes(action)) return;
+      const metadata = await sock.groupMetadata(id);
+      const members = metadata.participants || [];
 
-    const metadata = await sock.groupMetadata(id);
-    const members = metadata.participants || [];
+      const welcomeImg = fs.readFileSync("./media/welcome.png");
+      const byeImg = fs.readFileSync("./media/bye.png");
 
-    // 🔒 leer imágenes locales UNA VEZ
-    const welcomeImg = fs.readFileSync("./media/welcome.png");
-    const byeImg = fs.readFileSync("./media/bye.png");
+      const botId = sock.user.id.split(":")[0];
 
-    const botId = sock.user.id.split(":")[0];
+      for (const user of participants) {
+        if (user === botId) continue;
 
-    for (const user of participants) {
-      // ⛔ ignorar SOLO si es el bot
-      if (user === botId) continue;
+        const mention = user.split("@")[0];
+        const member =
+          members.find(p => p.id === user) ||
+          members.find(p => p.id?.includes(mention));
 
-      const mention = user.split("@")[0];
+        const name = member?.notify || member?.name || "Usuario";
 
-      // 🔎 buscar nombre compatible con LID
-      const member =
-        members.find(p => p.id === user) ||
-        members.find(p => p.id?.includes(mention));
-
-      const name = member?.notify || member?.name || "Usuario";
-
-      const now = new Date();
-      const date = now.toLocaleDateString("es-MX");
-      const time = now.toLocaleTimeString("es-MX", {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-
-      // ==========================
-      // 📸 FOTO PERFIL (FIX REAL)
-      // ==========================
-      let image;
-let pfp = null;
-
-try {
-  pfp = await sock.profilePictureUrl(user, "image");
-} catch {
-  pfp = null;
-}
-
-if (typeof pfp === "string" && pfp.startsWith("http")) {
-  image = { url: pfp };
-} else {
-  image = {
-    buffer: action === "add" ? welcomeImg : byeImg
-  };
-}
-
-
-      // ========= WELCOME =========
-      if (action === "add" && isWelcomeEnabled(id)) {
-        const raw = getWelcomeText(id);
-
-        const caption = raw
-          .replace(/@user/g, `@${mention}`)
-          .replace(/@id/g, mention)
-          .replace(/@name/g, name)
-          .replace(/@group/g, metadata.subject || "Grupo")
-          .replace(/@desc/g, metadata.desc || "Sin descripción")
-          .replace(/@count/g, members.length)
-          .replace(/@date/g, date)
-          .replace(/@time/g, time);
-
-        await sock.sendMessage(id, {
-          image,
-          caption,
-          mentions: [user] // 🔥 LID REAL
+        const now = new Date();
+        const date = now.toLocaleDateString("es-MX");
+        const time = now.toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit"
         });
+
+        let fileImage;
+        try {
+          const pfp = await sock.profilePictureUrl(user, "image");
+          fileImage = { url: pfp };
+        } catch {
+          fileImage = action === "add" ? welcomeImg : byeImg;
+        }
+
+        if (action === "add" && isWelcomeEnabled(id)) {
+          const raw = getWelcomeText(id);
+          const caption = raw
+            .replace(/@user/g, `@${mention}`)
+            .replace(/@id/g, mention)
+            .replace(/@name/g, name)
+            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@desc/g, metadata.desc || "Sin descripción")
+            .replace(/@count/g, members.length)
+            .replace(/@date/g, date)
+            .replace(/@time/g, time);
+
+          await sock.sendMessage(id, {
+            image: fileImage,
+            caption,
+            mentions: [user]
+          });
+        }
+
+        if (action === "remove" && isByeEnabled(id)) {
+          const raw = getByeText(id);
+          const caption = raw
+            .replace(/@user/g, `@${mention}`)
+            .replace(/@id/g, mention)
+            .replace(/@name/g, name)
+            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@desc/g, metadata.desc || "Sin descripción")
+            .replace(/@count/g, members.length - 1)
+            .replace(/@date/g, date)
+            .replace(/@time/g, time);
+
+          await sock.sendMessage(id, {
+            image: fileImage,
+            caption,
+            mentions: [user]
+          });
+        }
       }
-
-      // ========= BYE =========
-      if (action === "remove" && isByeEnabled(id)) {
-        const raw = getByeText(id);
-
-        const caption = raw
-          .replace(/@user/g, `@${mention}`)
-          .replace(/@id/g, mention)
-          .replace(/@name/g, name)
-          .replace(/@group/g, metadata.subject || "Grupo")
-          .replace(/@desc/g, metadata.desc || "Sin descripción")
-          .replace(/@count/g, members.length - 1)
-          .replace(/@date/g, date)
-          .replace(/@time/g, time);
-
-      /*  await sock.sendMessage(id, {
-          image,
-          caption,
-          mentions: [user]
-        }); 
-*/
-await sock.sendMessage(id, {
-image: action === "add"? welcomeImg : byeImg, caption, mentions: [user]} );
-      }
+    } catch (err) {
+      console.error("❌ WELCOME/BYE PRO ERROR:", err);
     }
-
-  } catch (err) {
-    console.error("❌ WELCOME/BYE PRO ERROR:", err);
-  }
-});
+  });
 }
+
 startBot();
