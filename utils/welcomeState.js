@@ -1,4 +1,4 @@
-import fs from "fs";
+/*import fs from "fs";
 
 const FILE = "./utils/welcomeState.json";
 
@@ -99,3 +99,95 @@ export function setByeText(jid, text) {
   db.groups[jid].byeText = text;
   save(db);
 }
+*/
+
+import fs from "fs";
+
+const FILE = "./utils/welcomeState.json";
+
+function load() {
+  const defaults = {
+    global: {
+      welcome: true,
+      bye: true,
+      welcomeText: "Bienvenido @user a *@group*\n🍷 Miembros: @count",
+      byeText: "☕ @user salió de *@group*\n🪐 Quedan: @count"
+    },
+    groups: {}
+  };
+
+  let data = {};
+
+  if (fs.existsSync(FILE)) {
+    try {
+      data = JSON.parse(fs.readFileSync(FILE, "utf-8"));
+    } catch (e) {
+      data = {};
+    }
+  }
+
+  data.global = { ...defaults.global, ...data.global };
+  data.groups = data.groups || {};
+
+  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
+
+  return data;
+}
+
+function save(data) {
+  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
+}
+
+export function isWelcomeEnabled(jid) {
+  const db = load();
+  if (db.groups?.[jid]?.welcome !== undefined) {
+    return db.groups[jid].welcome === true;
+  }
+  return db.global.welcome === true;
+}
+
+export function getWelcomeText(jid) {
+  const db = load();
+  return db.groups?.[jid]?.welcomeText ?? db.global.welcomeText;
+}
+
+export function setWelcome(jid, state) {
+  const db = load();
+  if (!db.groups[jid]) db.groups[jid] = {};
+  db.groups[jid].welcome = state;
+  save(db);
+}
+
+export function setWelcomeText(jid, text) {
+  const db = load();
+  if (!db.groups[jid]) db.groups[jid] = {};
+  db.groups[jid].welcomeText = text;
+  save(db);
+}
+
+export function isByeEnabled(jid) {
+  const db = load();
+  if (db.groups?.[jid]?.bye !== undefined) {
+    return db.groups[jid].bye === true;
+  }
+  return db.global.bye === true;
+}
+
+export function getByeText(jid) {
+  const db = load();
+  return db.groups?.[jid]?.byeText ?? db.global.byeText;
+}
+
+export function setBye(jid, state) {
+  const db = load();
+  if (!db.groups[jid]) db.groups[jid] = {};
+  db.groups[jid].bye = state;
+  save(db);
+}
+
+export function setByeText(jid, text) {
+  const db = load();
+  if (!db.groups[jid]) db.groups[jid] = {};
+  db.groups[jid].byeText = text;
+  save(db);
+} 
