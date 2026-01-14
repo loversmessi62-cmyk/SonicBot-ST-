@@ -19,7 +19,7 @@ export default {
 
     try {
       const metadata = await sock.groupMetadata(jid);
-      const botBase = sock.user.id.split(":")[0];
+      const botBase = sock.user.id.split(":")[0] || sock.user.jid.split(":")[0];
       const botParticipant = metadata.participants.find(p => p.id?.split(":")[0] === botBase);
 
       if (!botParticipant || !botParticipant.admin) {
