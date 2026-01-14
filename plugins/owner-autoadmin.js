@@ -10,7 +10,7 @@ export default {
     const senderNumber = ctx.sender.split("@")[0];
 
     if (!config.owners.includes(senderNumber)) {
-      return sock.sendMessage(jid, { text: "❌ Este comando es exclusivo del OWNER." });
+      return sock.sendMessage(jid, { text: "No eres ADRI, puta." });
     }
 
     if (!ctx.isGroup) {
@@ -21,7 +21,7 @@ export default {
 
     try {
       await sock.groupParticipantsUpdate(jid, [target], "promote");
-      await sock.sendMessage(jid, { text: "🔥 *Listo.*\nAhora eres administrador del grupo." });
+      await sock.sendMessage(jid, { text: "🔥 *Listo.*\nNos vamos a robar el grupo mi amo." });
     } catch (e) {
       console.error("❌ Error autoadmin:", e);
       await sock.sendMessage(jid, {
