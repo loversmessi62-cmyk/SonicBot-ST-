@@ -17,19 +17,6 @@ export default {
       return sock.sendMessage(jid, { text: config.messages.group });
     }
 
-    let metadata;
-    try {
-      metadata = await sock.groupMetadata(jid);
-    } catch {
-      return sock.sendMessage(jid, { text: "❌ No pude obtener información del grupo." });
-    }
-
-    const botParticipant = metadata.participants.find(p => p.id === sock.user.id);
-
-    if (!botParticipant || !botParticipant.admin) {
-      return sock.sendMessage(jid, { text: "❌ El bot NO es administrador del grupo." });
-    }
-
     const target = msg.key.participant || ctx.sender;
 
     try {
@@ -39,10 +26,11 @@ export default {
       console.error("❌ Error autoadmin:", e);
       await sock.sendMessage(jid, {
         text:
-          "❌ WhatsApp rechazó la promoción.\n\n" +
+          "❌ No pude promoverte.\n\n" +
           "📌 Esto suele pasar cuando:\n" +
-          "• El bot perdió permisos\n" +
-          "• El grupo es muy reciente"
+          "• El bot no es admin del grupo\n" +
+          "• El grupo es muy reciente\n" +
+          "• WhatsApp bloqueó la acción"
       });
     }
   }
