@@ -191,3 +191,8 @@ export function setByeText(jid, text) {
   db.groups[jid].byeText = text;
   save(db);
 } 
+
+// =====================
+// INIT FILE ON LOAD
+// =====================
+load();
