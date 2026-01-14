@@ -207,11 +207,14 @@ if (typeof pfp === "string" && pfp.startsWith("http")) {
           .replace(/@date/g, date)
           .replace(/@time/g, time);
 
-        await sock.sendMessage(id, {
+      /*  await sock.sendMessage(id, {
           image,
           caption,
           mentions: [user]
-        });
+        }); 
+*/
+await sock.sendMessage(id, {
+image: action === "add"? welcomeImg : byeImg, caption, mentions: [user]} );
       }
     }
 
