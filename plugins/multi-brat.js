@@ -1,4 +1,5 @@
 import { sticker } from "../lib/sticker.js";
+import axios from "axios";
 
 export default {
   commands: ["brat"],
@@ -6,66 +7,27 @@ export default {
 
   async run(sock, msg, args) {
     const jid = msg.key.remoteJid;
-    const usedPrefix = ".";
-    const command = "brat";
-    const botname = "ADRIBOT";
-    const redes = "https://github.com/WillZek";
-    const imagen1 = null;
+    let text = args.join(" ").trim().toUpperCase();
 
-    let text = args.join(" ").trim();
     if (!text) {
-      return sock.sendMessage(
-        jid,
-        { text: `⚠️ Ingresa un texto para tu sticker\n> Ejemplo: ${usedPrefix + command} Hola` },
-        { quoted: msg }
-      );
+      return sock.sendMessage(jid, { text: "⚠️ Ingresa un texto" }, { quoted: msg });
     }
 
-    text = text.toUpperCase();
-
     if (text.length > 20) {
-      return sock.sendMessage(
-        jid,
-        { text: "❌ Máximo 20 letras." },
-        { quoted: msg }
-      );
+      return sock.sendMessage(jid, { text: "❌ Máximo 20 letras." }, { quoted: msg });
     }
 
     try {
-      let username = msg.pushName || "Usuario";
-      const stiker = await sticker(
-        null,
-        `https://ryuseiclub.xyz/ai/brat?text=${encodeURIComponent(text)}&apikey=100`,
-        text,
-        username
-      );
+      const url = `https://ryuseiclub.xyz/ai/brat?text=${encodeURIComponent(text)}&apikey=100`;
+      const res = await axios.get(url, { responseType: "arraybuffer" });
+      const buffer = Buffer.from(res.data);
 
-      await sock.sendMessage(
-        jid,
-        { sticker: stiker },
-        {
-          quoted: msg,
-          contextInfo: {
-            forwardingScore: 200,
-            isForwarded: false,
-            externalAdReply: {
-              showAdAttribution: false,
-              title: text,
-              body: username,
-              mediaType: 2,
-              sourceUrl: redes,
-              thumbnail: imagen1
-            }
-          }
-        }
-      );
+      const stiker = await sticker(buffer);
+
+      await sock.sendMessage(jid, { sticker: stiker }, { quoted: msg });
     } catch (e) {
       console.error("❌ BRAT ERROR:", e);
-      await sock.sendMessage(
-        jid,
-        { text: `❌ Error al generar el sticker: ${e.message}` },
-        { quoted: msg }
-      );
+      await sock.sendMessage(jid, { text: `❌ Error al generar el sticker: ${e.message}` }, { quoted: msg });
     }
   }
 };
