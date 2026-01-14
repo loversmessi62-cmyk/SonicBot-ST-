@@ -17,16 +17,17 @@ export default {
       return sock.sendMessage(jid, { text: config.messages.group });
     }
 
+    let metadata;
     try {
-      const metadata = await sock.groupMetadata(jid);
-      const botBase = sock.user.id.split(":")[0] || sock.user.jid.split(":")[0];
-      const botParticipant = metadata.participants.find(p => p.id?.split(":")[0] === botBase);
-
-      if (!botParticipant || !botParticipant.admin) {
-        return sock.sendMessage(jid, { text: "❌ El bot NO es administrador del grupo." });
-      }
+      metadata = await sock.groupMetadata(jid);
     } catch {
       return sock.sendMessage(jid, { text: "❌ No pude obtener información del grupo." });
+    }
+
+    const botParticipant = metadata.participants.find(p => p.id === sock.user.id);
+
+    if (!botParticipant || !botParticipant.admin) {
+      return sock.sendMessage(jid, { text: "❌ El bot NO es administrador del grupo." });
     }
 
     const target = msg.key.participant || ctx.sender;
