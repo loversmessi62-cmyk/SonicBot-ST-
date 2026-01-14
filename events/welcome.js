@@ -9,12 +9,14 @@ const DEFAULT_WELCOME_IMG = "https://files.catbox.moe/mgqqcn.jpeg";
 const DEFAULT_BYE_IMG = "https://files.catbox.moe/tozocs.jpeg";
 
 export default function welcomeEvent(sock, groupCache) {
+  console.log("🟢 Welcome event registrado");
 
-  sock.ev.on("group-participants.update", async update => {
+  sock.ev.on("group-participants.update", async (update) => {
+    console.log("📥 Evento group-participants.update:", update);
+
     try {
       const { id, participants, action } = update;
 
-      // usar caché si existe
       let metadata = groupCache[id];
       if (!metadata) {
         try {
@@ -42,20 +44,14 @@ export default function welcomeEvent(sock, groupCache) {
             : DEFAULT_BYE_IMG;
         }
 
-        const date = new Date();
-        const formattedDate = date.toLocaleDateString("es-MX");
-        const formattedTime = date.toLocaleTimeString("es-MX", {
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-
+        // ===== WELCOME =====
         if (action === "add" && isWelcomeEnabled(id)) {
-          const caption = getWelcomeText(id)
+          const raw = getWelcomeText(id) || "Bienvenido @user a @group";
+
+          const caption = raw
             .replace(/@user/g, `@${mention}`)
             .replace(/@group/g, groupName)
-            .replace(/@count/g, count)
-            .replace(/@date/g, formattedDate)
-            .replace(/@time/g, formattedTime);
+            .replace(/@count/g, count);
 
           await sock.sendMessage(id, {
             image: { url: image },
@@ -64,13 +60,14 @@ export default function welcomeEvent(sock, groupCache) {
           });
         }
 
+        // ===== BYE =====
         if (action === "remove" && isByeEnabled(id)) {
-          const caption = getByeText(id)
+          const raw = getByeText(id) || "Adiós @user";
+
+          const caption = raw
             .replace(/@user/g, `@${mention}`)
             .replace(/@group/g, groupName)
-            .replace(/@count/g, Math.max(count - 1, 0))
-            .replace(/@date/g, formattedDate)
-            .replace(/@time/g, formattedTime);
+            .replace(/@count/g, Math.max(count - 1, 0));
 
           await sock.sendMessage(id, {
             image: { url: image },
