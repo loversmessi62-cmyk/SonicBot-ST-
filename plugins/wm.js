@@ -1,11 +1,14 @@
-import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import fs from "fs";
 import path from "path";
+import {
+  downloadContentFromMessage,
+  writeExifSticker
+} from "@whiskeysockets/baileys";
 
 export default {
   commands: ["wm"],
   category: "sticker",
-  description: "Renombra un sticker con un solo watermark",
+  description: "Cambia el watermark de un sticker",
 
   async run(sock, msg, args) {
     const jid = msg.key.remoteJid;
@@ -13,10 +16,10 @@ export default {
     const quoted =
       msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-    if (!quoted || !quoted.stickerMessage) {
+    if (!quoted?.stickerMessage) {
       return sock.sendMessage(
         jid,
-        { text: "❌ Responde a un *sticker*.\nEjemplo: .wm adri" },
+        { text: "❌ Responde a un *sticker*\nEjemplo: .wm adri" },
         { quoted: msg }
       );
     }
@@ -25,7 +28,7 @@ export default {
     if (!text) {
       return sock.sendMessage(
         jid,
-        { text: "❌ Escribe algo, no seas pendejo.\nEjemplo: .wm adri" },
+        { text: "❌ Escribe el watermark\nEjemplo: .wm adri" },
         { quoted: msg }
       );
     }
@@ -33,8 +36,10 @@ export default {
     const tmpDir = "./tmp";
     if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
 
-    const file = path.join(tmpDir, `${Date.now()}.webp`);
+    const input = path.join(tmpDir, `${Date.now()}.webp`);
+    const output = path.join(tmpDir, `${Date.now()}_wm.webp`);
 
+    // 📥 descargar sticker
     const stream = await downloadContentFromMessage(
       quoted.stickerMessage,
       "sticker"
@@ -45,18 +50,26 @@ export default {
       buffer = Buffer.concat([buffer, chunk]);
     }
 
-    fs.writeFileSync(file, buffer);
+    fs.writeFileSync(input, buffer);
+
+    // ✍️ escribir EXIF (AQUÍ está la magia)
+    const sticker = await writeExifSticker(
+      { sticker: fs.readFileSync(input) },
+      {
+        packname: "",   // vacío
+        author: text    // SOLO el texto
+      }
+    );
+
+    fs.writeFileSync(output, sticker);
 
     await sock.sendMessage(
       jid,
-      {
-        sticker: fs.readFileSync(file),
-        packname: "",      // 👈 vacío
-        author: text       // 👈 SOLO el texto
-      },
+      { sticker: fs.readFileSync(output) },
       { quoted: msg }
     );
 
-    fs.unlinkSync(file);
+    fs.unlinkSync(input);
+    fs.unlinkSync(output);
   }
 };
