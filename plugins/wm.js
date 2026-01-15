@@ -8,10 +8,24 @@ import {
 export default {
   commands: ["wm"],
   category: "sticker",
-  description: "Cambia el watermark de un sticker",
 
-  async run(sock, msg, args) {
+  async run(sock, msg) {
     const jid = msg.key.remoteJid;
+
+    const body =
+      msg.message?.conversation ||
+      msg.message?.extendedTextMessage?.text ||
+      "";
+
+    const text = body.replace(/^\.wm\s*/i, "").trim();
+
+    if (!text) {
+      return sock.sendMessage(
+        jid,
+        { text: "❌ Usa: *.wm texto*\nEjemplo: .wm adri" },
+        { quoted: msg }
+      );
+    }
 
     const quoted =
       msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -19,27 +33,18 @@ export default {
     if (!quoted?.stickerMessage) {
       return sock.sendMessage(
         jid,
-        { text: "❌ Responde a un *sticker*\nEjemplo: .wm adri" },
+        { text: "❌ Responde a un *sticker*" },
         { quoted: msg }
       );
     }
 
-    const text = args.join(" ").trim();
-    if (!text) {
-      return sock.sendMessage(
-        jid,
-        { text: "❌ Escribe el watermark\nEjemplo: .wm adri" },
-        { quoted: msg }
-      );
-    }
+    const tmp = "./tmp";
+    if (!fs.existsSync(tmp)) fs.mkdirSync(tmp);
 
-    const tmpDir = "./tmp";
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
+    const input = path.join(tmp, `${Date.now()}.webp`);
+    const output = path.join(tmp, `${Date.now()}_wm.webp`);
 
-    const input = path.join(tmpDir, `${Date.now()}.webp`);
-    const output = path.join(tmpDir, `${Date.now()}_wm.webp`);
-
-    // 📥 descargar sticker
+    // ⬇️ descargar sticker
     const stream = await downloadContentFromMessage(
       quoted.stickerMessage,
       "sticker"
@@ -52,12 +57,12 @@ export default {
 
     fs.writeFileSync(input, buffer);
 
-    // ✍️ escribir EXIF (AQUÍ está la magia)
+    // ✍️ escribir watermark REAL
     const sticker = await writeExifSticker(
       { sticker: fs.readFileSync(input) },
       {
-        packname: "",   // vacío
-        author: text    // SOLO el texto
+        packname: "",
+        author: text
       }
     );
 
