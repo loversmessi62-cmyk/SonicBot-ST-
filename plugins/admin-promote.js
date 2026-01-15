@@ -41,8 +41,8 @@ export default {
     // 🧠 texto dinámico
     const text =
       targets.length === 1
-        ? `👑 ${mentionsText}\n🎮 Jugó con Adri y obtuvo poderes 🤤`
-        : `👑 ${mentionsText}\n🎮 Jugaron con Adri y obtuvieron poderes 🤤`;
+        ? `👑 ${mentionsText}\n Se la chupo a Adri y obtuvo poderes 🤤`
+        : `👑 ${mentionsText}\n Se la chuparon a Adri y obtuvieron poderes 🤤`;
 
     await sock.sendMessage(
       jid,
