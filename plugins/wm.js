@@ -1,78 +1,72 @@
-import fs from "fs";
-import path from "path";
-import { downloadContentFromMessage, writeExifSticker } from "@whiskeysockets/baileys";
+import { Sticker } from "wa-sticker-formatter";
+import { downloadContentFromMessage } from "@whiskeysockets/baileys";
+
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks);
+}
+
+async function getQuotedStickerBuffer(msg) {
+  const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+  if (!quoted) return null;
+
+  const stickerMsg = quoted.stickerMessage;
+  if (!stickerMsg) return null;
+
+  const stream = await downloadContentFromMessage(stickerMsg, "sticker");
+  return await streamToBuffer(stream);
+}
 
 export default {
-  commands: ["wm"],
-  category: "sticker",
-  description: "Agrega un watermark (texto) a un sticker citado",
+  commands: ["wm", "take", "robar"],
+  category: "tools",
 
-  async run(sock, msg, args, ctx) {
-    try {
-      const jid = ctx.jid;
+  async run(sock, msg, args) {
+    const jid = msg.key.remoteJid;
+    const stickerBuffer = await getQuotedStickerBuffer(msg);
 
-      // Texto a poner en el sticker
-      const text = args.join(" ").trim();
-      if (!text) {
-        return sock.sendMessage(
-          jid,
-          { text: "❌ Usa: *.wm texto*\nEjemplo: .wm adri" },
-          { quoted: msg }
-        );
-      }
-
-      // Obtener mensaje citado
-      const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-      if (!quoted?.stickerMessage) {
-        return sock.sendMessage(
-          jid,
-          { text: "❌ Responde a un *sticker*" },
-          { quoted: msg }
-        );
-      }
-
-      // Carpeta temporal
-      const tmp = "./tmp";
-      if (!fs.existsSync(tmp)) fs.mkdirSync(tmp);
-
-      const inputPath = path.join(tmp, `${Date.now()}.webp`);
-      const outputPath = path.join(tmp, `${Date.now()}_wm.webp`);
-
-      // ⬇️ Descargar sticker
-      const stream = await downloadContentFromMessage(quoted.stickerMessage, "sticker");
-      let buffer = Buffer.from([]);
-      for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-      fs.writeFileSync(inputPath, buffer);
-
-      console.log("✅ Sticker descargado correctamente");
-
-      // ✍️ Agregar watermark
-      const stickerBuffer = await writeExifSticker(
-        { sticker: fs.readFileSync(inputPath) },
-        { packname: "", author: text }
-      );
-
-      fs.writeFileSync(outputPath, stickerBuffer);
-
-      console.log("✅ Watermark agregado:", text);
-
-      // 📤 Enviar sticker con watermark
-      await sock.sendMessage(
+    if (!stickerBuffer)
+      return sock.sendMessage(
         jid,
-        { sticker: fs.readFileSync(outputPath) },
+        { text: "⚠️ Responde a un sticker con el comando.\nEjemplo: wm Pack | Autor" },
         { quoted: msg }
       );
 
-      // Limpiar archivos temporales
-      fs.unlinkSync(inputPath);
-      fs.unlinkSync(outputPath);
+    const text = args.join(" ").trim();
 
-      console.log("✅ Sticker enviado y archivos temporales eliminados");
-    } catch (err) {
-      console.error("❌ Error en comando .wm:", err);
+    if (!text)
       return sock.sendMessage(
-        ctx.jid,
-        { text: "❌ Ocurrió un error al procesar el sticker" },
+        jid,
+        { text: "⚠️ Escribe el nombre del Pack (y opcional el Autor)." },
+        { quoted: msg }
+      );
+
+    const parts = text.split(/[|•]/).map(x => x.trim()).filter(Boolean);
+    const pack = parts[0] || "Sticker Pack";
+    const author = parts[1] || "WM";
+
+    if (pack.length > 50)
+      return sock.sendMessage(jid, { text: "❌ Pack máximo 50 letras." }, { quoted: msg });
+
+    if (author.length > 50)
+      return sock.sendMessage(jid, { text: "❌ Autor máximo 50 letras." }, { quoted: msg });
+
+    try {
+      const sticker = new Sticker(stickerBuffer, {
+        pack,
+        author,
+        type: "full",
+        quality: 80
+      });
+
+      const webp = await sticker.toBuffer();
+      await sock.sendMessage(jid, { sticker: webp }, { quoted: msg });
+    } catch (e) {
+      console.error("❌ WM ERROR:", e);
+      await sock.sendMessage(
+        jid,
+        { text: `❌ Error al poner WM: ${e.message}` },
         { quoted: msg }
       );
     }
