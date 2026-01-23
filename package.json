@@ -17,6 +17,6 @@
     "node-fetch": "latest",
     "moment-timezone": "^0.5.43",
     "jimp": "^0.16.13",
-    "wa-sticker-formatter": "*"
+    "wa-sticker-formatter": "latest"
   }
 }
