@@ -1,21 +1,37 @@
+import pino from "pino";
 import { Sticker } from "wa-sticker-formatter";
-import { downloadContentFromMessage } from "@whiskeysockets/baileys";
+import { downloadMediaMessage } from "@whiskeysockets/baileys";
 
-async function streamToBuffer(stream) {
-  const chunks = [];
-  for await (const chunk of stream) chunks.push(chunk);
-  return Buffer.concat(chunks);
-}
+const logger = pino({ level: "silent" });
 
-async function getQuotedStickerBuffer(msg) {
-  const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-  if (!quoted) return null;
+async function getQuotedStickerBuffer(sock, msg) {
+  const ctx = msg.message?.extendedTextMessage?.contextInfo;
+  const quoted = ctx?.quotedMessage; // IMessage
+  if (!quoted?.stickerMessage) return null;
 
-  const stickerMsg = quoted.stickerMessage;
-  if (!stickerMsg) return null;
+  // Construimos un WAMessage mínimo usando la info del quoted
+  const quotedWAMessage = {
+    key: {
+      remoteJid: msg.key.remoteJid,
+      id: ctx.stanzaId,              // id del mensaje citado
+      participant: ctx.participant,  // quién lo envió (en grupos)
+      fromMe: false
+    },
+    message: quoted
+  };
 
-  const stream = await downloadContentFromMessage(stickerMsg, "sticker");
-  return await streamToBuffer(stream);
+  // Descarga a Buffer directo
+  const buffer = await downloadMediaMessage(
+    quotedWAMessage,
+    "buffer",
+    {},
+    {
+      logger,
+      reuploadRequest: sock.updateMediaMessage
+    }
+  );
+
+  return buffer;
 }
 
 export default {
@@ -24,23 +40,35 @@ export default {
 
   async run(sock, msg, args) {
     const jid = msg.key.remoteJid;
-    const stickerBuffer = await getQuotedStickerBuffer(msg);
 
-    if (!stickerBuffer)
+    let stickerBuffer;
+    try {
+      stickerBuffer = await getQuotedStickerBuffer(sock, msg);
+    } catch (e) {
+      console.error("❌ DOWNLOAD ERROR:", e);
+      return sock.sendMessage(
+        jid,
+        { text: `❌ No pude descargar el sticker citado: ${e?.message || e}` },
+        { quoted: msg }
+      );
+    }
+
+    if (!stickerBuffer) {
       return sock.sendMessage(
         jid,
         { text: "⚠️ Responde a un sticker con el comando.\nEjemplo: wm Pack | Autor" },
         { quoted: msg }
       );
+    }
 
     const text = args.join(" ").trim();
-
-    if (!text)
+    if (!text) {
       return sock.sendMessage(
         jid,
         { text: "⚠️ Escribe el nombre del Pack (y opcional el Autor)." },
         { quoted: msg }
       );
+    }
 
     const parts = text.split(/[|•]/).map(x => x.trim()).filter(Boolean);
     const pack = parts[0] || "Sticker Pack";
@@ -48,7 +76,6 @@ export default {
 
     if (pack.length > 50)
       return sock.sendMessage(jid, { text: "❌ Pack máximo 50 letras." }, { quoted: msg });
-
     if (author.length > 50)
       return sock.sendMessage(jid, { text: "❌ Autor máximo 50 letras." }, { quoted: msg });
 
