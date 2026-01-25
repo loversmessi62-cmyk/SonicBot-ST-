@@ -3,7 +3,7 @@ export default {
   owners: [
     "5215657481656",
     "50557865603",
-    "519YYYYYYYYYY"
+    "5215532746827"
   ],
 
   prefix: ".",
