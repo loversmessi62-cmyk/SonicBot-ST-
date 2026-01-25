@@ -289,6 +289,34 @@ if (fixedText?.startsWith(".")) {
   );
 }
 
+// ===============================
+// 📌 NORMALIZAR QUOTED (FIX GLOBAL)
+// ===============================
+const ctxInfo =
+  msg.message?.extendedTextMessage?.contextInfo ||
+  msg.message?.imageMessage?.contextInfo ||
+  msg.message?.videoMessage?.contextInfo ||
+  msg.message?.stickerMessage?.contextInfo ||
+  null;
+
+if (ctxInfo?.quotedMessage) {
+  const qMsg = ctxInfo.quotedMessage;
+  const qType = Object.keys(qMsg)[0];
+
+  msg.quoted = {
+    type: qType,
+    message: qMsg,
+    mimetype: qMsg[qType]?.mimetype || "",
+    text:
+      qMsg[qType]?.text ||
+      qMsg[qType]?.caption ||
+      "",
+    isSticker: qType === "stickerMessage"
+  };
+} else {
+  msg.quoted = null;
+}
+
 // =========================================================  
 // SISTEMA ANTILINK  
 // =========================================================  
