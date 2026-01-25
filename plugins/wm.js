@@ -1,60 +1,36 @@
-import { Sticker } from "wa-sticker-formatter";
+import { Sticker, StickerTypes } from "wa-sticker-formatter";
 
-export default {
+module.exports = {
   commands: ["wm", "take", "robar"],
   category: "tools",
 
   async run(conn, m, args) {
-    const text = args.join(" ").trim();
+    if (!m.quoted) return conn.reply(m.chat, "⚠️ Responde a un sticker.", m);
 
-    if (!m.quoted)
-      return conn.reply(
-        m.chat,
-        "⚠️ Responde a un sticker con el comando.\nEjemplo: wm Pack | Autor",
-        m
-      );
+    const text = args.join(" ").trim();
+    if (!text) return conn.reply(m.chat, "⚠️ Usa: wm Pack | Autor", m);
 
     const q = m.quoted;
-    const mime = q.mimetype || q.msg?.mimetype || "";
-    const isSticker =
-      /webp/.test(mime) ||
-      q.sticker ||
-      q.message?.stickerMessage ||
-      q.msg?.stickerMessage;
-
-    if (!isSticker)
+    if (q.mimetype !== "image/webp")
       return conn.reply(m.chat, "⚠️ El mensaje citado no es un sticker.", m);
 
-    if (!text)
-      return conn.reply(m.chat, "⚠️ Escribe el Pack (y opcional el Autor).", m);
-
-    const parts = text.split(/[|•]/).map(x => x.trim()).filter(Boolean);
-    const pack = parts[0] || "Sticker Pack";
-    const author = parts[1] || "WM";
-
-    if (pack.length > 50) return conn.reply(m.chat, "❌ Pack máximo 50 letras.", m);
-    if (author.length > 50) return conn.reply(m.chat, "❌ Autor máximo 50 letras.", m);
+    const [pack = "Sticker Pack", author = "WM"] =
+      text.split(/[|•]/).map(v => v.trim());
 
     try {
-      if (typeof q.download !== "function")
-        return conn.reply(m.chat, "❌ Tu base no soporta m.quoted.download().", m);
+      const buffer = await conn.downloadMediaMessage(q);
 
-      const stickerBuffer = await q.download();
-      if (!stickerBuffer)
-        return conn.reply(m.chat, "❌ No pude descargar el sticker citado.", m);
-
-      const sticker = new Sticker(stickerBuffer, {
+      const sticker = new Sticker(buffer, {
         pack,
         author,
-        type: "full",
+        type: StickerTypes.FULL,
         quality: 80
       });
 
-      const webp = await sticker.toBuffer();
-      await conn.sendMessage(m.chat, { sticker: webp }, { quoted: m });
+      await conn.sendMessage(m.chat, { sticker: await sticker.toBuffer() }, { quoted: m });
     } catch (e) {
-      console.error("❌ WM ERROR:", e);
-      return conn.reply(m.chat, `❌ Error al poner WM: ${e?.message || e}`, m);
+      console.error(e);
+      conn.reply(m.chat, "❌ Error al modificar el sticker.", m);
     }
   }
 };
