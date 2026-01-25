@@ -1,14 +1,16 @@
 import { Sticker, StickerTypes } from "wa-sticker-formatter";
 
-module.exports = {
+export default {
   commands: ["wm", "take", "robar"],
   category: "tools",
 
   async run(conn, m, args) {
-    if (!m.quoted) return conn.reply(m.chat, "⚠️ Responde a un sticker.", m);
+    if (!m.quoted)
+      return conn.reply(m.chat, "⚠️ Responde a un sticker.", m);
 
     const text = args.join(" ").trim();
-    if (!text) return conn.reply(m.chat, "⚠️ Usa: wm Pack | Autor", m);
+    if (!text)
+      return conn.reply(m.chat, "⚠️ Usa: wm Pack | Autor", m);
 
     const q = m.quoted;
     if (q.mimetype !== "image/webp")
@@ -27,7 +29,11 @@ module.exports = {
         quality: 80
       });
 
-      await conn.sendMessage(m.chat, { sticker: await sticker.toBuffer() }, { quoted: m });
+      await conn.sendMessage(
+        m.chat,
+        { sticker: await sticker.toBuffer() },
+        { quoted: m }
+      );
     } catch (e) {
       console.error(e);
       conn.reply(m.chat, "❌ Error al modificar el sticker.", m);
