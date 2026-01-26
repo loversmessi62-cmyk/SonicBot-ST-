@@ -446,15 +446,16 @@ const ctx = {
 };  
 
 // ===============================  
-// SISTEMA ON / OFF  
+// SISTEMA ON / OFF (FIX REAL)
 // ===============================  
-const state = getState(command);  
-if (state === false) {  
-  return sock.sendMessage(jid, {  
-    text: `⚠️ El comando *.${command}* está desactivado.`  
-  });  
-}  
+const state = getState(command);
 
+// Solo bloquear si el estado es EXPLÍCITAMENTE false
+if (state === false && state !== null && state !== undefined) {
+  return sock.sendMessage(jid, {
+    text: `⚠️ El comando *.${command}* está desactivado.`
+  });
+}
 // ===============================  
 // SOLO ADMINS  
 // ===============================  
