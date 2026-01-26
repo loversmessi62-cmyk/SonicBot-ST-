@@ -4,8 +4,9 @@ import { FormData, Blob } from 'formdata-node'
 export default {
   command: ['tourl'],
   category: 'utils',
-  run: async (client, m, args, usedprefix, command, text) => {
+  run: async (client, msg, args, usedprefix, command, text) => {
     try {
+      const m = msg;
       const q = m.quoted || m
       const mime = q.mimetype || q.msg?.mimetype || ''
       if (!mime) return client.reply(m.chat, `《✧》 Por favor, responde a una imagen o video con el comando *#tourl* para convertirlo en una URL.`, m)      
