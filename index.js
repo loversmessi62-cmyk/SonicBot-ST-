@@ -12,7 +12,32 @@ import {
   getWelcomeText,
   getByeText
 } from "./utils/welcomeState.js";
+const groupCache = {};
+const groupFetchLocks = {};
 
+const getGroupMeta = async (sock, jid) => {
+  if (groupCache[jid]) return groupCache[jid];
+  if (groupFetchLocks[jid]) return groupFetchLocks[jid];
+
+  groupFetchLocks[jid] = (async () => {
+    try {
+      const meta = await sock.groupMetadata(jid);
+      groupCache[jid] = meta;
+      setTimeout(() => delete groupCache[jid], 5 * 60 * 1000);
+      return meta;
+    } catch (e) {
+      if (e?.data === 429) {
+        console.log("🛑 RATE LIMIT (WELCOME) — usando cache");
+        return groupCache[jid] || null;
+      }
+      return null;
+    } finally {
+      delete groupFetchLocks[jid];
+    }
+  })();
+
+  return groupFetchLocks[jid];
+};
 const {
   default: makeWASocket,
   useMultiFileAuthState,
@@ -82,8 +107,10 @@ async function startBot() {
       const { id, participants, action } = update;
       if (!["add", "remove"].includes(action)) return;
 
-      const metadata = await sock.groupMetadata(id);
-      const members = metadata.participants || [];
+const metadata = await getGroupMeta(sock, id);
+if (!metadata) return; // 🛡️ evita crash
+
+const members = metadata.participants || [];
 
       const welcomeImg = fs.readFileSync("./media/welcome.png");
       const byeImg = fs.readFileSync("./media/bye.png");
