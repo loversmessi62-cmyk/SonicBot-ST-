@@ -5,16 +5,14 @@ import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 export default {
     commands: ["tourl", "upload", "cbx"],
     category: "info",
-    description: "Sube imagen/video/documento a Catbox y devuelve URL",
+    description: "Sube imagen/video/documento a RussellXZ y devuelve URL",
 
     async run(sock, msg, args, ctx = {}) {
         const jid = ctx.jid || msg.key.remoteJid;
 
-        // 1) obtener el mensaje objetivo: citado o el propio
         const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         const targetMsg = quotedMsg ? { message: quotedMsg } : msg;
 
-        // 2) tipo / mimetype (intento)
         const t = targetMsg.message ? Object.keys(targetMsg.message)[0] : null;
         const mime =
             targetMsg.message?.imageMessage?.mimetype ||
@@ -29,26 +27,21 @@ export default {
             });
         }
 
-        // 3) función robusta para obtener buffer
         async function getBuffer() {
-            // si el handler ya te da ctx.download (ideal), úsalo
             if (ctx?.download && typeof ctx.download === "function") {
                 try {
                     const b = await ctx.download();
                     if (b) return b;
-                } catch (e) { /* ignore and try other ways */ }
+                } catch (e) {}
             }
 
-            // si sock tiene downloadMediaMessage (algunas wrappers lo exponen)
             if (typeof sock.downloadMediaMessage === "function") {
                 try {
-                    // algunos require { message: targetMsg.message } y otros aceptan message directo
                     const maybe = await sock.downloadMediaMessage(targetMsg);
                     if (maybe) return maybe;
-                } catch (e) { /* ignore and fallback */ }
+                } catch (e) {}
             }
 
-            // fallback: downloadContentFromMessage de baileys
             try {
                 const content = targetMsg.message[t];
                 const contentType = t.replace("Message", "").toLowerCase();
@@ -65,7 +58,6 @@ export default {
             }
         }
 
-        // 4) descargar
         let buffer;
         try {
             buffer = await getBuffer();
@@ -79,27 +71,23 @@ export default {
             });
         }
 
-        // 5) calcular extensión por mime
         const ext = mime.split("/")[1]?.split(";")[0] || "bin";
         const filename = `file.${ext}`;
 
-        // 6) subir a Catbox
         try {
             const form = new FormData();
-            form.append("reqtype", "fileupload");
-            // En node, FormData acepta Buffer + filename
-            form.append("fileToUpload", buffer, { filename });
+            form.append("file", new Blob([buffer], { type: mime }), filename);
 
-            const res = await axios.post("https://catbox.moe/user/api.php", form, {
-                headers: form.getHeaders ? form.getHeaders() : { ...form.getHeaders },
+            const res = await axios.post("https://cdn.russellxz.click/upload.php", form, {
+                headers: form.getHeaders(),
                 maxContentLength: Infinity,
                 maxBodyLength: Infinity
             });
 
-            const url = res.data; // catbox devuelve solo la URL en texto
+            const url = res.data?.url;
 
-            if (!url || typeof url !== "string") {
-                throw new Error("Respuesta inválida de Catbox: " + JSON.stringify(res.data));
+            if (!url) {
+                throw new Error("Respuesta inválida de RussellXZ: " + JSON.stringify(res.data));
             }
 
             return sock.sendMessage(jid, {
@@ -107,8 +95,8 @@ export default {
             });
 
         } catch (err) {
-            console.error("❌ Error subiendo a Catbox:", err?.response?.data || err.message || err);
-            return sock.sendMessage(jid, { text: "❌ Error subiendo el archivo a Catbox." });
+            console.error("❌ Error subiendo a RussellXZ:", err?.response?.data || err.message || err);
+            return sock.sendMessage(jid, { text: "❌ Error subiendo el archivo a RussellXZ." });
         }
     }
 };
