@@ -96,7 +96,7 @@ export default {
 
         } catch (err) {
             console.error("❌ Error subiendo a RussellXZ:", err?.response?.data || err.message || err);
-            return sock.sendMessage(jid, { text: "❌ Error subiendo el archivo a RussellXZ." });
+            return sock.sendMessage(jid, { text: `❌ Error subiendo el archivo a RussellXZ.\n${err.message}` });
         }
     }
 };
