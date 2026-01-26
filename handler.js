@@ -140,8 +140,10 @@ if (isGroup) {
     metadata = await getGroupMeta(sock, jid)
 
     // 🧨 PROTECCIÓN ANTI CRASH
-if (!metadata?.participants) return;
-    
+if (!metadata?.participants) {
+  console.log("⚠️ Metadata no disponible, modo seguro activado");
+  metadata = { participants: [] };
+}    
     const senderJid = getRealSender(msg)
     const senderNum = normalizeAll(senderJid)
     const botNum = normalizeAll(sock.user?.id)
