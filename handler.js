@@ -317,38 +317,35 @@ if (ctxInfo?.quotedMessage) {
   msg.quoted = null;
 }
 
-// =========================================================  
-// SISTEMA ANTILINK  
-// =========================================================  
-if (isGroup && fixedText) {  
-  const linkRegex = /(https?:\/\/|www\.|chat\.whatsapp\.com)/i;  
-  if (linkRegex.test(fixedText)) {  
-    // 🔒 Verificar estado  
-    if (!isAntilinkEnabled(jid)) return;  
-    // ❌ Ignorar admins  
-    if (isAdmin) return;  
+// =========================================================
+// 🔗 SISTEMA ANTILINK (NO BLOQUEA COMANDOS)
+// =========================================================
+if (isGroup && fixedText && !fixedText.startsWith(".")) {
+  const linkRegex = /(https?:\/\/|www\.|chat\.whatsapp\.com)/i;
 
-    // 🗑️ Borrar mensaje  
-    try {  
-      await sock.sendMessage(jid, {  
-        delete: {  
-          remoteJid: jid,  
-          fromMe: false,  
-          id: msg.key.id,  
-          participant: realSender  
-        }  
-      });  
-    } catch {}  
+  if (linkRegex.test(fixedText)) {
+    if (!isAntilinkEnabled(jid)) return;
+    if (isAdmin) return;
 
-    // 🦶 Expulsar si se puede  
-    if (isBotAdmin) {  
-      try {  
-        await sock.groupParticipantsUpdate(jid, [realSender], "remove");  
-      } catch {}  
-    }  
-    return;  
-  }  
-}  
+    try {
+      await sock.sendMessage(jid, {
+        delete: {
+          remoteJid: jid,
+          fromMe: false,
+          id: msg.key.id,
+          participant: realSender
+        }
+      });
+    } catch {}
+
+    if (isBotAdmin) {
+      try {
+        await sock.groupParticipantsUpdate(jid, [realSender], "remove");
+      } catch {}
+    }
+    return;
+  }
+}
 
 // ===============================
 
