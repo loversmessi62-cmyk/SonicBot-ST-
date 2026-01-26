@@ -4,8 +4,9 @@ import { FormData, Blob } from 'formdata-node'
 export default {
   command: ['tourl'],
   category: 'utils',
-  run: async (client, msg, args, usedprefix, command, text) => {
+  run: async (sock, msg, args, usedprefix, command, text) => {
     try {
+      const client = sock;
       const m = msg;
       const q = m.quoted || m
       const mime = q.mimetype || q.msg?.mimetype || ''
