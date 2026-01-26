@@ -8,7 +8,6 @@ import { isMuted } from "./utils/muteState.js";
 
 const groupCache = {};
 console.log("🔥 handler.js cargado");
-console.log("📨 RAW MESSAGE:", JSON.stringify(msg.message, null, 2));
 
 // =========================================================
 // 📌 STORE GLOBAL
@@ -64,6 +63,8 @@ console.error("❌ Error cargando plugins:", e);
 // ⚡ HANDLER PRINCIPAL ⚡
 // =====================================================
 const handler = async (sock, msg) => {
+  console.log("📨 RAW MESSAGE:", JSON.stringify(msg.message, null, 2));
+
 try {
 const jid = msg.key.remoteJid;
 const isGroup = jid?.endsWith("@g.us");
