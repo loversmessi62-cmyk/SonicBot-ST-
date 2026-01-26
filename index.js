@@ -12,9 +12,19 @@ import {
   getWelcomeText,
   getByeText
 } from "./utils/welcomeState.js";
+
+const {
+  default: makeWASocket,
+  useMultiFileAuthState,
+  DisconnectReason
+} = baileys;
+
+console.log("🔥 INDEX INICIADO");
+
+// ================= CACHE ANTI-RATE LIMIT =================
 const groupCache = {};
 const groupFetchLocks = {};
-console.log("🔥 INDEX INICIADO");
+
 const getGroupMeta = async (sock, jid) => {
   if (groupCache[jid]) return groupCache[jid];
   if (groupFetchLocks[jid]) return groupFetchLocks[jid];
@@ -27,7 +37,7 @@ const getGroupMeta = async (sock, jid) => {
       return meta;
     } catch (e) {
       if (e?.data === 429) {
-        console.log("🛑 RATE LIMIT (WELCOME) — usando cache");
+        console.log("🛑 RATE LIMIT — usando cache");
         return groupCache[jid] || null;
       }
       return null;
@@ -38,16 +48,12 @@ const getGroupMeta = async (sock, jid) => {
 
   return groupFetchLocks[jid];
 };
-const {
-  default: makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason
-} = baileys;
 
+// ================= BOT =================
 let pluginsLoaded = false;
 
 async function startBot() {
-  console.log("🚀 Iniciando ADRIBOT...");
+  console.log("🚀 CREANDO SOCKET NUEVO");
 
   const { state, saveCreds } = await useMultiFileAuthState("./sessions");
 
@@ -57,6 +63,8 @@ async function startBot() {
     auth: state,
     browser: ["ADRIBOT", "Chrome", "6.0"]
   });
+
+  console.log("🎧 REGISTRANDO EVENTOS DEL SOCKET");
 
   groupAdmins(sock);
   groupSettings(sock);
@@ -71,42 +79,49 @@ async function startBot() {
       if (!pluginsLoaded) {
         await loadPlugins();
         pluginsLoaded = true;
-        console.log("🔥 Plugins cargados correctamente.");
+        console.log("🔥 Plugins cargados.");
       }
     }
 
     if (connection === "close") {
       const code = lastDisconnect?.error?.output?.statusCode;
+      console.log("🔴 CONEXIÓN CERRADA:", code);
+
       if (code === DisconnectReason.loggedOut) {
-        console.log("❌ Sesión cerrada. Borra /sessions/");
+        console.log("❌ Sesión cerrada.");
         process.exit(1);
       }
+
+      console.log("🔁 REINICIANDO SOCKET...");
+      startBot(); // 🔥 RECREA TODO, incluidos eventos
     }
   });
 
-  // ================= MENSAJES (ARREGLADO) =================
+  // ================= MENSAJES =================
   sock.ev.on("messages.upsert", async ({ messages }) => {
-  for (const msg of messages) {
+    console.log("📩 EVENTO messages.upsert RECIBIDO");
 
-    if (!msg.message) continue;
-    if (msg.key?.remoteJid === "status@broadcast") continue;
+    for (const msg of messages) {
+      if (!msg.message) continue;
+      if (msg.key?.remoteJid === "status@broadcast") continue;
 
-    const type = Object.keys(msg.message)[0];
+      const type = Object.keys(msg.message)[0];
 
-    // 🚫 IGNORAR BASURA DE WHATSAPP
-    if (type === "protocolMessage") continue;
-    if (type === "senderKeyDistributionMessage") continue;
-    if (type === "messageContextInfo") continue;
+      if (
+        type === "protocolMessage" ||
+        type === "senderKeyDistributionMessage" ||
+        type === "messageContextInfo"
+      ) continue;
 
-    console.log("📩 MENSAJE REAL:", type);
+      console.log("💬 MENSAJE REAL:", type);
 
-    try {
-      await handler(sock, msg);
-    } catch (e) {
-      console.error("❌ Error en handler:", e);
+      try {
+        await handler(sock, msg);
+      } catch (e) {
+        console.error("❌ Error en handler:", e);
+      }
     }
-  }
-});
+  });
 
   // ================= WELCOME / BYE =================
   sock.ev.on("group-participants.update", async update => {
@@ -114,14 +129,10 @@ async function startBot() {
       const { id, participants, action } = update;
       if (!["add", "remove"].includes(action)) return;
 
-const metadata = await getGroupMeta(sock, id);
-if (!metadata) return; // 🛡️ evita crash
+      const metadata = await getGroupMeta(sock, id);
+      if (!metadata) return;
 
-const members = metadata.participants || [];
-
-      const welcomeImg = fs.readFileSync("./media/welcome.png");
-      const byeImg = fs.readFileSync("./media/bye.png");
-
+      const members = metadata.participants || [];
       const botId = sock.user.id.split(":")[0];
 
       for (const user of participants) {
@@ -140,7 +151,7 @@ const members = metadata.participants || [];
           const pfp = await sock.profilePictureUrl(user, "image");
           fileImage = { url: pfp };
         } catch {
-          fileImage = action === "add" ? welcomeImg : byeImg;
+          fileImage = fs.readFileSync(action === "add" ? "./media/welcome.png" : "./media/bye.png");
         }
 
         if (action === "add" && isWelcomeEnabled(id)) {
@@ -169,7 +180,6 @@ const members = metadata.participants || [];
       console.error("❌ ERROR WELCOME/BYE:", err);
     }
   });
-
 }
 
 startBot();
