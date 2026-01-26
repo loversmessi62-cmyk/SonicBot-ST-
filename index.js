@@ -86,15 +86,22 @@ async function startBot() {
 
   // ================= MENSAJES (ARREGLADO) =================
   sock.ev.on("messages.upsert", async ({ messages }) => {
-  console.log("📩 EVENTO messages.upsert RECIBIDO");
-
   for (const msg of messages) {
+
+    if (!msg.message) continue;
     if (msg.key?.remoteJid === "status@broadcast") continue;
 
-    console.log("📦 message keys:", Object.keys(msg.message || {}));
+    const type = Object.keys(msg.message)[0];
+
+    // 🚫 IGNORAR BASURA DE WHATSAPP
+    if (type === "protocolMessage") continue;
+    if (type === "senderKeyDistributionMessage") continue;
+    if (type === "messageContextInfo") continue;
+
+    console.log("📩 MENSAJE REAL:", type);
 
     try {
-      await handler(sock, msg); // 🔥 SIEMPRE ENVIAR AL HANDLER
+      await handler(sock, msg);
     } catch (e) {
       console.error("❌ Error en handler:", e);
     }
