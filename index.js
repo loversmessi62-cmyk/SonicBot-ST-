@@ -18,6 +18,7 @@ const {
   useMultiFileAuthState,
   DisconnectReason
 } = baileys;
+
 let pluginsLoaded = false;
 
 async function startBot() {
@@ -35,7 +36,10 @@ async function startBot() {
   groupAdmins(sock);
   groupSettings(sock);
 
-    sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
+  sock.ev.on("creds.update", saveCreds);
+
+  // ================= CONEXIÓN =================
+  sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
     if (connection === "open") {
       console.log("✅ ADRIBOT CONECTADO");
 
@@ -55,12 +59,13 @@ async function startBot() {
     }
   });
 
-    sock.ev.on("messages.upsert", async ({ messages }) => {
+  // ================= MENSAJES (ARREGLADO) =================
+  sock.ev.on("messages.upsert", async ({ messages }) => {
     for (const msg of messages) {
       if (!msg.message) continue;
       if (msg.key?.remoteJid === "status@broadcast") continue;
 
-      console.log("📩 MENSAJE DE:", msg.key.remoteJid);
+      console.log("📩 MENSAJE:", msg.key.remoteJid);
 
       try {
         await handler(sock, msg);
@@ -70,7 +75,8 @@ async function startBot() {
     }
   });
 
-    sock.ev.on("group-participants.update", async update => {
+  // ================= WELCOME / BYE =================
+  sock.ev.on("group-participants.update", async update => {
     try {
       const { id, participants, action } = update;
       if (!["add", "remove"].includes(action)) return;
@@ -128,7 +134,7 @@ async function startBot() {
       console.error("❌ ERROR WELCOME/BYE:", err);
     }
   });
+
 }
 
-  sock.ev.on("creds.update", saveCreds);
 startBot();
