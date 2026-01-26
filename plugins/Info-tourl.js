@@ -1,5 +1,6 @@
 import { FormData, Blob } from 'formdata-node';
 import fetch from 'node-fetch';
+import { downloadContentFromMessage } from '@whiskeysockets/baileys';
 
 export default {
   commands: ["tourl"],
@@ -16,7 +17,8 @@ export default {
     }
     
     try {
-      const buffer = await sock.downloadContentFromMessage(q, mime.split('/')[0]);
+      // Usamos downloadContentFromMessage de Baileys para descargar el contenido del mensaje
+      const buffer = await downloadContentFromMessage(q, mime.split('/')[0]);
       
       const url = await uploadToUguu(buffer, mime);
       
