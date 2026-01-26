@@ -16,7 +16,8 @@ export default {
     }
     
     try {
-      const buffer = await q.download();
+      const buffer = await sock.downloadContentFromMessage(q, mime.split('/')[0]);
+      
       const url = await uploadToUguu(buffer, mime);
       
       if (!url) return sock.sendMessage(jid, { text: "⚠️ No se pudo subir el archivo a la API de Uguu." }, { quoted: msg });
