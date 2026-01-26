@@ -61,19 +61,20 @@ async function startBot() {
 
   // ================= MENSAJES (ARREGLADO) =================
   sock.ev.on("messages.upsert", async ({ messages }) => {
-    for (const msg of messages) {
-      if (!msg.message) continue;
-      if (msg.key?.remoteJid === "status@broadcast") continue;
+  console.log("📩 EVENTO messages.upsert RECIBIDO");
 
-      console.log("📩 MENSAJE:", msg.key.remoteJid);
+  for (const msg of messages) {
+    if (msg.key?.remoteJid === "status@broadcast") continue;
 
-      try {
-        await handler(sock, msg);
-      } catch (e) {
-        console.error("❌ Error en handler:", e);
-      }
+    console.log("📦 message keys:", Object.keys(msg.message || {}));
+
+    try {
+      await handler(sock, msg); // 🔥 SIEMPRE ENVIAR AL HANDLER
+    } catch (e) {
+      console.error("❌ Error en handler:", e);
     }
-  });
+  }
+});
 
   // ================= WELCOME / BYE =================
   sock.ev.on("group-participants.update", async update => {
