@@ -76,7 +76,8 @@ export default {
 
         try {
             const form = new FormData();
-            form.append("file", new Blob([buffer], { type: mime }), filename);
+            const blob = new Blob([buffer], { type: mime });
+            form.append("file", blob, filename);
 
             const res = await axios.post("https://cdn.russellxz.click/upload.php", form, {
                 headers: form.getHeaders(),
@@ -96,7 +97,7 @@ export default {
 
         } catch (err) {
             console.error("❌ Error subiendo a RussellXZ:", err?.response?.data || err.message || err);
-            return sock.sendMessage(jid, { text: `❌ Error subiendo el archivo a RussellXZ.\n${err.message}` });
+            return sock.sendMessage(jid, { text: "❌ Error subiendo el archivo a RussellXZ." });
         }
     }
 };
