@@ -7,6 +7,25 @@ import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { isMuted } from "./utils/muteState.js";
 
 const groupCache = {};
+const getGroupMeta = async (sock, jid) => {
+  if (groupCache[jid]) return groupCache[jid];
+
+  try {
+    const meta = await sock.groupMetadata(jid);
+    groupCache[jid] = meta;
+
+    // refrescar cada 5 minutos
+    setTimeout(() => delete groupCache[jid], 5 * 60 * 1000);
+
+    return meta;
+  } catch (e) {
+    if (e?.data === 429) {
+      console.log("🛑 WhatsApp rate limit — usando cache vieja");
+      return groupCache[jid] || null;
+    }
+    throw e;
+  }
+};
 console.log("🔥 handler.js cargado");
 
 // =========================================================
@@ -63,8 +82,8 @@ console.error("❌ Error cargando plugins:", e);
 // ⚡ HANDLER PRINCIPAL ⚡
 // =====================================================
 const handler = async (sock, msg) => {
-  console.log("📨 RAW MESSAGE:", JSON.stringify(msg.message, null, 2));
 
+console.log("📨 MSG TYPE:", Object.keys(msg.message || {})[0]);
 try {
 const jid = msg.key.remoteJid;
 const isGroup = jid?.endsWith("@g.us");
@@ -103,7 +122,11 @@ const normalizeAll = jid => {
 
 if (isGroup) {
   try {
-    metadata = await sock.groupMetadata(jid)
+    // 🧠 CACHE SAFE
+    metadata = await getGroupMeta(sock, jid)
+
+    // 🧨 PROTECCIÓN ANTI CRASH
+    if (!metadata?.participants) throw "NO_META"
 
     const senderJid = getRealSender(msg)
     const senderNum = normalizeAll(senderJid)
@@ -121,41 +144,29 @@ if (isGroup) {
     // 👤 ADMIN USUARIO
     isAdmin = adminIds.includes(senderNum)
 
-    
-// ===============================
-// 🤖 BOT ADMIN REAL (TEL + LID OK)
-// ===============================
+    // ===============================
+    // 🤖 BOT ADMIN REAL
+    // ===============================
 
-isBotAdmin = metadata.participants.some(p => {
-  const pid = normalizeAll(p.id);
-  const pjid = normalizeAll(p.jid);
+    isBotAdmin = metadata.participants.some(p => {
+      const pid = normalizeAll(p.id)
+      const pjid = normalizeAll(p.jid)
 
-  return (
-    (p.admin === "admin" || p.admin === "superadmin") &&
-    (pid === botNum || pjid === botNum)
-  );
-});
+      return (
+        (p.admin === "admin" || p.admin === "superadmin") &&
+        (pid === botNum || pjid === botNum)
+      )
+    })
 
-// 🔍 LOG CLARO Y LEGIBLE
-console.log("🤖 BOT ADMIN CHECK");
-console.log("🤖 Bot Num:", botNum);
-console.log("🤖 Es admin?:", isBotAdmin);
-console.log(
-  "👥 Admins:",
-  metadata.participants
-    .filter(p => p.admin)
-    .map(p => ({
-      rawId: p.id,
-      rawJid: p.jid,
-      id: normalizeAll(p.id),
-      jid: normalizeAll(p.jid),
-      role: p.admin
-    }))
-);
-
+    // 🔍 LOG CONTROLADO (NO rompe nada)
+    console.log("🤖 BOT ADMIN CHECK");
+    console.log("Bot:", botNum, "| Admin:", isBotAdmin);
+    console.log("User:", senderNum, "| Admin:", isAdmin);
 
   } catch (err) {
-    console.error("❌ ADMIN CHECK ERROR:", err)
+    console.log("⚠️ Metadata no disponible (rate-limit o error), usando modo seguro")
+    metadata = null
+    admins = []
     isAdmin = false
     isBotAdmin = false
   }
