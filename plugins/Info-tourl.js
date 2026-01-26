@@ -10,14 +10,21 @@ export default {
     const q = msg.quoted || msg;
     const mime = q.mimetype || q.msg?.mimetype || '';
     
-    if (!mime) return sock.sendMessage(jid, { text: "⚠️ Por favor, responde a una imagen o video con el comando *#tourl* para convertirlo en una URL." }, { quoted: msg });
+    if (!mime) {
+      return sock.sendMessage(jid, { text: "⚠️ Por favor, responde a una imagen o video con el comando *#tourl* para convertirlo en una URL." }, { quoted: msg });
+    }
     
     if (!/image\/(png|jpe?g|gif)|video\/mp4/.test(mime)) {
       return sock.sendMessage(jid, { text: `⚠️ El formato *${mime}* no es compatible. Solo imágenes y videos MP4 son aceptados.` }, { quoted: msg });
     }
-    
+
     try {
       const buffer = await downloadContentFromMessage(q, mime.split('/')[0]);
+
+      if (!buffer || buffer.length === 0) {
+        throw new Error('No se pudo descargar el archivo correctamente.');
+      }
+
       const url = await uploadToOptiShield(buffer);
       
       if (!url) return sock.sendMessage(jid, { text: "⚠️ No se pudo subir el archivo a OptiShield." }, { quoted: msg });
