@@ -14,7 +14,7 @@ import {
 } from "./utils/welcomeState.js";
 const groupCache = {};
 const groupFetchLocks = {};
-
+console.log("🔥 INDEX INICIADO");
 const getGroupMeta = async (sock, jid) => {
   if (groupCache[jid]) return groupCache[jid];
   if (groupFetchLocks[jid]) return groupFetchLocks[jid];
