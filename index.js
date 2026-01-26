@@ -18,16 +18,7 @@ const {
   useMultiFileAuthState,
   DisconnectReason
 } = baileys;
-
 let pluginsLoaded = false;
-
-function normalizeJid(jid) {
-  if (!jid) return jid;
-  if (jid.endsWith("@lid")) {
-    return jid.replace("@lid", "@s.whatsapp.net");
-  }
-  return jid;
-}
 
 async function startBot() {
   console.log("🚀 Iniciando ADRIBOT...");
@@ -44,25 +35,9 @@ async function startBot() {
   groupAdmins(sock);
   groupSettings(sock);
 
-  sock.ev.on("creds.update", saveCreds);
-
-  sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
+    sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
     if (connection === "open") {
       console.log("✅ ADRIBOT CONECTADO");
-
-      setTimeout(async () => {
-        if (fs.existsSync("./restart.json")) {
-          try {
-            const data = JSON.parse(fs.readFileSync("./restart.json"));
-            fs.unlinkSync("./restart.json");
-            await sock.sendMessage(data.jid, {
-              text: "✅ *Bot encendido correctamente*\n🚀 Cambios aplicados y funcionando."
-            });
-          } catch (e) {
-            console.error("❌ Error post-reinicio:", e);
-          }
-        }
-      }, 4000);
 
       if (!pluginsLoaded) {
         await loadPlugins();
@@ -80,108 +55,80 @@ async function startBot() {
     }
   });
 
-  sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify") return;
-
+    sock.ev.on("messages.upsert", async ({ messages }) => {
     for (const msg of messages) {
       if (!msg.message) continue;
-      if (msg.key.fromMe) continue;
-      if (msg.message?.reactionMessage) continue;
+      if (msg.key?.remoteJid === "status@broadcast") continue;
 
-      await handler(sock, msg);
+      console.log("📩 MENSAJE DE:", msg.key.remoteJid);
+
+      try {
+        await handler(sock, msg);
+      } catch (e) {
+        console.error("❌ Error en handler:", e);
+      }
     }
   });
-// =====================================
-// 👋 WELCOME / BYE SISTEMA COMPLETO
-// =====================================
-sock.ev.on("group-participants.update", async update => {
-  try {
-    console.log("👥 EVENTO GRUPO:", update);
 
-    const { id, participants, action } = update;
-    if (!["add", "remove"].includes(action)) return;
+    sock.ev.on("group-participants.update", async update => {
+    try {
+      const { id, participants, action } = update;
+      if (!["add", "remove"].includes(action)) return;
 
-    const metadata = await sock.groupMetadata(id);
-    const members = metadata.participants || [];
+      const metadata = await sock.groupMetadata(id);
+      const members = metadata.participants || [];
 
-    const welcomeImg = fs.readFileSync("./media/welcome.png");
-    const byeImg = fs.readFileSync("./media/bye.png");
+      const welcomeImg = fs.readFileSync("./media/welcome.png");
+      const byeImg = fs.readFileSync("./media/bye.png");
 
-    const botId = sock.user.id.split(":")[0];
+      const botId = sock.user.id.split(":")[0];
 
-    for (const user of participants) {
-      if (user === botId) continue;
+      for (const user of participants) {
+        if (user === botId) continue;
 
-      const mention = user.split("@")[0];
-      const member =
-        members.find(p => p.id === user) ||
-        members.find(p => p.id?.includes(mention));
+        const mention = user.split("@")[0];
+        const member = members.find(p => p.id === user);
+        const name = member?.notify || member?.name || "Usuario";
 
-      const name = member?.notify || member?.name || "Usuario";
+        const now = new Date();
+        const date = now.toLocaleDateString("es-MX");
+        const time = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
 
-      const now = new Date();
-      const date = now.toLocaleDateString("es-MX");
-      const time = now.toLocaleTimeString("es-MX", {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
+        let fileImage;
+        try {
+          const pfp = await sock.profilePictureUrl(user, "image");
+          fileImage = { url: pfp };
+        } catch {
+          fileImage = action === "add" ? welcomeImg : byeImg;
+        }
 
-      let fileImage;
-      try {
-        const pfp = await sock.profilePictureUrl(user, "image");
-        fileImage = { url: pfp };
-      } catch {
-        fileImage = action === "add" ? welcomeImg : byeImg;
+        if (action === "add" && isWelcomeEnabled(id)) {
+          const caption = getWelcomeText(id)
+            .replace(/@user/g, `@${mention}`)
+            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@count/g, members.length)
+            .replace(/@date/g, date)
+            .replace(/@time/g, time);
+
+          await sock.sendMessage(id, { image: fileImage, caption, mentions: [user] });
+        }
+
+        if (action === "remove" && isByeEnabled(id)) {
+          const caption = getByeText(id)
+            .replace(/@user/g, `@${mention}`)
+            .replace(/@group/g, metadata.subject || "Grupo")
+            .replace(/@count/g, members.length - 1)
+            .replace(/@date/g, date)
+            .replace(/@time/g, time);
+
+          await sock.sendMessage(id, { image: fileImage, caption, mentions: [user] });
+        }
       }
-
-      // ========= WELCOME =========
-      if (action === "add" && isWelcomeEnabled(id)) {
-        const raw = getWelcomeText(id);
-        const caption = raw
-          .replace(/@user/g, `@${mention}`)
-          .replace(/@id/g, mention)
-          .replace(/@name/g, name)
-          .replace(/@group/g, metadata.subject || "Grupo")
-          .replace(/@desc/g, metadata.desc || "Sin descripción")
-          .replace(/@count/g, members.length)
-          .replace(/@date/g, date)
-          .replace(/@time/g, time);
-
-        console.log("✅ WELCOME ENVIADO A:", user);
-
-        await sock.sendMessage(id, {
-          image: fileImage,
-          caption,
-          mentions: [user]
-        });
-      }
-
-      // ========= BYE =========
-      if (action === "remove" && isByeEnabled(id)) {
-        const raw = getByeText(id);
-        const caption = raw
-          .replace(/@user/g, `@${mention}`)
-          .replace(/@id/g, mention)
-          .replace(/@name/g, name)
-          .replace(/@group/g, metadata.subject || "Grupo")
-          .replace(/@desc/g, metadata.desc || "Sin descripción")
-          .replace(/@count/g, members.length - 1)
-          .replace(/@date/g, date)
-          .replace(/@time/g, time);
-
-        console.log("👋 BYE ENVIADO A:", user);
-
-        await sock.sendMessage(id, {
-          image: fileImage,
-          caption,
-          mentions: [user]
-        });
-      }
+    } catch (err) {
+      console.error("❌ ERROR WELCOME/BYE:", err);
     }
-  } catch (err) {
-    console.error("❌ ERROR WELCOME/BYE:", err);
-  }
-});
+  });
 }
 
 startBot();
+  sock.ev.on("creds.update", saveCreds);
