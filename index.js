@@ -99,30 +99,29 @@ async function startBot() {
 
   // ================= MENSAJES =================
   sock.ev.on("messages.upsert", async ({ messages }) => {
-    console.log("📩 EVENTO messages.upsert RECIBIDO");
+  console.log("📩 EVENTO messages.upsert RECIBIDO");
 
-    for (const msg of messages) {
-      if (!msg.message) continue;
-      if (msg.key?.remoteJid === "status@broadcast") continue;
+  for (let msg of messages) {
+    if (msg.key?.remoteJid === "status@broadcast") continue;
 
-      const type = Object.keys(msg.message)[0];
+    // 🔥 DESENVOLVER MENSAJES OCULTOS
+    msg.message =
+      msg.message?.ephemeralMessage?.message ||
+      msg.message?.viewOnceMessage?.message ||
+      msg.message;
 
-      if (
-        type === "protocolMessage" ||
-        type === "senderKeyDistributionMessage" ||
-        type === "messageContextInfo"
-      ) continue;
+    if (!msg.message) continue;
 
-      console.log("💬 MENSAJE REAL:", type);
+    const type = Object.keys(msg.message)[0];
+    console.log("💬 TIPO:", type);
 
-      try {
-        await handler(sock, msg);
-      } catch (e) {
-        console.error("❌ Error en handler:", e);
-      }
+    try {
+      await handler(sock, msg);
+    } catch (e) {
+      console.error("❌ Error en handler:", e);
     }
-  });
-
+  }
+});
   // ================= WELCOME / BYE =================
   sock.ev.on("group-participants.update", async update => {
     try {
