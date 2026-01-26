@@ -1,26 +1,39 @@
-/* import { Sticker, StickerTypes } from "wa-sticker-formatter";
+import { Sticker, StickerTypes } from "wa-sticker-formatter";
 
 export default {
-  commands: ["wm", "take", "robar"],
-  category: "tools",
+  command: ["wm", "take", "robar"],
+  tags: ["tools"],
+  desc: "Cambiar watermark de stickers",
 
-  async run(conn, m, args) {
-    if (!m.quoted)
-      return conn.reply(m.chat, "⚠️ Responde a un sticker.", m);
+  async run({ sock, msg, args }) {
+    if (!msg.quoted)
+      return sock.sendMessage(
+        msg.chat,
+        { text: "⚠️ Responde a un sticker." },
+        { quoted: msg }
+      );
 
     const text = args.join(" ").trim();
     if (!text)
-      return conn.reply(m.chat, "⚠️ Usa: wm Pack | Autor", m);
+      return sock.sendMessage(
+        msg.chat,
+        { text: "⚠️ Usa: .wm Pack | Autor" },
+        { quoted: msg }
+      );
 
-    const q = m.quoted;
-    if (q.mimetype !== "image/webp")
-      return conn.reply(m.chat, "⚠️ El mensaje citado no es un sticker.", m);
+    const q = msg.quoted;
+    if (!q.isSticker)
+      return sock.sendMessage(
+        msg.chat,
+        { text: "⚠️ El mensaje citado no es un sticker." },
+        { quoted: msg }
+      );
 
     const [pack = "Sticker Pack", author = "WM"] =
       text.split(/[|•]/).map(v => v.trim());
 
     try {
-      const buffer = await conn.downloadMediaMessage(q);
+      const buffer = await sock.downloadMediaMessage(q.message);
 
       const sticker = new Sticker(buffer, {
         pack,
@@ -29,15 +42,18 @@ export default {
         quality: 80
       });
 
-      await conn.sendMessage(
-        m.chat,
+      await sock.sendMessage(
+        msg.chat,
         { sticker: await sticker.toBuffer() },
-        { quoted: m }
+        { quoted: msg }
       );
     } catch (e) {
       console.error(e);
-      conn.reply(m.chat, "❌ Error al modificar el sticker.", m);
+      await sock.sendMessage(
+        msg.chat,
+        { text: "❌ Error al modificar el sticker." },
+        { quoted: msg }
+      );
     }
   }
 };
-*/
