@@ -1,4 +1,4 @@
-import { FormData, Blob } from 'formdata-node';
+import { FormData } from 'formdata-node';
 import fetch from 'node-fetch';
 import { downloadContentFromMessage } from '@whiskeysockets/baileys';
 
@@ -18,9 +18,9 @@ export default {
     
     try {
       const buffer = await downloadContentFromMessage(q, mime.split('/')[0]);
-      const url = await uploadToPixeldrain(buffer, mime);
+      const url = await uploadToOptiShield(buffer);
       
-      if (!url) return sock.sendMessage(jid, { text: "⚠️ No se pudo subir el archivo a Pixeldrain." }, { quoted: msg });
+      if (!url) return sock.sendMessage(jid, { text: "⚠️ No se pudo subir el archivo a OptiShield." }, { quoted: msg });
       
       await sock.sendMessage(jid, { text: `🔗 *Enlace generado:* ${url}` }, { quoted: msg });
     } catch (e) {
@@ -30,14 +30,17 @@ export default {
   }
 };
 
-async function uploadToPixeldrain(buffer, mime) {
+async function uploadToOptiShield(buffer) {
   const form = new FormData();
   form.append('file', new Blob([buffer]));
 
-  const res = await fetch('https://pixeldrain.com/api/file', { method: 'POST', body: form });
-  
+  const res = await fetch('https://optishield.uk/api/upload', {
+    method: 'POST',
+    body: form
+  });
+
   const json = await res.json();
-  if (!json?.success || !json?.id) throw '❌ Error al subir a Pixeldrain';
+  if (!json?.success || !json?.archivo) throw '❌ Error al subir a OptiShield';
   
-  return `https://pixeldrain.com/u/${json.id}`;
+  return json.archivo;
 }
