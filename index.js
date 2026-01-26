@@ -182,5 +182,6 @@ sock.ev.on("group-participants.update", async update => {
     console.error("❌ ERROR WELCOME/BYE:", err);
   }
 });
+}
 
 startBot();
