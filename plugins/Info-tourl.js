@@ -17,12 +17,10 @@ export default {
     }
     
     try {
-      // Usamos downloadContentFromMessage de Baileys para descargar el contenido del mensaje
       const buffer = await downloadContentFromMessage(q, mime.split('/')[0]);
+      const url = await uploadToPixeldrain(buffer, mime);
       
-      const url = await uploadToUguu(buffer, mime);
-      
-      if (!url) return sock.sendMessage(jid, { text: "⚠️ No se pudo subir el archivo a la API de Uguu." }, { quoted: msg });
+      if (!url) return sock.sendMessage(jid, { text: "⚠️ No se pudo subir el archivo a Pixeldrain." }, { quoted: msg });
       
       await sock.sendMessage(jid, { text: `🔗 *Enlace generado:* ${url}` }, { quoted: msg });
     } catch (e) {
@@ -32,17 +30,14 @@ export default {
   }
 };
 
-async function uploadToUguu(buffer, mime) {
+async function uploadToPixeldrain(buffer, mime) {
   const form = new FormData();
-  const blob = new Blob([buffer], { type: mime });
-  form.append('files[]', blob, `file.${mime.split('/')[1]}`);
-  
-  const res = await fetch('https://uguu.se/upload.php', { method: 'POST', body: form });
-  
-  if (!res.ok) {
-    throw new Error('Failed to upload the file');
-  }
+  form.append('file', new Blob([buffer]));
 
+  const res = await fetch('https://pixeldrain.com/api/file', { method: 'POST', body: form });
+  
   const json = await res.json();
-  return json.files?.[0]?.url;
+  if (!json?.success || !json?.id) throw '❌ Error al subir a Pixeldrain';
+  
+  return `https://pixeldrain.com/u/${json.id}`;
 }
