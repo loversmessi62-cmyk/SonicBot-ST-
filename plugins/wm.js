@@ -30,10 +30,10 @@ export default {
       );
 
     const [pack = "Sticker Pack", author = "WM"] =
-      text.split(/[|•]/).map(v => v.trim());
+      (text.split(/[|•]/).map(v => v.trim())).concat(["Sticker Pack", "WM"]);
 
     try {
-      const buffer = await sock.downloadMediaMessage(q.message);
+      const buffer = await q.download();
 
       const sticker = new Sticker(buffer, {
         pack,
