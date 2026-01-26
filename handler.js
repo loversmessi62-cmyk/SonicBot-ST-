@@ -7,24 +7,38 @@ import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { isMuted } from "./utils/muteState.js";
 
 const groupCache = {};
+const groupFetchLocks = {}; // 🔥 evita múltiples llamadas al mismo tiempo
+
 const getGroupMeta = async (sock, jid) => {
+
+  // ✅ usar cache si existe
   if (groupCache[jid]) return groupCache[jid];
 
-  try {
-    const meta = await sock.groupMetadata(jid);
-    groupCache[jid] = meta;
+  // 🔒 si ya se está pidiendo metadata, esperar esa misma promesa
+  if (groupFetchLocks[jid]) return groupFetchLocks[jid];
 
-    // refrescar cada 5 minutos
-    setTimeout(() => delete groupCache[jid], 5 * 60 * 1000);
+  groupFetchLocks[jid] = (async () => {
+    try {
+      const meta = await sock.groupMetadata(jid);
+      groupCache[jid] = meta;
 
-    return meta;
-  } catch (e) {
-    if (e?.data === 429) {
-      console.log("🛑 WhatsApp rate limit — usando cache vieja");
-      return groupCache[jid] || null;
+      // 🧹 limpiar cache en 5 min
+      setTimeout(() => delete groupCache[jid], 5 * 60 * 1000);
+
+      return meta;
+
+    } catch (e) {
+      if (e?.data === 429) {
+        console.log("🛑 RATE LIMIT — usando cache vieja");
+        return groupCache[jid] || null;
+      }
+      return null;
+    } finally {
+      delete groupFetchLocks[jid]; // 🔓 liberar lock
     }
-    throw e;
-  }
+  })();
+
+  return groupFetchLocks[jid];
 };
 console.log("🔥 handler.js cargado");
 
@@ -126,8 +140,8 @@ if (isGroup) {
     metadata = await getGroupMeta(sock, jid)
 
     // 🧨 PROTECCIÓN ANTI CRASH
-    if (!metadata?.participants) throw "NO_META"
-
+if (!metadata?.participants) return;
+    
     const senderJid = getRealSender(msg)
     const senderNum = normalizeAll(senderJid)
     const botNum = normalizeAll(sock.user?.id)
@@ -259,8 +273,8 @@ try {
     full: []
   };
 
-  const normalize = v => v?.toString().replace(/\D/g, "");
-
+const normalize = v =>
+  v?.toString().replace(/@lid|@s\.whatsapp\.net|:\d+|\D/g, "");
   if (msg.message && isGroup) {
     const rawSender = realSender;
     const num = normalize(rawSender);
