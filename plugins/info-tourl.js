@@ -1,6 +1,5 @@
-import axios from "axios";
-import FormData from "form-data";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
+import { FormData, Blob } from "formdata-node";
 
 export default {
     commands: ["tourl", "upload", "cbx"],
@@ -79,25 +78,24 @@ export default {
             const blob = new Blob([buffer], { type: mime });
             form.append("file", blob, filename);
 
-            const res = await axios.post("https://cdn.russellxz.click/upload.php", form, {
-                headers: form.getHeaders(),
-                maxContentLength: Infinity,
-                maxBodyLength: Infinity
+            const res = await fetch("https://cdn.russellxz.click/upload.php", {
+                method: "POST",
+                body: form,
             });
 
-            const url = res.data?.url;
+            const result = await res.json();
 
-            if (!url) {
-                throw new Error("Respuesta inválida de RussellXZ: " + JSON.stringify(res.data));
+            if (res.ok && result?.url) {
+                return sock.sendMessage(jid, {
+                    text: `✅ *Archivo subido con éxito*\n🔗 ${result.url}`
+                });
+            } else {
+                throw new Error(result?.error || 'Error en la carga a RussellXZ');
             }
 
-            return sock.sendMessage(jid, {
-                text: `✅ *Archivo subido con éxito*\n🔗 ${url}`
-            });
-
         } catch (err) {
-            console.error("❌ Error subiendo a RussellXZ:", err?.response?.data || err.message || err);
-            return sock.sendMessage(jid, { text: "❌ Error subiendo el archivo a RussellXZ." });
+            console.error("❌ Error subiendo a RussellXZ:", err?.message || err);
+            return sock.sendMessage(jid, { text: `❌ Error subiendo el archivo a RussellXZ./n${err.message}` });
         }
     }
 };
