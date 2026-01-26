@@ -1,4 +1,4 @@
-import { Sticker, StickerTypes } from "wa-sticker-formatter";
+/* import { Sticker, StickerTypes } from "wa-sticker-formatter";
 
 export default {
   commands: ["wm", "take", "robar"],
@@ -40,3 +40,4 @@ export default {
     }
   }
 };
+*/
