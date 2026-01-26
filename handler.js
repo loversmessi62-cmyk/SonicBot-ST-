@@ -8,6 +8,7 @@ import { isMuted } from "./utils/muteState.js";
 
 const groupCache = {};
 console.log("🔥 handler.js cargado");
+console.log("📨 RAW MESSAGE:", JSON.stringify(msg.message, null, 2));
 
 // =========================================================
 // 📌 STORE GLOBAL
