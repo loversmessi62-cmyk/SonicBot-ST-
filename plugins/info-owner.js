@@ -7,17 +7,29 @@ export default {
   async run(sock, msg, args, ctx) {
     const jid = ctx.jid;
 
-    // 👉 TOMAMOS EL PRIMER OWNER (TÚ)
-    const ownerNum = config.owners[0];
+    // 👑 OWNER PRINCIPAL (TÚ)
+    const ownerNum = config.owners[0]; // ej: 521XXXXXXXXXX
     const ownerJid = ownerNum + "@s.whatsapp.net";
 
+    // 📇 VCARD (CONTACTO)
+    const vcard =
+      "BEGIN:VCARD\n" +
+      "VERSION:3.0\n" +
+      "FN:Adri | Owner ADRIBOT\n" +
+      "ORG:ADRIBOT\n" +
+      "TITLE:Owner\n" +
+      `TEL;type=CELL;type=VOICE;waid=${ownerNum}:${ownerNum}\n` +
+      "END:VCARD";
+
     await sock.sendMessage(jid, {
-      text:
-        "👑 *OWNER OFICIAL*\n\n" +
-        "Este bot pertenece a:\n" +
-        `➤ @${ownerNum}\n\n` +
-        "_No hay discusión._ 😎🔥",
-      mentions: [ownerJid]
+      contacts: {
+        displayName: "Adri | Owner ADRIBOT",
+        contacts: [
+          {
+            vcard
+          }
+        ]
+      }
     });
   }
 };
