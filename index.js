@@ -13,8 +13,6 @@ import {
   getByeText
 } from "./utils/welcomeState.js";
 
-import { partidas } from "./plugins/ff-4vs4.js"; // ✅ IMPORT CORRECTO
-
 const {
   default: makeWASocket,
   useMultiFileAuthState,
@@ -48,7 +46,6 @@ const getGroupMeta = async (sock, jid) => {
 };
 
 let pluginsLoaded = false;
-let restartNotified = false;
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("./sessions");
@@ -68,6 +65,8 @@ async function startBot() {
   // ================= CONEXIÓN =================
   sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
     if (connection === "open") {
+      console.log("✅ ADRIBOT CONECTADO");
+
       if (!pluginsLoaded) {
         await loadPlugins();
         pluginsLoaded = true;
@@ -93,74 +92,11 @@ async function startBot() {
 
       if (!msg.message) continue;
 
-      await handler(sock, msg);
-    }
-  });
-
-  // ================= REACCIONES 4VS4 =================
-  sock.ev.on("messages.reaction", async reactions => {
-    for (const r of reactions) {
-      const emoji = r.reaction?.text;
-      if (!emoji) continue;
-
-      const jid = r.key.remoteJid;
-      const uid = r.key.id + jid;
-
-      const user =
-        r.key.participant ||
-        r.participant ||
-        r.key.remoteJid;
-
-      const partida = partidas[uid];
-      if (!partida) continue;
-
-      partida.jugadores.delete(user);
-      partida.suplentes.delete(user);
-
-      if (emoji === "❤️" && partida.jugadores.size < 4) {
-        partida.jugadores.add(user);
+      try {
+        await handler(sock, msg);
+      } catch (e) {
+        console.error("❌ Error en handler:", e);
       }
-
-      if (emoji === "👍" && partida.suplentes.size < 2) {
-        partida.suplentes.add(user);
-      }
-
-      const format = (arr, max) =>
-        Array.from({ length: max }, (_, i) =>
-          `${i + 1}. ${arr[i] ? `@${arr[i].split("@")[0]}` : "—"}`
-        ).join("\n");
-
-      const texto = `
-⚔️ ${partida.titulo} ⚔️
-
-🕒 HORARIOS
-🇲🇽 México: ${partida.mx}MX
-🇨🇴 Colombia: ${partida.col}COL
-
-━━━━━━━━━━━━━━━
-
-🎮 JUGADORES
-${format([...partida.jugadores], 4)}
-
-🪑 SUPLENTES
-${format([...partida.suplentes], 2)}
-
-━━━━━━━━━━━━━━━
-❤️ = Jugador
-👍 = Suplente
-Quita la reacción para salir
-`.trim();
-
-      await sock.sendMessage(partida.jid, {
-        text: texto,
-        edit: r.key.id,
-        mentions: [
-          ...partida.jugadores,
-          ...partida.suplentes
-        ]
-      });
-
-      console.log("✅ REACCIÓN REGISTRADA", user, emoji);
     }
   });
 
