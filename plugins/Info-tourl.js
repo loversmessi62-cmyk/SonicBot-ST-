@@ -1,81 +1,41 @@
-import fetch from "node-fetch";
-import crypto from "crypto";
-import { FormData, Blob } from "formdata-node";
-import { fileTypeFromBuffer } from "file-type";
-
-// CONFIGURACIÓN DEL BOT
-const namebot = "MiBot";
-const rcanal = null;
-
-let handler = async (m, { conn }) => {
-  let q = m.quoted ? m.quoted : m;
-  let mime = (q.msg || q).mimetype || "";
-
-  if (!mime) {
-    return conn.reply(
-      m.chat,
-      "Por favor, responde a un archivo válido (imagen, video, etc.).",
-      m,
-      rcanal
-    );
-  }
-
-  await m.react("📍");
-
-  try {
-    let media = await q.download();
-    let isTele = /image\/(png|jpe?g|gif)|video\/mp4/.test(mime);
-
-    let link = await catbox(media);
-
-    let txt = `*乂 U P L O A D E R 乂*\n\n`;
-    txt += `*» Enlace* : ${link}\n`;
-    txt += `*» Tamaño* : ${formatBytes(media.length)}\n`;
-    txt += `*» Expiración* : ${isTele ? "No expira" : "Desconocido"}\n\n`;
-    txt += `> *${namebot}*`;
-
-    let ext = mime.split("/")[1] || "bin";
-    await conn.sendFile(m.chat, media, `archivo.${ext}`, txt, m, rcanal);
-
-    await m.react("✅");
-  } catch (e) {
-    console.error(e);
-    await m.react("😩");
-  }
-};
-
-handler.help = ["tourl"];
-handler.tags = ["tools"];
-handler.command = ["catbox", "tourl"];
-export default handler;
+import uploadFile from '../lib/uploadFile.js'
+import upload from '../lib/uploadFile2.js'
+import uploadImage from '../lib/uploadImage.js'
+import fetch from 'node-fetch'
+const handler = async (m) => {
+const q = m.quoted ? m.quoted : m
+const mime = (q.msg || q).mimetype || ''
+if (!mime) throw `${mg} ${mid.smsconvert10}`
+const media = await q.download()
+try {
+let isTele = /image\/(png|jpe?g|gif)|video\/mp4/.test(mime)
+let link = await (isTele ? uploadImage : uploadFile)(media)
+m.reply(`${await shortUrl(link)}`)
+} catch (e) {
+try {
+const isTele = /image\/(png|jpe?g|gif)|video\/mp4/.test(mime)
+const link = await (isTele ? uploadImage : uploadFile)(media)
+m.reply(link)
+} catch (e) {
+console.log(e)
+}
+}
+}
+handler.help = ['tourl']
+handler.tags = ['herramientas']
+handler.command = /^(tourl|upload)$/i
+export default handler
 
 function formatBytes(bytes) {
-  if (!bytes) return "0 B";
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / 1024 ** i).toFixed(2)} ${sizes[i]}`;
+if (bytes === 0) {
+return '0 B'
+}
+const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+const i = Math.floor(Math.log(bytes) / Math.log(1024))
+return `${(bytes / 1024 ** i).toFixed(2)} ${sizes[i]}`
 }
 
-async function catbox(content) {
-  const type = await fileTypeFromBuffer(content);
-  const ext = type?.ext || "bin";
-  const mime = type?.mime || "application/octet-stream";
-
-  const blob = new Blob([content], { type: mime });
-  const formData = new FormData();
-  const randomBytes = crypto.randomBytes(5).toString("hex");
-
-  formData.append("reqtype", "fileupload");
-  formData.append("fileToUpload", blob, `${randomBytes}.${ext}`);
-
-  const response = await fetch("https://catbox.moe/user/api.php", {
-    method: "POST",
-    body: formData,
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",
-    },
-  });
-
-  return (await response.text()).trim();
+async function shortUrl(url) {
+let res = await fetch(`https://tinyurl.com/api-create.php?url=${url}`)
+return await res.text()
 }
