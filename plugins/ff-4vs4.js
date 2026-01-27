@@ -1,4 +1,4 @@
-const partidas = {}; // idMensaje -> data
+export const partidas = {};
 
 export default {
   commands: ["4vs4"],
@@ -55,7 +55,9 @@ Quita la reacción para salir
 
     const sent = await sock.sendMessage(jid, { text: texto }, { quoted: msg });
 
-    partidas[sent.key.id] = {
+    const uid = sent.key.id + jid; // 🔥 ID REAL
+
+    partidas[uid] = {
       jid,
       titulo,
       mx,
@@ -63,7 +65,5 @@ Quita la reacción para salir
       jugadores: new Set(),
       suplentes: new Set()
     };
-  },
-
-  partidas // 👈 exportamos para usarlo desde index
+  }
 };
