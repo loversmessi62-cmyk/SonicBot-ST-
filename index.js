@@ -125,61 +125,62 @@ async function startBot() {
     }
   });
 
+  
+
   // ================= MENSAJES =================
-  sock.ev.on("messages.upsert", async ({ messages }) => {
-    console.log("📩 EVENTO messages.upsert RECIBIDO");
+sock.ev.on("messages.upsert", async ({ messages }) => {
+  console.log("📩 EVENTO messages.upsert RECIBIDO");
 
-    for (let msg of messages) {
-      if (msg.key?.remoteJid === "status@broadcast") continue;
+  for (let msg of messages) {
+    if (msg.key?.remoteJid === "status@broadcast") continue;
 
-      msg.message =
-        msg.message?.ephemeralMessage?.message ||
-        msg.message?.viewOnceMessage?.message ||
-        msg.message;
+    msg.message =
+      msg.message?.ephemeralMessage?.message ||
+      msg.message?.viewOnceMessage?.message ||
+      msg.message;
 
-      if (!msg.message) continue;
+    if (!msg.message) continue;
 
-      const type = Object.keys(msg.message)[0];
-      console.log("💬 TIPO:", type);
+    const type = Object.keys(msg.message)[0];
+    console.log("💬 TIPO:", type);
 
-      // ================= REACCIONES 4VS4 =================
-     if (msg.message?.reactionMessage) {
-  const r = msg.message.reactionMessage;
+    // ================= REACCIONES 4VS4 =================
+    if (msg.message.reactionMessage) {
+      const r = msg.message.reactionMessage;
 
-  const jid = r.key.remoteJid;
-  const uid = r.key.id + jid; // 🔥 MISMO ID
+      const jid = r.key.remoteJid;
+      const uid = r.key.id + jid;
 
-  const emoji = r.text;
+      const emoji = r.text;
 
-  const user =
-    r.key.participant ||
-    msg.key.participant ||
-    r.key.remoteJid;
+      const user =
+        r.key.participant ||
+        msg.key.participant ||
+        r.key.remoteJid;
 
-  const partida = partidas[uid];
-  if (!partida) return;
+      const partida = partidas[uid];
+      if (!partida) continue;
 
-  // limpiar
-  partida.jugadores.delete(user);
-  partida.suplentes.delete(user);
+      partida.jugadores.delete(user);
+      partida.suplentes.delete(user);
 
-  if (emoji === "❤️" && partida.jugadores.size < 4) {
-    partida.jugadores.add(user);
-  }
+      if (emoji === "❤️" && partida.jugadores.size < 4) {
+        partida.jugadores.add(user);
+      }
 
-  if (emoji === "👍" && partida.suplentes.size < 2) {
-    partida.suplentes.add(user);
-  }
+      if (emoji === "👍" && partida.suplentes.size < 2) {
+        partida.suplentes.add(user);
+      }
 
-  const j = [...partida.jugadores];
-  const s = [...partida.suplentes];
+      const j = [...partida.jugadores];
+      const s = [...partida.suplentes];
 
-  const format = (arr, max) =>
-    Array.from({ length: max }, (_, i) =>
-      `${i + 1}. ${arr[i] ? `@${arr[i].split("@")[0]}` : "—"}`
-    ).join("\n");
+      const format = (arr, max) =>
+        Array.from({ length: max }, (_, i) =>
+          `${i + 1}. ${arr[i] ? `@${arr[i].split("@")[0]}` : "—"}`
+        ).join("\n");
 
-  const nuevo = `
+      const nuevo = `
 ⚔️ ${partida.titulo} ⚔️
 
 🕒 HORARIOS
@@ -200,14 +201,23 @@ ${format(s, 2)}
 Quita la reacción para salir
 `.trim();
 
-  await sock.sendMessage(partida.jid, {
-    text: nuevo,
-    edit: r.key.id,
-    mentions: [...j, ...s]
-  });
+      await sock.sendMessage(partida.jid, {
+        text: nuevo,
+        edit: r.key.id,
+        mentions: [...j, ...s]
+      });
 
-  return;
-}
+      continue;
+    }
+
+    // 🔥 MENSAJES NORMALES
+    try {
+      await handler(sock, msg);
+    } catch (e) {
+      console.error("❌ Error en handler:", e);
+    }
+  }
+});
 
   // ================= WELCOME / BYE =================
   sock.ev.on("group-participants.update", async update => {
