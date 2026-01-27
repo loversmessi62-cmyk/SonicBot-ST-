@@ -17,9 +17,7 @@ export default {
     }
 
     const mx = parseInt(horaMX.replace("mx", ""));
-    if (isNaN(mx)) {
-      return sock.sendMessage(jid, { text: "❌ Hora inválida" }, { quoted: msg });
-    }
+    if (isNaN(mx)) return;
 
     const col = (mx + 1) % 24;
 
@@ -48,14 +46,20 @@ export default {
 2. —
 
 ━━━━━━━━━━━━━━━
-❤️ = Jugador
-👍 = Suplente
-Quita la reacción para salir
+Selecciona una opción:
 `.trim();
 
-    const sent = await sock.sendMessage(jid, { text: texto }, { quoted: msg });
+    const sent = await sock.sendMessage(jid, {
+      text: texto,
+      buttons: [
+        { buttonId: "4vs4_jugador", buttonText: { displayText: "🎮 Jugador" }, type: 1 },
+        { buttonId: "4vs4_suplente", buttonText: { displayText: "🪑 Suplente" }, type: 1 },
+        { buttonId: "4vs4_quitar", buttonText: { displayText: "❌ Quitarme" }, type: 1 }
+      ],
+      headerType: 1
+    }, { quoted: msg });
 
-    const uid = sent.key.id + jid; // 🔥 ID REAL
+    const uid = sent.key.id + jid;
 
     partidas[uid] = {
       jid,
