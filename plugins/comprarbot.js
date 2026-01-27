@@ -10,11 +10,19 @@ BOT PARA GRUPO PERMANENTE: 📲 wa.me/522731307252
 `;
 
 const handler = async (m, { conn }) => {
-  await conn.reply(m.chat, global.ComprarBot, m);
+  if (!m.text) return;
+
+  const text = m.text.toLowerCase().trim();
+
+  if (text === '.comprarbot' || text === '.comprar') {
+    await conn.sendMessage(
+      m.chat,
+      { text: global.ComprarBot },
+      { quoted: m }
+    );
+  }
 };
 
-handler.help = ['comprarbot', 'comprar'];
-handler.tags = ['info'];
-handler.command = ['comprarbot', 'comprar'];
+handler.on = 'text';
 
 export default handler;
