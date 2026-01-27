@@ -7,8 +7,8 @@ export default {
   category: "owner",
   admin: false,
 
-  run: async (sock, msg, args, ctx) => {
-    const jid = msg.key.remoteJid;
+  async run(sock, msg, args, ctx) {
+    const jid = ctx.jid;
 
     // 🔒 SOLO OWNER
     const senderNumber = ctx.sender.split("@")[0];
@@ -19,7 +19,7 @@ export default {
     }
 
     await sock.sendMessage(jid, {
-      text: "⏳ *Actualizando bot desde GitHub...*\nNo apagues nada."
+      text: "⏳ *Buscando actualizaciones...*"
     });
 
     exec("git pull", async (err, stdout, stderr) => {
@@ -29,8 +29,25 @@ export default {
         });
       }
 
+      // 🧠 Si no hubo cambios
+      if (/Already up to date/i.test(stdout)) {
+        return sock.sendMessage(jid, {
+          text: "✅ El bot ya está actualizado.\nNo fue necesario reiniciar."
+        });
+      }
+
+      // Guardar info para aviso post-update
+      fs.writeFileSync(
+        "./restart.json",
+        JSON.stringify({
+          jid,
+          by: senderNumber,
+          at: Date.now()
+        })
+      );
+
       let message =
-        "✅ *Actualización completada*\n\n```" +
+        "✅ *Actualización aplicada*\n\n```" +
         stdout +
         "```";
 
@@ -38,18 +55,11 @@ export default {
         message += "\n⚠️ Advertencias:\n```" + stderr + "```";
       }
 
-      message += "\n\n♻️ *Reiniciando bot automáticamente...*";
+      message += "\n\n♻️ *Reiniciando bot...*";
 
       await sock.sendMessage(jid, { text: message });
 
-      fs.writeFileSync(
-        "./restart.json",
-        JSON.stringify({ jid, at: Date.now() })
-      );
-
-      setTimeout(() => {
-        process.exit(0);
-      }, 2000);
+      setTimeout(() => process.exit(0), 2000);
     });
   }
 };
