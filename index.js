@@ -143,39 +143,43 @@ async function startBot() {
       console.log("💬 TIPO:", type);
 
       // ================= REACCIONES 4VS4 =================
-      if (msg.message.reactionMessage) {
-        const r = msg.message.reactionMessage;
-        const msgId = r.key.id;
-        const emoji = r.text;
+     if (msg.message?.reactionMessage) {
+  const r = msg.message.reactionMessage;
 
-        const user =
-          r.key.participant ||
-          msg.key.participant ||
-          r.key.remoteJid;
+  const jid = r.key.remoteJid;
+  const uid = r.key.id + jid; // 🔥 MISMO ID
 
-        const partida = fourVsFour.partidas?.[msgId];
-        if (!partida) return;
+  const emoji = r.text;
 
-        partida.jugadores.delete(user);
-        partida.suplentes.delete(user);
+  const user =
+    r.key.participant ||
+    msg.key.participant ||
+    r.key.remoteJid;
 
-        if (emoji === "❤️" && partida.jugadores.size < 4) {
-          partida.jugadores.add(user);
-        }
+  const partida = partidas[uid];
+  if (!partida) return;
 
-        if (emoji === "👍" && partida.suplentes.size < 2) {
-          partida.suplentes.add(user);
-        }
+  // limpiar
+  partida.jugadores.delete(user);
+  partida.suplentes.delete(user);
 
-        const j = [...partida.jugadores];
-        const s = [...partida.suplentes];
+  if (emoji === "❤️" && partida.jugadores.size < 4) {
+    partida.jugadores.add(user);
+  }
 
-        const format = (arr, max) =>
-          Array.from({ length: max }, (_, i) =>
-            `${i + 1}. ${arr[i] ? `@${arr[i].split("@")[0]}` : "—"}`
-          ).join("\n");
+  if (emoji === "👍" && partida.suplentes.size < 2) {
+    partida.suplentes.add(user);
+  }
 
-        const nuevoTexto = `
+  const j = [...partida.jugadores];
+  const s = [...partida.suplentes];
+
+  const format = (arr, max) =>
+    Array.from({ length: max }, (_, i) =>
+      `${i + 1}. ${arr[i] ? `@${arr[i].split("@")[0]}` : "—"}`
+    ).join("\n");
+
+  const nuevo = `
 ⚔️ ${partida.titulo} ⚔️
 
 🕒 HORARIOS
@@ -196,22 +200,14 @@ ${format(s, 2)}
 Quita la reacción para salir
 `.trim();
 
-        await sock.sendMessage(partida.jid, {
-          text: nuevoTexto,
-          edit: msgId,
-          mentions: [...j, ...s]
-        });
-
-        return;
-      }
-
-      try {
-        await handler(sock, msg);
-      } catch (e) {
-        console.error("❌ Error en handler:", e);
-      }
-    }
+  await sock.sendMessage(partida.jid, {
+    text: nuevo,
+    edit: r.key.id,
+    mentions: [...j, ...s]
   });
+
+  return;
+}
 
   // ================= WELCOME / BYE =================
   sock.ev.on("group-participants.update", async update => {
