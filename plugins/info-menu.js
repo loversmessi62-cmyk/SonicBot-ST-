@@ -77,7 +77,7 @@ export default {
         }
 
         const texto = `
-╭───「 🤖 ADRIBOT 」───
+╭───「 🤖 SonicBot-ST 」───
 │ 👤 Usuario: @${username}
 │ 📅 Fecha: ${new Date().toLocaleDateString("es-MX")}
 │
