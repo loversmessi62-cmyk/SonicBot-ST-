@@ -144,43 +144,45 @@ sock.ev.on("messages.upsert", async ({ messages }) => {
     const type = Object.keys(msg.message)[0];
     console.log("💬 TIPO:", type);
 
-    // ================= REACCIONES 4VS4 =================
-    if (msg.message.reactionMessage) {
-      const r = msg.message.reactionMessage;
+    // ================= REACCIONES 4VS4 (CORRECTO) =================
+sock.ev.on("messages.reaction", async reactions => {
+  for (const r of reactions) {
+    const emoji = r.reaction?.text;
+    if (!emoji) continue;
 
-      const jid = r.key.remoteJid;
-      const uid = r.key.id + jid;
+    const jid = r.key.remoteJid;
+    const msgId = r.key.id;
+    const uid = msgId + jid;
 
-      const emoji = r.text;
+    const user =
+      r.key.participant ||
+      r.participant ||
+      r.key.remoteJid;
 
-      const user =
-        r.key.participant ||
-        msg.key.participant ||
-        r.key.remoteJid;
+    const partida = partidas[uid];
+    if (!partida) continue;
 
-      const partida = partidas[uid];
-      if (!partida) continue;
+    // limpiar primero
+    partida.jugadores.delete(user);
+    partida.suplentes.delete(user);
 
-      partida.jugadores.delete(user);
-      partida.suplentes.delete(user);
+    if (emoji === "❤️" && partida.jugadores.size < 4) {
+      partida.jugadores.add(user);
+    }
 
-      if (emoji === "❤️" && partida.jugadores.size < 4) {
-        partida.jugadores.add(user);
-      }
+    if (emoji === "👍" && partida.suplentes.size < 2) {
+      partida.suplentes.add(user);
+    }
 
-      if (emoji === "👍" && partida.suplentes.size < 2) {
-        partida.suplentes.add(user);
-      }
+    const j = [...partida.jugadores];
+    const s = [...partida.suplentes];
 
-      const j = [...partida.jugadores];
-      const s = [...partida.suplentes];
+    const format = (arr, max) =>
+      Array.from({ length: max }, (_, i) =>
+        `${i + 1}. ${arr[i] ? `@${arr[i].split("@")[0]}` : "—"}`
+      ).join("\n");
 
-      const format = (arr, max) =>
-        Array.from({ length: max }, (_, i) =>
-          `${i + 1}. ${arr[i] ? `@${arr[i].split("@")[0]}` : "—"}`
-        ).join("\n");
-
-      const nuevo = `
+    const nuevo = `
 ⚔️ ${partida.titulo} ⚔️
 
 🕒 HORARIOS
@@ -201,24 +203,13 @@ ${format(s, 2)}
 Quita la reacción para salir
 `.trim();
 
-      await sock.sendMessage(partida.jid, {
-        text: nuevo,
-        edit: r.key.id,
-        mentions: [...j, ...s]
-      });
-
-      continue;
-    }
-
-    // 🔥 MENSAJES NORMALES
-    try {
-      await handler(sock, msg);
-    } catch (e) {
-      console.error("❌ Error en handler:", e);
-    }
+    await sock.sendMessage(partida.jid, {
+      text: nuevo,
+      edit: msgId,
+      mentions: [...j, ...s]
+    });
   }
 });
-
   // ================= WELCOME / BYE =================
   sock.ev.on("group-participants.update", async update => {
     try {
