@@ -15,15 +15,15 @@ export default {
     const vcard =
       "BEGIN:VCARD\n" +
       "VERSION:3.0\n" +
-      "FN:Adri | Owner ADRIBOT\n" +
-      "ORG:ADRIBOT\n" +
+      "FN:Adri | Owner SonicBot\n" +
+      "ORG:SonicBot\n" +
       "TITLE:Owner\n" +
       `TEL;type=CELL;type=VOICE;waid=${ownerNum}:${ownerNum}\n` +
       "END:VCARD";
 
     await sock.sendMessage(jid, {
       contacts: {
-        displayName: "Adri | Owner ADRIBOT",
+        displayName: "orlan | Owner SonicBot",
         contacts: [
           {
             vcard
