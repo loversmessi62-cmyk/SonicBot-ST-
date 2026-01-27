@@ -13,7 +13,7 @@ import {
   getByeText
 } from "./utils/welcomeState.js";
 
-import fourVsFour from "./plugins/4vs4.js"; // 👈 IMPORTAMOS EL PLUGIN
+import fourVsFour from "./plugins/ff-4vs4.js"; // 👈 IMPORTAMOS EL PLUGIN
 
 const {
   default: makeWASocket,
