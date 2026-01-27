@@ -265,6 +265,7 @@ if (!fixedText && msg.message) {
   fixedText = `[${key}]`;  
 }  
 
+  edit: quoted,
 // ================= BOTONES 4VS4 =================
 if (msg.message?.buttonsResponseMessage) {
   const btn = msg.message.buttonsResponseMessage.selectedButtonId;
@@ -282,7 +283,7 @@ if (msg.message?.buttonsResponseMessage) {
 
   const user = realSender;
 
-  // limpiar posiciones
+  // limpiar primero
   partida.jugadores.delete(user);
   partida.suplentes.delete(user);
 
@@ -294,7 +295,7 @@ if (msg.message?.buttonsResponseMessage) {
     partida.suplentes.add(user);
   }
 
-  // 4vs4_quitar solo limpia (ya hecho arriba)
+  // 4vs4_quitar → solo limpia (ya hecho arriba)
 
   const format = (arr, max) =>
     Array.from({ length: max }, (_, i) =>
@@ -319,17 +320,46 @@ ${format([...partida.suplentes], 2)}
 ━━━━━━━━━━━━━━━
 `.trim();
 
+  // 🔥 BORRAR MENSAJE ANTERIOR
   await sock.sendMessage(jid, {
-    text: texto,
-    edit: quoted,
-    mentions: [
-      ...partida.jugadores,
-      ...partida.suplentes
-    ]
+    delete: {
+      remoteJid: jid,
+      fromMe: true,
+      id: quoted
+    }
   });
 
-  return; // ⛔ CORTA EL HANDLER
-} 
+  // 🔥 ENVIAR MENSAJE NUEVO CON BOTONES
+  const sent = await sock.sendMessage(jid, {
+    text: texto,
+    buttons: [
+      {
+        buttonId: "4vs4_jugador",
+        buttonText: { displayText: "🎮 Jugador" },
+        type: 1
+      },
+      {
+        buttonId: "4vs4_suplente",
+        buttonText: { displayText: "🪑 Suplente" },
+        type: 1
+      },
+      {
+        buttonId: "4vs4_quitar",
+        buttonText: { displayText: "❌ Quitarme" },
+        type: 1
+      }
+    ],
+    headerType: 1,
+    mentions: [...partida.jugadores, ...partida.suplentes]
+  });
+
+  // 🔁 actualizar UID
+  const newUid = sent.key.id + jid;
+  partidas[newUid] = partida;
+  delete partidas[uid];
+
+  return; // ⛔ IMPORTANTÍSIMO
+}
 
 // =====================================
 // 📟 LOG DE MENSAJES (TRAZABLE REAL)
