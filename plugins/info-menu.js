@@ -12,7 +12,7 @@ export default {
         let user = ctx.sender;
         let username = user.split("@")[0];
 
-        const menuImg = "https://files.catbox.moe/zni6xn.jpg";
+        const menuImg = "https://files.catbox.moe/d4d83y.png";
 
         // ===============================
         // LEER TODOS LOS PLUGINS
