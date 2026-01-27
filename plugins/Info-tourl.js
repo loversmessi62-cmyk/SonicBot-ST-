@@ -1,94 +1,81 @@
-import fetch from "node-fetch"
-import crypto from "crypto"
-import { FormData, Blob } from "formdata-node"
-import { fileTypeFromBuffer } from "file-type"
+import fetch from "node-fetch";
+import crypto from "crypto";
+import { FormData, Blob } from "formdata-node";
+import { fileTypeFromBuffer } from "file-type";
 
-const BOT_NAME = "MiBot"
-const R_CANAL = null
+// CONFIGURACIÓN DEL BOT
+const namebot = "MiBot";
+const rcanal = null;
 
 let handler = async (m, { conn }) => {
-  try {
-    const q = m.quoted || m
-    const mime = (q.msg || q).mimetype
+  let q = m.quoted ? m.quoted : m;
+  let mime = (q.msg || q).mimetype || "";
 
-    if (!mime) {
-      return conn.reply(
-        m.chat,
-        "❌ Responde a una imagen, video o archivo válido.",
-        m,
-        R_CANAL
-      )
-    }
-
-    await m.react("⏳")
-
-    const media = await q.download()
-    if (!media) throw "No se pudo descargar el archivo"
-
-    const url = await uploadCatbox(media)
-    const size = formatBytes(media.length)
-
-    const text = `
-*乂 U P L O A D E R 乂*
-
-🔗 *Enlace:* ${url}
-📦 *Tamaño:* ${size}
-🕒 *Expiración:* No expira
-
-> ${BOT_NAME}
-`.trim()
-
-    await conn.sendMessage(
+  if (!mime) {
+    return conn.reply(
       m.chat,
-      { text },
-      { quoted: m }
-    )
-
-    await m.react("✅")
-  } catch (err) {
-    console.error(err)
-    await m.react("❌")
-    conn.reply(m.chat, "⚠️ Error al subir el archivo.", m)
+      "Por favor, responde a un archivo válido (imagen, video, etc.).",
+      m,
+      rcanal
+    );
   }
+
+  await m.react("📍");
+
+  try {
+    let media = await q.download();
+    let isTele = /image\/(png|jpe?g|gif)|video\/mp4/.test(mime);
+
+    let link = await catbox(media);
+
+    let txt = `*乂 U P L O A D E R 乂*\n\n`;
+    txt += `*» Enlace* : ${link}\n`;
+    txt += `*» Tamaño* : ${formatBytes(media.length)}\n`;
+    txt += `*» Expiración* : ${isTele ? "No expira" : "Desconocido"}\n\n`;
+    txt += `> *${namebot}*`;
+
+    let ext = mime.split("/")[1] || "bin";
+    await conn.sendFile(m.chat, media, `archivo.${ext}`, txt, m, rcanal);
+
+    await m.react("✅");
+  } catch (e) {
+    console.error(e);
+    await m.react("😩");
+  }
+};
+
+handler.help = ["tourl"];
+handler.tags = ["tools"];
+handler.command = ["catbox", "tourl"];
+export default handler;
+
+function formatBytes(bytes) {
+  if (!bytes) return "0 B";
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / 1024 ** i).toFixed(2)} ${sizes[i]}`;
 }
 
-handler.help = ["tourl", "catbox"]
-handler.tags = ["tools"]
-handler.command = /^(tourl|catbox)$/i
+async function catbox(content) {
+  const type = await fileTypeFromBuffer(content);
+  const ext = type?.ext || "bin";
+  const mime = type?.mime || "application/octet-stream";
 
-export default handler
+  const blob = new Blob([content], { type: mime });
+  const formData = new FormData();
+  const randomBytes = crypto.randomBytes(5).toString("hex");
 
-/* ================= FUNCIONES ================= */
+  formData.append("reqtype", "fileupload");
+  formData.append("fileToUpload", blob, `${randomBytes}.${ext}`);
 
-function formatBytes(bytes = 0) {
-  if (!bytes) return "0 B"
-  const sizes = ["B", "KB", "MB", "GB", "TB"]
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`
-}
-
-async function uploadCatbox(buffer) {
-  const type = await fileTypeFromBuffer(buffer)
-  if (!type) throw "Tipo de archivo desconocido"
-
-  const blob = new Blob([buffer], { type: type.mime })
-  const form = new FormData()
-
-  const name = crypto.randomBytes(6).toString("hex") + "." + type.ext
-
-  form.append("reqtype", "fileupload")
-  form.append("fileToUpload", blob, name)
-
-  const res = await fetch("https://catbox.moe/user/api.php", {
+  const response = await fetch("https://catbox.moe/user/api.php", {
     method: "POST",
-    body: form,
+    body: formData,
     headers: {
-      "User-Agent": "Mozilla/5.0"
-    }
-  })
+      "User-Agent":
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",
+    },
+  });
 
-  const text = await res.text()
-  if (!text.startsWith("https://")) throw "Error en Catbox"
-
-  return text.trim()
+  return (await response.text()).trim();
 }
