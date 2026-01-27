@@ -9,7 +9,7 @@ export default {
   ],
 
   prefix: ".",
-  botName: "ADRIBOT",
+  botName: "SonicBot-ST",
 
   messages: {
     admin: "❌ Este comando es solo para *ADMINISTRADORES*.",
