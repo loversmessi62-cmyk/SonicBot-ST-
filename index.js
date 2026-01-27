@@ -13,6 +13,8 @@ import {
   getByeText
 } from "./utils/welcomeState.js";
 
+import fourVsFour from "./plugins/4vs4.js"; // 👈 IMPORTAMOS EL PLUGIN
+
 const {
   default: makeWASocket,
   useMultiFileAuthState,
@@ -102,7 +104,6 @@ async function startBot() {
         }
       }
 
-      // 🔥 CARGAR PLUGINS UNA SOLA VEZ
       if (!pluginsLoaded) {
         await loadPlugins();
         pluginsLoaded = true;
@@ -120,7 +121,7 @@ async function startBot() {
       }
 
       console.log("🔁 REINICIANDO SOCKET...");
-      startBot(); // 🔥 recrea socket completo
+      startBot();
     }
   });
 
@@ -131,7 +132,6 @@ async function startBot() {
     for (let msg of messages) {
       if (msg.key?.remoteJid === "status@broadcast") continue;
 
-      // 🔥 DESENVOLVER MENSAJES OCULTOS
       msg.message =
         msg.message?.ephemeralMessage?.message ||
         msg.message?.viewOnceMessage?.message ||
@@ -141,6 +141,69 @@ async function startBot() {
 
       const type = Object.keys(msg.message)[0];
       console.log("💬 TIPO:", type);
+
+      // ================= REACCIONES 4VS4 =================
+      if (msg.message.reactionMessage) {
+        const r = msg.message.reactionMessage;
+        const msgId = r.key.id;
+        const emoji = r.text;
+
+        const user =
+          r.key.participant ||
+          msg.key.participant ||
+          r.key.remoteJid;
+
+        const partida = fourVsFour.partidas?.[msgId];
+        if (!partida) return;
+
+        partida.jugadores.delete(user);
+        partida.suplentes.delete(user);
+
+        if (emoji === "❤️" && partida.jugadores.size < 4) {
+          partida.jugadores.add(user);
+        }
+
+        if (emoji === "👍" && partida.suplentes.size < 2) {
+          partida.suplentes.add(user);
+        }
+
+        const j = [...partida.jugadores];
+        const s = [...partida.suplentes];
+
+        const format = (arr, max) =>
+          Array.from({ length: max }, (_, i) =>
+            `${i + 1}. ${arr[i] ? `@${arr[i].split("@")[0]}` : "—"}`
+          ).join("\n");
+
+        const nuevoTexto = `
+⚔️ ${partida.titulo} ⚔️
+
+🕒 HORARIOS
+🇲🇽 México: ${partida.mx}MX
+🇨🇴 Colombia: ${partida.col}COL
+
+━━━━━━━━━━━━━━━
+
+🎮 JUGADORES
+${format(j, 4)}
+
+🪑 SUPLENTES
+${format(s, 2)}
+
+━━━━━━━━━━━━━━━
+❤️ = Jugador
+👍 = Suplente
+Quita la reacción para salir
+`.trim();
+
+        await sock.sendMessage(partida.jid, {
+          text: nuevoTexto,
+          edit: msgId,
+          mentions: [...j, ...s]
+        });
+
+        return;
+      }
 
       try {
         await handler(sock, msg);
@@ -167,7 +230,6 @@ async function startBot() {
 
         const mention = user.split("@")[0];
         const member = members.find(p => p.id === user);
-        const name = member?.notify || member?.name || "Usuario";
 
         const now = new Date();
         const date = now.toLocaleDateString("es-MX");
