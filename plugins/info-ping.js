@@ -1,6 +1,6 @@
 export default {
   commands: ["ping"],
-  category: "funny",
+  category: "info",
 
   async run(sock, msg, args, ctx) {
     const start = Date.now()
