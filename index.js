@@ -52,6 +52,9 @@ const getGroupMeta = async (sock, jid) => {
 // ================= BOT =================
 let pluginsLoaded = false;
 
+// 🔔 EVITA DOBLE AVISO POST-UPDATE
+let restartNotified = false;
+
 async function startBot() {
   console.log("🚀 CREANDO SOCKET NUEVO");
 
@@ -73,9 +76,33 @@ async function startBot() {
 
   // ================= CONEXIÓN =================
   sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
+
     if (connection === "open") {
       console.log("✅ ADRIBOT CONECTADO");
 
+      // 🔔 AVISO POST-UPDATE (UNA SOLA VEZ)
+      const restartFile = "./restart.json";
+      if (!restartNotified && fs.existsSync(restartFile)) {
+        restartNotified = true;
+        try {
+          const data = JSON.parse(fs.readFileSync(restartFile));
+          const segundos = Math.floor((Date.now() - data.at) / 1000);
+
+          await sock.sendMessage(data.jid, {
+            text:
+              "🤖 *ADRIBOT EN LÍNEA*\n\n" +
+              "✅ Actualización aplicada correctamente\n" +
+              `👤 Owner: ${data.by}\n` +
+              `⏱️ Tiempo fuera: ${segundos}s`
+          });
+
+          fs.unlinkSync(restartFile);
+        } catch (e) {
+          console.error("❌ Error leyendo restart.json:", e);
+        }
+      }
+
+      // 🔥 CARGAR PLUGINS UNA SOLA VEZ
       if (!pluginsLoaded) {
         await loadPlugins();
         pluginsLoaded = true;
@@ -93,35 +120,36 @@ async function startBot() {
       }
 
       console.log("🔁 REINICIANDO SOCKET...");
-      startBot(); // 🔥 RECREA TODO, incluidos eventos
+      startBot(); // 🔥 recrea socket completo
     }
   });
 
   // ================= MENSAJES =================
   sock.ev.on("messages.upsert", async ({ messages }) => {
-  console.log("📩 EVENTO messages.upsert RECIBIDO");
+    console.log("📩 EVENTO messages.upsert RECIBIDO");
 
-  for (let msg of messages) {
-    if (msg.key?.remoteJid === "status@broadcast") continue;
+    for (let msg of messages) {
+      if (msg.key?.remoteJid === "status@broadcast") continue;
 
-    // 🔥 DESENVOLVER MENSAJES OCULTOS
-    msg.message =
-      msg.message?.ephemeralMessage?.message ||
-      msg.message?.viewOnceMessage?.message ||
-      msg.message;
+      // 🔥 DESENVOLVER MENSAJES OCULTOS
+      msg.message =
+        msg.message?.ephemeralMessage?.message ||
+        msg.message?.viewOnceMessage?.message ||
+        msg.message;
 
-    if (!msg.message) continue;
+      if (!msg.message) continue;
 
-    const type = Object.keys(msg.message)[0];
-    console.log("💬 TIPO:", type);
+      const type = Object.keys(msg.message)[0];
+      console.log("💬 TIPO:", type);
 
-    try {
-      await handler(sock, msg);
-    } catch (e) {
-      console.error("❌ Error en handler:", e);
+      try {
+        await handler(sock, msg);
+      } catch (e) {
+        console.error("❌ Error en handler:", e);
+      }
     }
-  }
-});
+  });
+
   // ================= WELCOME / BYE =================
   sock.ev.on("group-participants.update", async update => {
     try {
@@ -143,14 +171,21 @@ async function startBot() {
 
         const now = new Date();
         const date = now.toLocaleDateString("es-MX");
-        const time = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+        const time = now.toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
 
         let fileImage;
         try {
           const pfp = await sock.profilePictureUrl(user, "image");
           fileImage = { url: pfp };
         } catch {
-          fileImage = fs.readFileSync(action === "add" ? "./media/welcome.png" : "./media/bye.png");
+          fileImage = fs.readFileSync(
+            action === "add"
+              ? "./media/welcome.png"
+              : "./media/bye.png"
+          );
         }
 
         if (action === "add" && isWelcomeEnabled(id)) {
@@ -161,7 +196,11 @@ async function startBot() {
             .replace(/@date/g, date)
             .replace(/@time/g, time);
 
-          await sock.sendMessage(id, { image: fileImage, caption, mentions: [user] });
+          await sock.sendMessage(id, {
+            image: fileImage,
+            caption,
+            mentions: [user]
+          });
         }
 
         if (action === "remove" && isByeEnabled(id)) {
@@ -172,7 +211,11 @@ async function startBot() {
             .replace(/@date/g, date)
             .replace(/@time/g, time);
 
-          await sock.sendMessage(id, { image: fileImage, caption, mentions: [user] });
+          await sock.sendMessage(id, {
+            image: fileImage,
+            caption,
+            mentions: [user]
+          });
         }
       }
     } catch (err) {
