@@ -5,6 +5,7 @@ import { isAntilinkEnabled } from "./utils/antilinkState.js";
 import { isModoAdminsEnabled } from "./lib/modoadminsState.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { isMuted } from "./utils/muteState.js";
+import { partidas } from "./plugins/ff-4vs4.js";
 
 const groupCache = {};
 const groupFetchLocks = {}; // 🔥 evita múltiples llamadas al mismo tiempo
@@ -264,6 +265,71 @@ if (!fixedText && msg.message) {
   fixedText = `[${key}]`;  
 }  
 
+// ================= BOTONES 4VS4 =================
+if (msg.message?.buttonsResponseMessage) {
+  const btn = msg.message.buttonsResponseMessage.selectedButtonId;
+  if (!btn?.startsWith("4vs4_")) return;
+
+  const ctxBtn = msg.message.buttonsResponseMessage.contextInfo;
+  if (!ctxBtn?.stanzaId) return;
+
+  const quoted = ctxBtn.stanzaId;
+  const jid = msg.key.remoteJid;
+  const uid = quoted + jid;
+
+  const partida = partidas[uid];
+  if (!partida) return;
+
+  const user = realSender;
+
+  // limpiar posiciones
+  partida.jugadores.delete(user);
+  partida.suplentes.delete(user);
+
+  if (btn === "4vs4_jugador" && partida.jugadores.size < 4) {
+    partida.jugadores.add(user);
+  }
+
+  if (btn === "4vs4_suplente" && partida.suplentes.size < 2) {
+    partida.suplentes.add(user);
+  }
+
+  // 4vs4_quitar solo limpia (ya hecho arriba)
+
+  const format = (arr, max) =>
+    Array.from({ length: max }, (_, i) =>
+      `${i + 1}. ${arr[i] ? `@${arr[i].split("@")[0]}` : "—"}`
+    ).join("\n");
+
+  const texto = `
+⚔️ ${partida.titulo} ⚔️
+
+🕒 HORARIOS
+🇲🇽 México: ${partida.mx}MX
+🇨🇴 Colombia: ${partida.col}COL
+
+━━━━━━━━━━━━━━━
+
+🎮 JUGADORES
+${format([...partida.jugadores], 4)}
+
+🪑 SUPLENTES
+${format([...partida.suplentes], 2)}
+
+━━━━━━━━━━━━━━━
+`.trim();
+
+  await sock.sendMessage(jid, {
+    text: texto,
+    edit: quoted,
+    mentions: [
+      ...partida.jugadores,
+      ...partida.suplentes
+    ]
+  });
+
+  return; // ⛔ CORTA EL HANDLER
+} 
 
 // =====================================
 // 📟 LOG DE MENSAJES (TRAZABLE REAL)
