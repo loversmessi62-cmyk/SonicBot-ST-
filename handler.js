@@ -265,7 +265,7 @@ if (!fixedText && msg.message) {
   fixedText = `[${key}]`;  
 }  
 
-  edit: quoted,
+ 
 // ================= BOTONES 4VS4 =================
 if (msg.message?.buttonsResponseMessage) {
   const btn = msg.message.buttonsResponseMessage.selectedButtonId;
