@@ -1,25 +1,29 @@
-let handler = async (m, { conn }) => {
-  let plugins = [];
+const handler = {
+  command: ['totalfunciones', 'comandos', 'funciones'],
+  tags: ['main'],
+  help: ['totalfunciones'],
+  group: false,
 
-  try {
-    plugins = Object.values(global.plugins ?? {}).filter(p =>
-      p &&
-      Array.isArray(p.help) &&
-      p.help.length > 0
+  async run(sock, msg, args, ctx) {
+    let plugins = [];
+
+    try {
+      plugins = Object.values(global.plugins ?? {}).filter(p =>
+        p &&
+        p.help &&
+        Array.isArray(p.help) &&
+        p.help.length > 0
+      );
+    } catch {}
+
+    const total = plugins.length;
+
+    await sock.sendMessage(
+      ctx.jid,
+      { text: `✅ *TOTAL DE COMANDOS SONICBOT-ST:* ${total}` },
+      { quoted: msg }
     );
-  } catch (e) {
-    plugins = [];
   }
-
-  let totalf = plugins.length;
-
-  let mensaje = `✅ *TOTAL DE COMANDOS SONICBOT-ST:* ${totalf}`;
-
-  await conn.reply(m.chat, mensaje, m);
 };
-
-handler.help = ['totalfunciones'];
-handler.tags = ['main'];
-handler.command = ['totalfunciones', 'comandos', 'funciones'];
 
 export default handler;
