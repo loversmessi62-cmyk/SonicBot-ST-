@@ -15,14 +15,17 @@ export default {
 
       console.log('[plugin facto] run invoked for', jid)
 
+      // Si quieres que funcione SOLO en grupos (tu handler antiguo lo marcaba así)
       if (!ctx?.isGroup) {
         return sock.sendMessage(jid, { text: '❌ Este comando solo funciona en grupos.' }, { quoted: msg })
       }
 
+      // Mensaje inicial (opcional)
       const searchingEmoji = '⌛'
       await sock.sendMessage(jid, { text: `${searchingEmoji} Buscando un facto, espere un momento...` }, { quoted: msg })
 
-      if (!global.factos) {
+      // Lista de factos (puedes editar/añadir)
+      if (!global.factos || !Array.isArray(global.factos)) {
         global.factos = [
           "Eres la razón por la que hay instrucciones en los champús.",
           "Si fueras un libro, serías el que nadie quiere leer.",
@@ -53,10 +56,14 @@ export default {
           "Eres como un tren descarrilado: solo causan caos.",
           "Si fueras un clima, serías una tormenta: oscuro y destructivo.",
           "Eres como una cadena de mensajes: nadie te quiere, pero todos te reciben.",
-          "Tu vida es como un rompecabezas con      }
+          "Tu vida es como un rompecabezas con piezas que nunca encajan.",
+          "Si fueras una película, serías una secuela que nadie pidió."
+        ]
+      }
 
-      if (!global.factosUsados) global.factosUsados = []
+      if (!global.factosUsados || !Array.isArray(global.factosUsados)) global.factosUsados = []
 
+      // Reiniciar usados si ya se consumieron todos
       if (global.factosUsados.length >= global.factos.length) global.factosUsados = []
 
       const disponibles = global.factos.filter(f => !global.factosUsados.includes(f))
@@ -64,7 +71,7 @@ export default {
 
       global.factosUsados.push(elegido)
 
-      const result = `*┏━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┓*\n\n❥ *"${elegido}"*\n\n*┗━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┛*`
+      const result = `*┏━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘n\n*┗━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┛*`
 
       await sock.sendMessage(jid, { text: result }, { quoted: msg })
     } catch (err) {
