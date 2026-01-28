@@ -8,9 +8,13 @@ const handler = {
   group: false,
 
   async run(sock, msg, args, ctx) {
+
+    // 🛑 BLOQUEO ANTI-DUPLICADO
+    if (msg._totalfunciones) return;
+    msg._totalfunciones = true;
+
     try {
       const pluginsDir = path.join(process.cwd(), 'plugins');
-
       const files = fs.readdirSync(pluginsDir)
         .filter(file => file.endsWith('.js'));
 
