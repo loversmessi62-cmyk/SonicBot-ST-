@@ -1,4 +1,6 @@
 // plugins/facto.js
+console.log('🔌 plugins/facto.js: importado')
+
 function pickRandom(list) {
   return list[Math.floor(Math.random() * list.length)]
 }
@@ -13,7 +15,6 @@ export default {
 
       console.log('[plugin facto] run invoked for', jid)
 
-      // Forzar solo en grupos (si quieres que funcione solo en grupos)
       if (!ctx?.isGroup) {
         return sock.sendMessage(jid, { text: '❌ Este comando solo funciona en grupos.' }, { quoted: msg })
       }
@@ -21,7 +22,6 @@ export default {
       const searchingEmoji = '⌛'
       await sock.sendMessage(jid, { text: `${searchingEmoji} Buscando un facto, espere un momento...` }, { quoted: msg })
 
-      // Inicializar factos si no existen
       if (!global.factos) {
         global.factos = [
           "Eres la razón por la que hay instrucciones en los champús.",
@@ -53,9 +53,10 @@ export default {
           "Eres como un tren descarrilado: solo causan caos.",
           "Si fueras un clima, serías una tormenta: oscuro y destructivo.",
           "Eres como una cadena de mensajes: nadie te quiere, pero todos te reciben.",
-          "Tu vida es como un rompecabezas con piezas que nunca encajan.",
-          "Si fueras una película, serías una secuela que nadie pidió."
- reiniciar lista usada
+          "Tu vida es como un rompecabezas con      }
+
+      if (!global.factosUsados) global.factosUsados = []
+
       if (global.factosUsados.length >= global.factos.length) global.factosUsados = []
 
       const disponibles = global.factos.filter(f => !global.factosUsados.includes(f))
