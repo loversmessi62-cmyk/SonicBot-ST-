@@ -5,31 +5,17 @@ const handler = {
   group: false,
 
   async run(sock, msg, args, ctx) {
-    let plugins = [];
+    let total = 0;
 
-    // 1️⃣ Intento SonicBot-ST (más común)
-    if (global.handler?.plugins) {
-      plugins = Object.values(global.handler.plugins);
+    // 🔥 SonicBot-ST usa Map para los comandos
+    if (global.commands instanceof Map) {
+      total = global.commands.size;
     }
 
-    // 2️⃣ Intento por ctx
-    else if (ctx.plugins) {
-      plugins = Object.values(ctx.plugins);
+    // fallback por si cambia el core
+    else if (typeof global.commands === 'object') {
+      total = Object.keys(global.commands).length;
     }
-
-    // 3️⃣ Fallback
-    else if (global.plugins) {
-      plugins = Object.values(global.plugins);
-    }
-
-    // Filtrar solo comandos válidos
-    plugins = plugins.filter(p =>
-      p &&
-      p.command &&
-      (Array.isArray(p.command) || typeof p.command === 'string')
-    );
-
-    const total = plugins.length;
 
     await sock.sendMessage(
       ctx.jid,
