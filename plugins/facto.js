@@ -19,7 +19,6 @@ export default {
         return sock.sendMessage(jid, { text: '❌ Este comando solo funciona en grupos.' }, { quoted: msg })
       }
 
-      // Mensaje inicial
       const searchingEmoji = '⌛'
       await sock.sendMessage(jid, { text: `${searchingEmoji} Buscando un facto, espere un momento...` }, { quoted: msg })
 
@@ -54,7 +53,7 @@ export default {
           "Eres como una planta marchita: solo ocupas espacio.",
           "Si fueras un virus informático, serías uno que causa más problemas que soluciones.",
           "Tu imagen es la razón por la que los espejos están cubiertos.",
-          "Eres el ejemplo perfecto de cómo no vivir la vida.",
+          ejemplo perfecto de cómo no vivir la vida.",
           "Si fueras un día de la semana, serías un lunes: todos te odian.",
           "Eres la razón por la que las personas no creen en el amor verdadero.",
           "Tu vida es un meme, pero nadie se ríe.",
@@ -69,8 +68,8 @@ export default {
         ]
       }
 
-      // Asegurar arreglo de usados
-      if (!global.isArray(global.factosUsados)) global.factosUsados = []
+      // CORRECCIÓN: usar Array.isArray en vez de global.isArray
+      if (!global.factosUsados || !Array.isArray(global.factosUsados)) global.factosUsados = []
 
       // Reiniciar si ya se usaron todos
       if (global.factosUsados.length >= global.factos.length) global.factosUsados = []
@@ -78,20 +77,17 @@ export default {
       const disponibles = global.factos.filter(f => !global.factosUsados.includes(f))
       let elegido = disponibles.length ? pickRandom(disponibles) : pickRandom(global.factos)
 
-      // Si por alguna razón elegido no es una cadena válida, fallback
       if (!elegido || typeof elegido !== 'string' || !elegido.trim()) {
         console.warn('[plugin facto] elegido inválido, usando fallback')
         elegido = 'No se encontró un facto disponible.'
       }
 
-      // Guardar y loguear (por si quieres verificar en consola)
       global.factosUsados.push(elegido)
       console.log('[plugin facto] elegido:', elegido)
 
-      const header = '*┏━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┓*'
+      const header = '*┏━_͜͡-͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┓*'
       const footer = '*┗━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┛*'
 
-      // Construir el mensaje de forma segura
       const result = [header, '', `❥ *"${elegido.replace(/\n+/g, ' ')}"*`, '', footer].join('\n')
 
       await sock.sendMessage(jid, { text: result }, { quoted: msg })
