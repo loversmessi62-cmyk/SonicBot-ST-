@@ -1,2 +1,2 @@
 # SonicBot-ST 
-https://files.catbox.moe/d4d83y.png
+img:https://files.catbox.moe/d4d83y.png
