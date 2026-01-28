@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 const handler = {
   command: ['totalfunciones', 'comandos', 'funciones'],
   tags: ['main'],
@@ -5,23 +8,27 @@ const handler = {
   group: false,
 
   async run(sock, msg, args, ctx) {
-    let total = 0;
+    try {
+      const pluginsDir = path.join(process.cwd(), 'plugins');
 
-    // 🔥 SonicBot-ST usa Map para los comandos
-    if (global.commands instanceof Map) {
-      total = global.commands.size;
+      const files = fs.readdirSync(pluginsDir)
+        .filter(file => file.endsWith('.js'));
+
+      const total = files.length;
+
+      await sock.sendMessage(
+        ctx.jid,
+        { text: `✅ *TOTAL DE COMANDOS SONICBOT-ST:* ${total}` },
+        { quoted: msg }
+      );
+
+    } catch (e) {
+      await sock.sendMessage(
+        ctx.jid,
+        { text: '❌ No se pudo leer la carpeta plugins.' },
+        { quoted: msg }
+      );
     }
-
-    // fallback por si cambia el core
-    else if (typeof global.commands === 'object') {
-      total = Object.keys(global.commands).length;
-    }
-
-    await sock.sendMessage(
-      ctx.jid,
-      { text: `✅ *TOTAL DE COMANDOS SONICBOT-ST:* ${total}` },
-      { quoted: msg }
-    );
   }
 };
 
