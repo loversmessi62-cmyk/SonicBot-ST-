@@ -15,7 +15,7 @@ export default {
     const vcard =
       "BEGIN:VCARD\n" +
       "VERSION:3.0\n" +
-      "FN:Adri | Owner SonicBot\n" +
+      "FN:Orlan | Owner SonicBot\n" +
       "ORG:SonicBot\n" +
       "TITLE:Owner\n" +
       `TEL;type=CELL;type=VOICE;waid=${ownerNum}:${ownerNum}\n` +
