@@ -7,14 +7,27 @@ const handler = {
   async run(sock, msg, args, ctx) {
     let plugins = [];
 
-    try {
-      plugins = Object.values(global.plugins ?? {}).filter(p =>
-        p &&
-        p.help &&
-        Array.isArray(p.help) &&
-        p.help.length > 0
-      );
-    } catch {}
+    // 1️⃣ Intento SonicBot-ST (más común)
+    if (global.handler?.plugins) {
+      plugins = Object.values(global.handler.plugins);
+    }
+
+    // 2️⃣ Intento por ctx
+    else if (ctx.plugins) {
+      plugins = Object.values(ctx.plugins);
+    }
+
+    // 3️⃣ Fallback
+    else if (global.plugins) {
+      plugins = Object.values(global.plugins);
+    }
+
+    // Filtrar solo comandos válidos
+    plugins = plugins.filter(p =>
+      p &&
+      p.command &&
+      (Array.isArray(p.command) || typeof p.command === 'string')
+    );
 
     const total = plugins.length;
 
