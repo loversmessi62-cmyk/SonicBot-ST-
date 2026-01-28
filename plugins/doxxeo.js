@@ -1,19 +1,30 @@
-let handler = async (m, { conn }) => {
-  let user =
-    m.mentionedJid?.[0] ||
-    m.quoted?.sender;
+export default {
+  commands: ["dox"],
+  group: true,
 
-  if (!user) {
-    return m.reply("☠️ MENCIONA O RESPONDE A UN USUARIO ☠️");
-  }
+  async run(sock, msg, args, ctx) {
+    const jid = ctx.jid;
 
-  const ip = `203.0.113.${Math.floor(Math.random() * 255)}`;
+    // usuario mencionado o citado
+    const user =
+      msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] ||
+      msg.message?.extendedTextMessage?.contextInfo?.participant ||
+      msg.quoted?.sender;
 
-  const ubicaciones = ["Sector 13", "Zona Muerta", "Distrito Negro"];
-  const isp = ["DarkNet Core", "ShadowLink", "Null Provider"];
-  const dispositivos = ["Android", "iPhone", "Windows"];
+    if (!user) {
+      return sock.sendMessage(jid, {
+        text: "☠️ MENCIONA O RESPONDE A UN USUARIO ☠️"
+      });
+    }
 
-  let texto = `
+    // DATOS FAKE (ROL / JODA)
+    const ip = `203.0.113.${Math.floor(Math.random() * 255)}`;
+
+    const ubicaciones = ["Sector 13", "Zona Muerta", "Distrito Negro"];
+    const isp = ["DarkNet Core", "ShadowLink", "Null Provider"];
+    const dispositivos = ["Android", "iPhone", "Windows"];
+
+    const texto = `
 ☠️ DOX EN PROGRESO ☠️
 
 ⏳ Iniciando rastreo...
@@ -31,15 +42,15 @@ let handler = async (m, { conn }) => {
 
 ⚠️ ACCESO CONCEDIDO
 ☠️☠️☠️
-`;
+`.trim();
 
-  await conn.sendMessage(
-    m.chat,
-    { text: texto, mentions: [user] },
-    { quoted: m }
-  );
+    await sock.sendMessage(
+      jid,
+      {
+        text: texto,
+        mentions: [user]
+      },
+      { quoted: msg }
+    );
+  }
 };
-
-handler.command = /^dox$/i;
-handler.group = true;
-export default handler;
