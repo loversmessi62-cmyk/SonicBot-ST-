@@ -6,12 +6,9 @@ const handler = {
 
   async run(sock, msg, args, ctx) {
     try {
-      const { jid, isGroup } = ctx;
+      const { jid, isGroup, sender } = ctx;
       let who;
 
-      // ===============================
-      // DETERMINAR USUARIO
-      // ===============================
       const mentioned =
         msg.message?.extendedTextMessage?.contextInfo?.mentionedJid;
 
@@ -20,42 +17,33 @@ const handler = {
       } else if (msg.quoted?.sender) {
         who = msg.quoted.sender;
       } else {
-        who = ctx.sender;
+        who = sender;
       }
 
-      // ===============================
-      // OBTENER NOMBRES
-      // ===============================
+      if (!isGroup) {
+        return sock.sendMessage(
+          jid,
+          { text: "⚠️ Este comando solo funciona en grupos." },
+          { quoted: msg }
+        );
+      }
+
       let name, name2;
-      try {
-        name = await sock.getName(who);
-      } catch {
-        name = who.split("@")[0];
-      }
+      try { name = await sock.getName(who); } 
+      catch { name = who.split("@")[0]; }
 
-      try {
-        name2 = await sock.getName(ctx.sender);
-      } catch {
-        name2 = ctx.sender.split("@")[0];
-      }
+      try { name2 = await sock.getName(sender); } 
+      catch { name2 = sender.split("@")[0]; }
 
-      // ===============================
-      // TEXTO
-      // ===============================
-      let text;
+      let caption;
       if (mentioned?.length) {
-        text = `\`${name2}\` besó excitantemente a \`${name}\`.`;
+        caption = `\`${name2}\` besó excitantemente a \`${name}\`.`;
       } else if (msg.quoted) {
-        text = `\`${name2}\` besó apasionadamente a \`${name}\`.`;
+        caption = `\`${name2}\` besó apasionadamente a \`${name}\`.`;
       } else {
-        text = `\`${name2}\` se besa a sí mismo 😏`;
+        caption = `\`${name2}\` se besa a sí mismo 😏`;
       }
 
-      if (!isGroup) return;
-
-      // ===============================
-      // VIDEOS
-      // ===============================
       const videos = [
         "https://qu.ax/bLLe.mp4","https://qu.ax/mwXW.mp4","https://qu.ax/WUiG.mp4",
         "https://qu.ax/djk.mp4","https://qu.ax/xdis.mp4","https://qu.ax/JKEw.mp4",
@@ -69,16 +57,13 @@ const handler = {
 
       const video = videos[Math.floor(Math.random() * videos.length)];
 
-      // ===============================
-      // ENVIAR MENSAJE
-      // ===============================
       await sock.sendMessage(
         jid,
         {
           video: { url: video },
           gifPlayback: true,
-          caption: text,
-          mentions: [who]
+          caption,
+          mentions: who !== sender ? [who] : []
         },
         { quoted: msg }
       );
