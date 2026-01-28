@@ -1,9 +1,15 @@
-let handler = async (m, { conn }) => {
-  if (!m.mentionedJid || m.mentionedJid.length === 0) {
-    return m.reply("☠️ MENCIONA A ALGUIEN. ☠️");
-  }
+let handler = async (m, { conn, text }) => {
+  // Obtener usuario mencionado o citado
+  let user =
+    m.mentionedJid && m.mentionedJid[0]
+      ? m.mentionedJid[0]
+      : m.quoted
+      ? m.quoted.sender
+      : null;
 
-  let user = m.mentionedJid[0];
+  if (!user) {
+    return m.reply("☠️ MENCIONA O RESPONDE A UN USUARIO. ☠️");
+  }
 
   // IP falsa (rango reservado)
   const ip = `203.0.113.${Math.floor(Math.random() * 255)}`;
@@ -40,4 +46,5 @@ let handler = async (m, { conn }) => {
 };
 
 handler.command = /^dox$/i;
+handler.group = true; // opcional (evita privados)
 export default handler;
