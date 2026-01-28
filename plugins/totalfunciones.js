@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
+// 🔒 Set global para evitar duplicados
+global._totalfuncionesHandled ??= new Set();
+
 const handler = {
   command: ['totalfunciones', 'comandos', 'funciones'],
   tags: ['main'],
@@ -8,10 +11,11 @@ const handler = {
   group: false,
 
   async run(sock, msg, args, ctx) {
+    const msgId = msg.key?.id;
 
-    // 🛑 BLOQUEO ANTI-DUPLICADO
-    if (msg._totalfunciones) return;
-    msg._totalfunciones = true;
+    // 🛑 BLOQUEO DEFINITIVO
+    if (msgId && global._totalfuncionesHandled.has(msgId)) return;
+    if (msgId) global._totalfuncionesHandled.add(msgId);
 
     try {
       const pluginsDir = path.join(process.cwd(), 'plugins');
