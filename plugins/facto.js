@@ -15,17 +15,25 @@ export default {
 
       console.log('[plugin facto] run invoked for', jid)
 
-      // Si quieres que funcione SOLO en grupos (tu handler antiguo lo marcaba así)
       if (!ctx?.isGroup) {
         return sock.sendMessage(jid, { text: '❌ Este comando solo funciona en grupos.' }, { quoted: msg })
       }
 
-      // Mensaje inicial (opcional)
+      // Mensaje inicial
       const searchingEmoji = '⌛'
       await sock.sendMessage(jid, { text: `${searchingEmoji} Buscando un facto, espere un momento...` }, { quoted: msg })
 
-      // Lista de factos (puedes editar/añadir)
+      // Asegurar que global.factos sea un array de strings válidos
       if (!global.factos || !Array.isArray(global.factos)) {
+        global.factos = []
+      } else {
+        global.factos = global.factos
+          .map(f => (f == null ? '' : String(f).trim()))
+          .filter(Boolean) // eliminar vacíos
+      }
+
+      // Si no hay factos, añadir algunos por defecto
+      if (global.factos.length === 0) {
         global.factos = [
           "Eres la razón por la que hay instrucciones en los champús.",
           "Si fueras un libro, serías el que nadie quiere leer.",
@@ -40,7 +48,7 @@ export default {
           "Eres la prueba de que la selección natural puede fallar.",
           "Si fueras un color, serías el gris: aburrido y sin vida.",
           "Tu vida es como una mala película: nadie quiere ver el final.",
-          "Eres como un mal chiste: siempre haces que la gente se sienta incómoda.",
+          "Eres como un mal chiste: siempre haces que la gente se sienta incómodo.",
           "Si fueras un animal, serías la mascota que nadie quiere adoptar.",
           "Tu sentido del humor es como un mal Wi-Fi: no tiene conexión.",
           "Eres como una planta marchita: solo ocupas espacio.",
@@ -61,17 +69,30 @@ export default {
         ]
       }
 
-      if (!global.factosUsados || !Array.isArray(global.factosUsados)) global.factosUsados = []
+      // Asegurar arreglo de usados
+      if (!global.isArray(global.factosUsados)) global.factosUsados = []
 
-      // Reiniciar usados si ya se consumieron todos
+      // Reiniciar si ya se usaron todos
       if (global.factosUsados.length >= global.factos.length) global.factosUsados = []
 
       const disponibles = global.factos.filter(f => !global.factosUsados.includes(f))
-      const elegido = disponibles.length ? pickRandom(disponibles) : pickRandom(global.factos)
+      let elegido = disponibles.length ? pickRandom(disponibles) : pickRandom(global.factos)
 
+      // Si por alguna razón elegido no es una cadena válida, fallback
+      if (!elegido || typeof elegido !== 'string' || !elegido.trim()) {
+        console.warn('[plugin facto] elegido inválido, usando fallback')
+        elegido = 'No se encontró un facto disponible.'
+      }
+
+      // Guardar y loguear (por si quieres verificar en consola)
       global.factosUsados.push(elegido)
+      console.log('[plugin facto] elegido:', elegido)
 
-      const result = `*┏━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘n\n*┗━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┛*`
+      const header = '*┏━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┓*'
+      const footer = '*┗━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┛*'
+
+      // Construir el mensaje de forma segura
+      const result = [header, '', `❥ *"${elegido.replace(/\n+/g, ' ')}"*`, '', footer].join('\n')
 
       await sock.sendMessage(jid, { text: result }, { quoted: msg })
     } catch (err) {
