@@ -4,18 +4,15 @@ export default {
   category: 'fun',
 
   async run(sock, msg, args, ctx) {
-    const jid = ctx?.jid || msg.key?.remoteJid;
+    const jid = ctx?.jid || msg?.key?.remoteJid || msg?.chat || (msg.key && msg.key.remoteJid);
+    if (!jid) return;
 
-    // Solo en grupos (comportamiento original)
-    if (!jid || !jid.endsWith('@g.us')) {
-      return await sock.sendMessage(
-        jid || msg.key?.remoteJid,
-        { text: '❗ Este comando solo está disponible en grupos.' },
-        { quoted: msg }
-      );
+    // Comando solo para grupos (igual que el original)
+    if (!jid.endsWith('@g.us')) {
+      return await sock.sendMessage(jid, { text: '❗ Este comando solo está disponible en grupos.' }, { quoted: msg });
     }
 
-    // Reacción inicial (si la versión de baileys soporta react)
+    // Reacción inicial (no crítico si falla)
     try {
       await sock.sendMessage(jid, { react: { text: '⌛', key: msg.key } });
     } catch (e) {}
@@ -25,7 +22,7 @@ export default {
       await sock.sendPresenceUpdate('composing', jid);
     } catch (e) {}
 
-    // Inicializar arrays globales si no existen
+    // Lista de factos (se inicializa solo si no existe)
     if (!global.factos) {
       global.factos = [
         "Eres la razón por la que hay instrucciones en los champús.",
@@ -43,7 +40,7 @@ export default {
         "Tu vida es como una mala película: nadie quiere ver el final.",
         "Eres como un mal chiste: siempre haces que la gente se sienta incómoda.",
         "Si fueras un animal, serías la mascota que nadie quiere adoptar.",
-        "Tu sentido del humor es como un mal Wi-Fi: no tiene conexión.",
+       : no tiene conexión.",
         "Eres como una planta marchita: solo ocupas espacio.",
         "Si fueras un virus informático, serías uno que causa más problemas que soluciones.",
         "Tu imagen es la razón por la que los espejos están cubiertos.",
@@ -77,15 +74,18 @@ export default {
 
     // Elegir aleatorio y marcar como usado
     const elegido = disponibles[Math.floor(Math.random() * disponibles.length)];
-    global.factosUsadoslegido);
+    global.factosUsados.push(elegido);
 
-    const texto = `*┏━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜\n❥ *"${elegido}"*\n\n*┗━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┛*`;
+    const texto = `*┏━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-_͜͡━┓*\n\n❥ *"${elegido}"*\n\n*┗━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡: msg });
+    } catch (err) {
+      console.error('Error enviando facto:', err);
+      await sock.sendMessage(jid, { text: '🚩 Ocurrió un error al enviar el facto.' }, { quoted: msg });
+      return;
+    }
 
-    await sock.sendMessage(jid, { text: texto }, { quoted: msg });
-
-    // Reacción final (si es soportada)
+    // Reacción final (opcional)
     try {
-      await sock.sendMessage(jid, { react: { text: '✅', key: msg.key } });
+      await sock.sendMessage(jid, '✅', key: msg.key } });
     } catch (e) {}
   }
 };
