@@ -1,97 +1,160 @@
 // plugins/facto.js
+import fs from 'fs'
+import path from 'path'
+
 console.log('🔌 plugins/facto.js: importado')
+
+const DATA_DIR = path.resolve('./data')
+const FILE = path.join(DATA_DIR, 'factos.json')
 
 function pickRandom(list) {
   return list[Math.floor(Math.random() * list.length)]
 }
 
+function ensureDataFile() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
+    if (!fs.existsSync(FILE)) {
+      const defaultFactos = [
+        "Eres la razón por la que hay instrucciones en los champús.",
+        "Si fueras un libro, serías el que nadie quiere leer.",
+        "Tu vida es como un programa de televisión que nadie ve.",
+        "Eres como un error tipográfico: solo estás ahí para arruinarlo todo.",
+        "Si fueras un producto, serías el que está en oferta porque no se vende.",
+        "Eres un recordatorio de lo que no se debe hacer en la vida.",
+        "Tu existencia es tan relevante como un archivo en la papelera de reciclaje."
+      ]
+      fs.writeFileSync(FILE, JSON.stringify({ factos: defaultFactos, usados: [] }, null, 2), 'utf8')
+    }
+  } catch (e) {
+    console.error('[facto] error creando data file:', e)
+  }
+}
+
+function readData() {
+  try {
+    ensureDataFile()
+    const raw = fs.readFileSync(FILE, 'utf8')
+    const parsed = JSON.parse(raw)
+    parsed.factos = Array.isArray(parsed.factos) ? parsed.factos.map(s => String(s)) : []
+    parsed.usados = Array.isArray(parsed.usados) ? parsed.usados.map(s => String(s)) : []
+    return parsed
+  } catch (e) {
+    console.error('[facto] error leyendo data file:', e)
+    return { factos: [], usados: [] }
+  }
+}
+
+function writeData(data) {
+  try {
+    ensureDataFile()
+    fs.writeFileSync(FILE, JSON.stringify(data, null, 2), 'utf8')
+  } catch (e) {
+    console.error('[facto] error escribiendo data file:', e)
+  }
+}
+
 export default {
   commands: ['facto', 'fact'],
   tags: ['fun'],
-  run: async (sock, msg, args, ctx) => {
+  run: async (sock, msg, args = [], ctx = {}) => {
     try {
       const jid = ctx?.jid || msg?.key?.remoteJid
       if (!jid) return
+      console.log('[plugin facto] run invoked for', jid, 'args:', args)
 
-      console.log('[plugin facto] run invoked for', jid)
+      // Subcomandos:
+      // .facto -> devuelve un facto aleatorio (grupo)
+      // .facto add <texto> -> añade un facto (solo admins en grupo)
+      // .facto list -> lista factos (limitado)
+      // .facto remove <index> -> elimina por índice (admins)
+      // .facto reset -> reinicia lista de usados (admins)
+      const sub = (args[0] || '').toLowerCase()
 
-      if (!ctx?.isGroup) {
+      // Leer datos
+      const data = readData()
+      (sub === 'add') {
+        // require texto
+        const text = args.slice(1).join(' ').trim()
+        if (!text) return sock.sendMessage(jid, { text: '❌ Uso: .facto add <texto>' }, { quoted: msg })
+
+        // si es en grupo, pedir admin para añadir (opcional)
+        if (ctx.isGroup && !ctx.isAdmin) {
+          return sock.sendMessage(jid, { text: '❌ Solo administradores pueden añadir factos en grupos.' }, { quoted: msg })
+        }
+
+        data.factos.push(text)
+        writeData(data)
+        return sock.sendMessage(jid, { text: `✅ Facto añadido (#${data.factos.length}):\n${text}` }, { quoted: msg })
+      }
+
+      if (sub === 'list') {
+        if (!data.factos.length) return sock.sendMessage(jid, { text: 'ℹ️ No hay factos guardados.' }, { quoted: msg })
+        // Limitar salida para evitar mensajes muy largos
+        const list = data.factos.slice(0, 200).map((f, i) => `${i + 1}. ${f}`).join('\n\n')
+        const more = data.factos.length > 200 ? `\n\n...y ${data.factos.length - 200} más` : ''
+        return sock.sendMessage(jid, { text: `📚 Factos (${data.factos.length}):\n\n${list}${more}` }, { quoted: msg })
+      }
+
+      if (sub === 'remove') {
+        const idx = parseInt(args[1])
+        if (isNaN(idx) || idx < 1 || idx > data.factos.length) {
+          return sock.sendMessage(jid, { text: '❌ Uso: .facto remove <número válido>' }, { quoted: msg })
+        }
+        if (ctx.isGroup && !ctx.isAdmin) {
+          return sock.sendMessage(jid, { text: '❌ Solo administradores pueden eliminar factos en grupos.' }, { quoted: msg })
+        }
+        const removed = data.factos.splice(idx - 1, 1)[0]
+        // también quitar de usados si estaba
+        data.usados = data.usados.filter(x => x !== removed)
+        writeData(data)
+        return sock.sendMessage(jid, { text: `🗑️ Facto eliminado (#${idx}):\n${removed}` }, { quoted: msg })
+      }
+
+      if (sub === 'reset') {
+        if (ctx.isGroup && !ctx.isAdmin) {
+          return sock.sendMessage(jid, { text: '❌ Solo administradores pueden reiniciar usados en grupos.' }, { quoted: msg })
+        }
+        data.usados = []
+        writeData(data)
+        return sockMessage(jid, { text: '🔁 Lista de factos usados reiniciada.' }, { quoted: msg })
+      }
+
+      // Por defecto -> enviar un facto aleatorio
+      // Requerir ser en grupo si lo quieres (tu handler antes lo marcaba así), dejo la comprobación:
+      if (!ctx.isGroup) {
         return sock.sendMessage(jid, { text: '❌ Este comando solo funciona en grupos.' }, { quoted: msg })
       }
 
-      const searchingEmoji = '⌛'
-      await sock.sendMessage(jid, { text: `${searchingEmoji} Buscando un facto, espere un momento...` }, { quoted: msg })
+      // Asegurar lista
+      const factosValidos = Array.isArray(data.factos) ? data.factos.filter(Boolean) : []
+      if (!factosValidos.length) return sock.sendMessage(jid, { text: 'ℹ️ No hay factos disponibles.' }, { quoted: msg })
 
-      // Asegurar que global.factos sea un array de strings válidos
-      if (!global.factos || !Array.isArray(global.factos)) {
-        global.factos = []
-      } else {
-        global.factos = global.factos
-          .map(f => (f == null ? '' : String(f).trim()))
-          .filter(Boolean) // eliminar vacíos
+      // Elegir disponibles (no usados)
+      const disponibles = factosValidos.filter(f => !data.usados.includes(f))
+
+      // Si ya se usaron todos, reiniciar usados
+      if (disponibles.length === 0) {
+        data.usados = []
+        writeData(data)
       }
 
-      // Si no hay factos, añadir algunos por defecto
-      if (global.factos.length === 0) {
-        global.factos = [
-          "Eres la razón por la que hay instrucciones en los champús.",
-          "Si fueras un libro, serías el que nadie quiere leer.",
-          "Tu vida es como un programa de televisión que nadie ve.",
-          "Eres como un error tipográfico: solo estás ahí para arruinarlo todo.",
-          "Si fueras un producto, serías el que está en oferta porque no se vende.",
-          "Eres un recordatorio de lo que no se debe hacer en la vida.",
-          "Tu existencia es tan relevante como un archivo en la papelera de reciclaje.",
-          "Si fueras un plato, serías uno que nadie quiere probar.",
-          "Eres la razón por la que los hombres tienen miedo de comprometerse.",
-          "Tu personalidad es como un antivirus: nadie lo quiere instalar.",
-          "Eres la prueba de que la selección natural puede fallar.",
-          "Si fueras un color, serías el gris: aburrido y sin vida.",
-          "Tu vida es como una mala película: nadie quiere ver el final.",
-          "Eres como un mal chiste: siempre haces que la gente se sienta incómodo.",
-          "Si fueras un animal, serías la mascota que nadie quiere adoptar.",
-          "Tu sentido del humor es como un mal Wi-Fi: no tiene conexión.",
-          "Eres como una planta marchita: solo ocupas espacio.",
-          "Si fueras un virus informático, serías uno que causa más problemas que soluciones.",
-          "Tu imagen es la razón por la que los espejos están cubiertos.",
-          ejemplo perfecto de cómo no vivir la vida.",
-          "Si fueras un día de la semana, serías un lunes: todos te odian.",
-          "Eres la razón por la que las personas no creen en el amor verdadero.",
-          "Tu vida es un meme, pero nadie se ríe.",
-          "Si fueras una aplicación, serías una que nadie quiere descargar.",
-          "Eres como una sombra: siempre estás ahí, pero no eres bienvenido.",
-          "Tu cerebro es como un disco duro lleno: no puede almacenar más.",
-          "Eres como un tren descarrilado: solo causan caos.",
-          "Si fueras un clima, serías una tormenta: oscuro y destructivo.",
-          "Eres como una cadena de mensajes: nadie te quiere, pero todos te reciben.",
-          "Tu vida es como un rompecabezas con piezas que nunca encajan.",
-          "Si fueras una película, serías una secuela que nadie pidió."
-        ]
-      }
+      const pool = disponibles.length ? disponibles : factosValidos
+      let elegido = pickRandom(pool)
+      if (!elegido || !String(elegido).trim()) elegido = 'No se encontró un facto disponible.'
 
-      // CORRECCIÓN: usar Array.isArray en vez de global.isArray
-      if (!global.factosUsados || !Array.isArray(global.factosUsados)) global.factosUsados = []
+      // Marcar como usado y guardar
+      data.usados.push(elegido)
+      // Limpiar duplicados en usados (por seguridad)
+      data.usados = Array.from(new Set(data.usados))
+      writeData(data)
 
-      // Reiniciar si ya se usaron todos
-      if (global.factosUsados.length >= global.factos.length) global.factosUsados = []
+      // Enviar con formato
+      const header = '*┏━_͜͡- FACTO -͜͡_━┓*'
+      const footer = '*┗━_͜͡- FIN -͜͡_━┛*'
+      const text = `${header}\n\n❥ *\"${String(elegido).replace(/\n+/g, ' ')}\"*\n\n${footer}`
 
-      const disponibles = global.factos.filter(f => !global.factosUsados.includes(f))
-      let elegido = disponibles.length ? pickRandom(disponibles) : pickRandom(global.factos)
-
-      if (!elegido || typeof elegido !== 'string' || !elegido.trim()) {
-        console.warn('[plugin facto] elegido inválido, usando fallback')
-        elegido = 'No se encontró un facto disponible.'
-      }
-
-      global.factosUsados.push(elegido)
-      console.log('[plugin facto] elegido:', elegido)
-
-      const header = '*┏━_͜͡-͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┓*'
-      const footer = '*┗━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┛*'
-
-      const result = [header, '', `❥ *"${elegido.replace(/\n+/g, ' ')}"*`, '', footer].join('\n')
-
-      await sock.sendMessage(jid, { text: result }, { quoted: msg })
-    } catch (err) {
+      awaiterr) {
       console.error('[plugin facto] error:', err)
       const jid = ctx?.jid || msg?.key?.remoteJid
       if (jid) await sock.sendMessage(jid, { text: `❌ Error:\n${err.message}` }, { quoted: msg })
