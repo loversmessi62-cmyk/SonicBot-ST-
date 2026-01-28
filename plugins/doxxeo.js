@@ -1,56 +1,126 @@
-export default {
-  commands: ["dox"],
+import { performance } from "perf_hooks";
+
+const handler = {
+  command: ["doxear", "doxxeo", "doxeo"],
   group: true,
 
   async run(sock, msg, args, ctx) {
-    const jid = ctx.jid;
+    try {
+      const { jid, isGroup } = ctx;
+      let who;
 
-    // usuario mencionado o citado
-    const user =
-      msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] ||
-      msg.message?.extendedTextMessage?.contextInfo?.participant ||
-      msg.quoted?.sender;
+      // ===============================
+      // DETERMINAR USUARIO OBJETIVO
+      // ===============================
+      const mentioned =
+        msg.message?.extendedTextMessage?.contextInfo?.mentionedJid;
 
-    if (!user) {
-      return sock.sendMessage(jid, {
-        text: "☠️ MENCIONA O RESPONDE A UN USUARIO ☠️"
-      });
-    }
+      if (isGroup) {
+        if (mentioned?.length) {
+          who = mentioned[0];
+        } else if (msg.quoted?.sender) {
+          who = msg.quoted.sender;
+        } else {
+          who = jid;
+        }
+      } else {
+        who = jid;
+      }
 
-    // DATOS FAKE (ROL / JODA)
-    const ip = `203.0.113.${Math.floor(Math.random() * 255)}`;
+      if (!who) {
+        return sock.sendMessage(
+          jid,
+          { text: "⚠️ Menciona a un usuario o responde a un mensaje." },
+          { quoted: msg }
+        );
+      }
 
-    const ubicaciones = ["Sector 13", "Zona Muerta", "Distrito Negro"];
-    const isp = ["DarkNet Core", "ShadowLink", "Null Provider"];
-    const dispositivos = ["Android", "iPhone", "Windows"];
+      // ===============================
+      // OBTENER NOMBRE
+      // ===============================
+      let userName;
+      try {
+        userName = await sock.getName(who);
+      } catch {
+        userName = args.join(" ") || "Usuario desconocido";
+      }
 
-    const texto = `
-☠️ DOX EN PROGRESO ☠️
+      // ===============================
+      // MENSAJE INICIAL
+      // ===============================
+      await sock.sendMessage(
+        jid,
+        { text: "🧑‍💻 *Iniciando doxeo*..." },
+        { quoted: msg }
+      );
 
-⏳ Iniciando rastreo...
-⏳ Analizando red...
-⏳ Extrayendo datos...
-✅ Proceso completado
+      // ===============================
+      // CARGA SIMULADA %
+      // ===============================
+      for (let p = 0; p <= 100; p += Math.floor(Math.random() * 20) + 1) {
+        await delay(800);
+        await sock.sendMessage(
+          jid,
+          { text: `*${Math.min(p, 100)}%*` },
+          { quoted: msg }
+        );
+      }
 
-👁 OBJETIVO: @${user.split("@")[0]}
+      // ===============================
+      // VELOCIDAD SIMULADA
+      // ===============================
+      const start = performance.now();
+      await delay(100);
+      const end = performance.now();
+      const speed = `${(end - start).toFixed(2)} ms`;
 
-🌐 IP: ${ip}
-📍 Ubicación: ${ubicaciones[Math.floor(Math.random() * ubicaciones.length)]}
-📡 ISP: ${isp[Math.floor(Math.random() * isp.length)]}
-📱 Dispositivo: ${dispositivos[Math.floor(Math.random() * dispositivos.length)]}
-🕒 Latencia: ${Math.floor(Math.random() * 200)} ms
+      // ===============================
+      // MENSAJE FINAL
+      // ===============================
+      const numero = who.split("@")[0];
 
-⚠️ ACCESO CONCEDIDO
-☠️☠️☠️
+      const doxeo = `
+👤 *Persona doxeada*
+
+📅 ${new Date().toLocaleDateString("es-MX")}
+⏰ ${new Date().toLocaleTimeString("es-MX")}
+⚡ Velocidad: ${speed}
+
+📢 Resultados:
+*Nombre:* ${userName}
+*Usuario:* @${numero}
+*IP:* 92.28.211.234
+*MAC:* 5A:78:3E:7E:00
+*ISP:* Ucom Universal
+*DNS:* 8.8.8.8 | 1.1.1.1
+*Gateway:* 192.168.0.1
+*Puertos abiertos:* UDP 8080, 80 | TCP 443
+*Router:* ERICSSON | TP-LINK
 `.trim();
 
-    await sock.sendMessage(
-      jid,
-      {
-        text: texto,
-        mentions: [user]
-      },
-      { quoted: msg }
-    );
+      await sock.sendMessage(
+        jid,
+        {
+          text: doxeo,
+          mentions: [who]
+        },
+        { quoted: msg }
+      );
+
+    } catch (e) {
+      console.error("❌ Error en doxear:", e);
+      await sock.sendMessage(
+        ctx.jid,
+        { text: "⚠️ Ocurrió un error durante el doxeo." },
+        { quoted: msg }
+      );
+    }
   }
 };
+
+export default handler;
+
+// ===============================
+// DELAY
+// ===============================
+const delay = ms => new Promise(res => setTimeout(res, ms));
