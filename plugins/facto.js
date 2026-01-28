@@ -34,7 +34,8 @@ export default {
           "Si fueras un plato, serías uno que nadie quiere probar.",
           "Eres la razón por la que los hombres tienen miedo de comprometerse.",
           "Tu personalidad es como un antivirus: nadie lo quiere instalar.",
-          "Eres la prueba de que la vida.",
+          "Eres la prueba de que la selección natural puede fallar.",
+          "Si fueras un color, serías el gris: aburrido y sin vida.",
           "Tu vida es como una mala película: nadie quiere ver el final.",
           "Eres como un mal chiste: siempre haces que la gente se sienta incómoda.",
           "Si fueras un animal, serías la mascota que nadie quiere adoptar.",
@@ -54,12 +55,7 @@ export default {
           "Eres como una cadena de mensajes: nadie te quiere, pero todos te reciben.",
           "Tu vida es como un rompecabezas con piezas que nunca encajan.",
           "Si fueras una película, serías una secuela que nadie pidió."
-        ]
-      }
-
-      if (!global.factosUsados) global.factosUsados = []
-
-      // Si ya usamos todos, reiniciar lista usada
+ reiniciar lista usada
       if (global.factosUsados.length >= global.factos.length) global.factosUsados = []
 
       const disponibles = global.factos.filter(f => !global.factosUsados.includes(f))
@@ -67,12 +63,13 @@ export default {
 
       global.factosUsados.push(elegido)
 
-      const result = `*┏━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┓*\n\n❥ *"${elegido}"*\n\n*┗━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┛*`
+      const result = `*┏━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┓*\n\n❥ *"${elegido}"*\n\n*┗━_͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡⚘-͜͡-͜͡-͜͡-͜͡-͜͡-͜͡_͜͡━┛*`
 
       await sock.sendMessage(jid, { text: result }, { quoted: msg })
     } catch (err) {
       console.error('[plugin facto] error:', err)
-      const jid = ctx?.jid || msg?.key?.: msg })
+      const jid = ctx?.jid || msg?.key?.remoteJid
+      if (jid) await sock.sendMessage(jid, { text: `❌ Error:\n${err.message}` }, { quoted: msg })
     }
   }
 }
