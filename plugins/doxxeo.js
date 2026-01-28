@@ -9,9 +9,6 @@ const handler = {
       const { jid, isGroup } = ctx;
       let who;
 
-      // ===============================
-      // DETERMINAR USUARIO OBJETIVO
-      // ===============================
       const mentioned =
         msg.message?.extendedTextMessage?.contextInfo?.mentionedJid;
 
@@ -35,9 +32,6 @@ const handler = {
         );
       }
 
-      // ===============================
-      // OBTENER NOMBRE
-      // ===============================
       let userName;
       try {
         userName = await sock.getName(who);
@@ -46,24 +40,28 @@ const handler = {
       }
 
       // ===============================
-      // MENSAJE INICIAL
+      // MENSAJE INICIAL (GUARDAR KEY)
       // ===============================
-      await sock.sendMessage(
+      const loadingMsg = await sock.sendMessage(
         jid,
-        { text: "🧑‍💻 *Iniciando doxeo*..." },
+        { text: "🧑‍💻 *Iniciando doxeo*...\n\n*0%*" },
         { quoted: msg }
       );
 
       // ===============================
-      // CARGA SIMULADA %
+      // CARGA SIMULADA (EDITANDO)
       // ===============================
-      for (let p = 0; p <= 100; p += Math.floor(Math.random() * 20) + 1) {
+      let percent = 0;
+      while (percent < 100) {
+        percent += Math.floor(Math.random() * 20) + 1;
+        if (percent > 100) percent = 100;
+
         await delay(800);
-        await sock.sendMessage(
-          jid,
-          { text: `*${Math.min(p, 100)}%*` },
-          { quoted: msg }
-        );
+
+        await sock.sendMessage(jid, {
+          text: `🧑‍💻 *Iniciando doxeo*...\n\n*${percent}%*`,
+          edit: loadingMsg.key
+        });
       }
 
       // ===============================
@@ -74,9 +72,6 @@ const handler = {
       const end = performance.now();
       const speed = `${(end - start).toFixed(2)} ms`;
 
-      // ===============================
-      // MENSAJE FINAL
-      // ===============================
       const numero = who.split("@")[0];
 
       const doxeo = `
@@ -98,14 +93,14 @@ const handler = {
 *Router:* ERICSSON | TP-LINK
 `.trim();
 
-      await sock.sendMessage(
-        jid,
-        {
-          text: doxeo,
-          mentions: [who]
-        },
-        { quoted: msg }
-      );
+      // ===============================
+      // EDITAR AL MENSAJE FINAL
+      // ===============================
+      await sock.sendMessage(jid, {
+        text: doxeo,
+        mentions: [who],
+        edit: loadingMsg.key
+      });
 
     } catch (e) {
       console.error("❌ Error en doxear:", e);
@@ -120,7 +115,4 @@ const handler = {
 
 export default handler;
 
-// ===============================
-// DELAY
-// ===============================
 const delay = ms => new Promise(res => setTimeout(res, ms));
