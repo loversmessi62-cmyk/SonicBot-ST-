@@ -1,3 +1,4 @@
+// Archivo: plugins/16vs16.js
 export const partidas16 = {}
 
 export default {
@@ -31,6 +32,7 @@ export default {
         data.suplentes = data.suplentes.filter(u => u !== user)
       }
 
+      // Edita el mensaje original
       return conn.sendMessage(jid, {
         text: render(data),
         buttons: botones(),
@@ -39,7 +41,7 @@ export default {
       }, { edit: data.key })
     }
 
-    // ====== COMANDO ======
+    // ====== VALIDACIÓN DE HORARIO ======
     const mxArg = args[0]
     if (!mxArg) {
       return conn.sendMessage(jid, { text: "❌ Uso correcto: .16vs16 8mx" }, { quoted: m })
@@ -52,6 +54,7 @@ export default {
 
     const col = (mx + 1) % 24
 
+    // ====== ENVÍO INICIAL ======
     const sent = await conn.sendMessage(jid, {
       text: render({
         mx,
@@ -73,7 +76,7 @@ export default {
   }
 }
 
-// ====== HELPERS ======
+// ====== FUNCIONES AUXILIARES ======
 function botones() {
   return [
     { buttonId: "jugador", buttonText: { displayText: "🎮 Jugador" }, type: 1 },
