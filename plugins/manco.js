@@ -1,34 +1,44 @@
-let handler = async (m, { conn, command, text }) => {
-  if (!text)
-    return conn.reply(
-      m.chat,
-      `⚡ Ingresa el @ o el nombre de la persona para calcular su porcentaje de *${command.toUpperCase()}*`,
-      m
-    )
+const handler = {
+  command: ['manco', 'manca'],
+  tags: ['funny'],
+  help: ['manco @usuario', 'manca nombre'],
+  group: false,
 
-  // Porcentaje 0–700
-  let porcentaje = Math.floor(Math.random() * 701)
+  async run(sock, msg, args, ctx) {
+    const text = args.join(' ')
 
-  let reaccion = '🤔'
-  if (porcentaje <= 100) reaccion = '😂'
-  else if (porcentaje <= 300) reaccion = '😅'
-  else if (porcentaje <= 500) reaccion = '🔥'
-  else if (porcentaje <= 650) reaccion = '🤯'
-  else reaccion = '👑'
+    if (!text) {
+      return sock.sendMessage(
+        ctx.jid,
+        { text: '⚡ Ingresa el @ o el nombre para calcular su nivel de MANCO' },
+        { quoted: msg }
+      )
+    }
 
-  let msg = `
+    // 0 – 700%
+    const porcentaje = Math.floor(Math.random() * 701)
+
+    let reaccion = '🤔'
+    if (porcentaje <= 100) reaccion = '😂'
+    else if (porcentaje <= 300) reaccion = '😅'
+    else if (porcentaje <= 500) reaccion = '🔥'
+    else if (porcentaje <= 650) reaccion = '🤯'
+    else reaccion = '👑'
+
+    const resultado = `
 ━━━━━━━✨━━━━━━━
-📊 Cálculo de *${command.toUpperCase()}*
+📊 *Nivel MANCO*
 👤 Persona: *${text}*
-🔮 Resultado: *${porcentaje}% ${command.toUpperCase()}* ${reaccion}
+🎮 Resultado: *${porcentaje}% MANCO* ${reaccion}
 ━━━━━━━━━━━━━━━
 `.trim()
 
-  await conn.reply(m.chat, msg, m)
+    await sock.sendMessage(
+      ctx.jid,
+      { text: resultado },
+      { quoted: msg }
+    )
+  }
 }
-
-handler.help = ['manco @tag', 'manca nombre']
-handler.tags = ['funny']
-handler.command = ['manco', 'manca']
 
 export default handler
