@@ -1,47 +1,34 @@
 let handler = async (m, { conn, command, text }) => {
-  if (!text && (!m.mentionedJid || m.mentionedJid.length === 0)) {
+  if (!text)
     return conn.reply(
       m.chat,
       `⚡ Ingresa el @ o el nombre de la persona para calcular su porcentaje de *${command.toUpperCase()}*`,
       m
-    );
-  }
+    )
 
-  // Usuario objetivo
-  let target = m.mentionedJid?.[0];
-  let nombre = target ? `@${target.split("@")[0]}` : text;
+  // Porcentaje 0–700
+  let porcentaje = Math.floor(Math.random() * 701)
 
-  // Porcentaje 0 - 700
-  let porcentaje = Math.floor(Math.random() * 701);
-
-  // Emoji según porcentaje
-  let reaccion = '🤔';
-  if (porcentaje <= 100) reaccion = '😂';
-  else if (porcentaje <= 300) reaccion = '😅';
-  else if (porcentaje <= 500) reaccion = '🔥';
-  else if (porcentaje <= 650) reaccion = '🤯';
-  else reaccion = '👑';
+  let reaccion = '🤔'
+  if (porcentaje <= 100) reaccion = '😂'
+  else if (porcentaje <= 300) reaccion = '😅'
+  else if (porcentaje <= 500) reaccion = '🔥'
+  else if (porcentaje <= 650) reaccion = '🤯'
+  else reaccion = '👑'
 
   let msg = `
 ━━━━━━━✨━━━━━━━
-📊 *Cálculo de ${command.toUpperCase()}*
-👤 Persona: ${nombre}
+📊 Cálculo de *${command.toUpperCase()}*
+👤 Persona: *${text}*
 🔮 Resultado: *${porcentaje}% ${command.toUpperCase()}* ${reaccion}
 ━━━━━━━━━━━━━━━
-`.trim();
+`.trim()
 
-  await conn.sendMessage(
-    m.chat,
-    {
-      text: msg,
-      mentions: target ? [target] : []
-    },
-    { quoted: m }
-  );
-};
+  await conn.reply(m.chat, msg, m)
+}
 
-handler.help = ['manco @user', 'manca @user'];
-handler.tags = ['funny'];
-handler.command = /^(manco|manca)$/i;
+handler.help = ['manco @tag', 'manca nombre']
+handler.tags = ['funny']
+handler.command = ['manco', 'manca']
 
-export default handler;
+export default handler
