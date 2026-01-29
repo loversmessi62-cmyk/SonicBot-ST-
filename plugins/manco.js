@@ -1,21 +1,43 @@
 const handler = {
   command: ['manco', 'manca'],
   tags: ['funny'],
-  help: ['manco @usuario', 'manca nombre'],
+  help: ['manco @usuario', 'manco (responder mensaje)'],
   group: false,
 
   async run(sock, msg, args, ctx) {
-    const text = args.join(' ')
+    let who
+    let name
 
-    if (!text) {
+    // ===============================
+    // DETERMINAR USUARIO
+    // ===============================
+    const mentioned =
+      msg.message?.extendedTextMessage?.contextInfo?.mentionedJid
+
+    if (mentioned?.length) {
+      who = mentioned[0]
+    } else if (msg.quoted?.sender) {
+      who = msg.quoted.sender
+    } else {
       return sock.sendMessage(
         ctx.jid,
-        { text: '⚡ Ingresa el @ o el nombre para calcular su nivel de MANCO' },
+        { text: '⚠️ Menciona a alguien o responde a un mensaje.' },
         { quoted: msg }
       )
     }
 
-    // 0 – 700%
+    // ===============================
+    // OBTENER NOMBRE
+    // ===============================
+    try {
+      name = await sock.getName(who)
+    } catch {
+      name = who.split('@')[0]
+    }
+
+    // ===============================
+    // PORCENTAJE
+    // ===============================
     const porcentaje = Math.floor(Math.random() * 701)
 
     let reaccion = '🤔'
@@ -25,17 +47,25 @@ const handler = {
     else if (porcentaje <= 650) reaccion = '🤯'
     else reaccion = '👑'
 
-    const resultado = `
+    const numero = who.split('@')[0]
+
+    const texto = `
 ━━━━━━━✨━━━━━━━
 📊 *Nivel MANCO*
-👤 Persona: *${text}*
+👤 Persona: @${numero}
 🎮 Resultado: *${porcentaje}% MANCO* ${reaccion}
 ━━━━━━━━━━━━━━━
 `.trim()
 
+    // ===============================
+    // ENVIAR MENSAJE
+    // ===============================
     await sock.sendMessage(
       ctx.jid,
-      { text: resultado },
+      {
+        text: texto,
+        mentions: [who]
+      },
       { quoted: msg }
     )
   }
