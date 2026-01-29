@@ -1,7 +1,9 @@
 import axios from "axios"
 
+export const partidas16 = {}
+
 export default {
-  commands: ["vs16", "16vs16"],
+  commands: ["16vs16", "vs16"],
   category: "freefire",
   group: true,
   admin: false,
@@ -11,69 +13,38 @@ export default {
 
     if (!args[0]) {
       return sock.sendMessage(jid, {
-        text: `
-╭─❍ *🔥 RETO 16 VS 16 | SONICBOT-ST*
-│
-│⏳ *Horario:*
-│🇲🇽 MÉXICO:
-│🇨🇴 COLOMBIA:
-│
-│🎮 *Modalidad:*
-│👥 *Jugadores:*
-│
-│🏆 *Escuadra 1:*
-│ 👑 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│
-│🏆 *Escuadra 2:*
-│ 👑 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│
-│🏆 *Escuadra 3:*
-│ 👑 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│
-│🏆 *Escuadra 4:*
-│ 👑 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│
-│🔄 *Suplentes:*
-│ 🥷🏻 •
-│ 🥷🏻 •
-╰────────────────────❍
-`
-      })
+        text:
+`❌ *Uso correcto:*
+.16vs16 8mx
+.16vs16 21mx`
+      }, { quoted: msg })
     }
 
-    // ===== Mensaje citado tipo "Izumi"
-    const headers = [
+    const mx = parseInt(args[0].replace("mx", ""))
+    if (isNaN(mx)) return
+
+    const col = (mx + 1) % 24
+
+    const encabezados = [
       "⚡ INVOCACIÓN DE BATALLA | 16x16",
-      "🔥 COMBATE TOTAL - CLAN VS CLAN",
-      "🎖️ RETO MULTIESCUADRA ACTIVADO"
+      "🎖️ RETO MULTIESCUADRA ACTIVADO",
+      "🔥 COMBATE TOTAL - CLAN VS CLAN"
     ]
 
-    const images = [
+    const imagenes = [
       "https://iili.io/FKVDVAN.jpg",
       "https://iili.io/FKVbUrJ.jpg",
       "https://iili.io/HZOHhlx.jpg"
     ]
 
-    const title = headers[Math.floor(Math.random() * headers.length)]
-    const img = images[Math.floor(Math.random() * images.length)]
+    const titulo = encabezados[Math.floor(Math.random() * encabezados.length)]
+    const img = imagenes[Math.floor(Math.random() * imagenes.length)]
 
-    const thumb = Buffer.from(
+    const thumbnail = Buffer.from(
       (await axios.get(img, { responseType: "arraybuffer" })).data
     )
 
-    const quoted = {
+    const izumi = {
       key: {
         fromMe: false,
         participant: "0@s.whatsapp.net",
@@ -82,83 +53,87 @@ export default {
       message: {
         orderMessage: {
           itemCount: 16,
-          message: title,
+          message: titulo,
           footerText: "SonicBot-ST",
-          thumbnail: thumb,
+          thumbnail,
           surface: 2,
           sellerJid: "0@s.whatsapp.net"
         }
       }
     }
 
-    // ===== BOTONES
-    const buttons = [
-      {
-        buttonId: ".jugador",
-        buttonText: { displayText: "👤 Jugador" },
-        type: 1
-      },
-      {
-        buttonId: ".suplente",
-        buttonText: { displayText: "🔄 Suplente" },
-        type: 1
-      },
-      {
-        buttonId: ".quitar",
-        buttonText: { displayText: "❌ Quitar" },
-        type: 1
-      }
-    ]
+    const texto = `
+🔥 *16 VS 16 | SONICBOT-ST*
 
-    const caption = `
-╭─❍ *🔥 16 VS 16 | SONICBOT-ST*
-│
-│⏳ *Horario:*
-│🇲🇽 MÉXICO: ${args[0]}
-│🇨🇴 COLOMBIA: ${args[0]}
-│
-│🎮 *Modalidad:*
-│👥 *Jugadores:*
-│
-│🏆 *Escuadra 1:*
-│ 👑 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│
-│🏆 *Escuadra 2:*
-│ 👑 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│
-│🏆 *Escuadra 3:*
-│ 👑 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│
-│🏆 *Escuadra 4:*
-│ 👑 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│ 🥷🏻 •
-│
-│🔄 *Suplentes:*
-│ 🥷🏻 •
-│ 🥷🏻 •
-╰────────────────────❍
-`
+🕒 *HORARIOS*
+🇲🇽 México: ${mx} MX
+🇨🇴 Colombia: ${col} COL
 
-    await sock.sendMessage(
+━━━━━━━━━━━━━━━
+
+🎮 *JUGADORES* (16)
+1. —
+2. —
+3. —
+4. —
+5. —
+6. —
+7. —
+8. —
+9. —
+10. —
+11. —
+12. —
+13. —
+14. —
+15. —
+16. —
+
+🪑 *SUPLENTES*
+1. —
+2. —
+3. —
+4. —
+
+━━━━━━━━━━━━━━━
+Selecciona una opción:
+`.trim()
+
+    const sent = await sock.sendMessage(
       jid,
       {
         image: { url: "https://cdn.russellxz.click/16b3faeb.jpeg" },
-        caption,
-        buttons,
+        caption: texto,
+        buttons: [
+          {
+            buttonId: ".jugador16",
+            buttonText: { displayText: "🎮 Jugador" },
+            type: 1
+          },
+          {
+            buttonId: ".suplente16",
+            buttonText: { displayText: "🪑 Suplente" },
+            type: 1
+          },
+          {
+            buttonId: ".quitar16",
+            buttonText: { displayText: "❌ Quitar" },
+            type: 1
+          }
+        ],
         headerType: 4
       },
-      { quoted }
+      { quoted: izumi }
     )
+
+    const uid = sent.key.id + jid
+
+    partidas16[uid] = {
+      jid,
+      mx,
+      col,
+      jugadores: new Set(),
+      suplentes: new Set()
+    }
   }
 }
