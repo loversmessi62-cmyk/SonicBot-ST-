@@ -41,10 +41,14 @@ export default {
 
     // ====== COMANDO ======
     const mxArg = args[0]
-    if (!mxArg) return m.reply("❌ Uso correcto: .16vs16 8mx")
+    if (!mxArg) {
+      return conn.sendMessage(jid, { text: "❌ Uso correcto: .16vs16 8mx" }, { quoted: m })
+    }
 
     const mx = parseInt(mxArg.replace("mx", ""))
-    if (isNaN(mx)) return m.reply("❌ Hora inválida")
+    if (isNaN(mx)) {
+      return conn.sendMessage(jid, { text: "❌ Hora inválida" }, { quoted: m })
+    }
 
     const col = (mx + 1) % 24
 
@@ -70,7 +74,6 @@ export default {
 }
 
 // ====== HELPERS ======
-
 function botones() {
   return [
     { buttonId: "jugador", buttonText: { displayText: "🎮 Jugador" }, type: 1 },
