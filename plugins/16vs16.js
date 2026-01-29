@@ -3,7 +3,7 @@ export const partidas16 = {}
 let handler = async (m, { conn, args }) => {
   const jid = m.chat
 
-  // ======= BOTONES =======
+  // ========= RESPUESTA A BOTONES =========
   if (m.message?.buttonsResponseMessage) {
     const btn = m.message.buttonsResponseMessage.selectedButtonId
     const data = partidas16[jid]
@@ -19,39 +19,41 @@ let handler = async (m, { conn, args }) => {
 
     // Jugador
     if (btn === "16_jugador") {
-      if (existe(user, data)) return
-      if (data.jugadores.length < 16) {
-        data.jugadores.push(user)
-      }
+      if (yaEsta(user, data)) return
+      if (data.jugadores.length < 16) data.jugadores.push(user)
     }
 
     // Suplente
     if (btn === "16_suplente") {
-      if (existe(user, data)) return
-      if (data.suplentes.length < 4) {
-        data.suplentes.push(user)
-      }
+      if (yaEsta(user, data)) return
+      if (data.suplentes.length < 4) data.suplentes.push(user)
     }
 
     return conn.sendMessage(jid, {
-      text: texto16(data),
+      text: render16(data),
       buttons: botones16(),
       headerType: 1,
       mentions: [...data.jugadores, ...data.suplentes]
     }, { edit: data.key })
   }
 
-  // ======= COMANDO =======
+  // ========= COMANDO =========
   if (!args[0]) {
-    return m.reply("❌ Uso correcto:\n.16vs16 8mx")
+    return m.reply("❌ Uso:\n.16vs16 8mx")
   }
 
   const mx = parseInt(args[0].replace("mx", ""))
   if (isNaN(mx)) return
+
   const col = (mx + 1) % 24
 
   const sent = await conn.sendMessage(jid, {
-    text: texto16({ mx, col, jugadores: [], suplentes: [] }),
+    text: render16({
+      mx,
+      col,
+      jugadores: [],
+      suplentes: []
+    }),
     buttons: botones16(),
     headerType: 1
   }, { quoted: m })
@@ -79,15 +81,15 @@ function botones16() {
   ]
 }
 
-function existe(user, data) {
-  return data.jugadores.includes(user) || data.suplentes.includes(user)
+function yaEsta(user, d) {
+  return d.jugadores.includes(user) || d.suplentes.includes(user)
 }
 
 function tag(u) {
   return u ? `@${u.split("@")[0]}` : "—"
 }
 
-function texto16(d) {
+function render16(d) {
   return `
 🔥 *16 VS 16 | SONICBOT-ST*
 
