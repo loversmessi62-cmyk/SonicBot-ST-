@@ -6,6 +6,7 @@ export default {
   admin: false,
   run: async (m, { conn, args }) => {
     const jid = m.chat
+    args = args || []
 
     // ====== BOTONES ======
     if (m.message?.buttonsResponseMessage) {
@@ -39,12 +40,11 @@ export default {
     }
 
     // ====== COMANDO ======
-    if (!args[0]) {
-      return m.reply("❌ Uso correcto:\n.16vs16 8mx")
-    }
+    const mxArg = args[0]
+    if (!mxArg) return m.reply("❌ Uso correcto: .16vs16 8mx")
 
-    const mx = parseInt(args[0].replace("mx", ""))
-    if (isNaN(mx)) return
+    const mx = parseInt(mxArg.replace("mx", ""))
+    if (isNaN(mx)) return m.reply("❌ Hora inválida")
 
     const col = (mx + 1) % 24
 
