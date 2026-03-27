@@ -2,6 +2,7 @@
 
 let handler = async (m, { conn }) => {
 
+  // Solo grupos
   if (!m.isGroup) {
     return conn.reply(m.chat, '❌ Este comando solo funciona en grupos', m)
   }
@@ -9,32 +10,37 @@ let handler = async (m, { conn }) => {
   let who
   const mentioned = m.mentionedJid || []
 
+  // Detectar usuario correctamente
   if (mentioned.length > 0) {
     who = mentioned[0]
-  } else if (m.quoted) {
+  } else if (m.quoted && m.quoted.sender) {
     who = m.quoted.sender
   } else {
     who = m.sender
   }
 
-  const name = await conn.getName(who)
-  const name2 = await conn.getName(m.sender)
+  // Nombres (fallback por si falla getName)
+  let name = await conn.getName(who).catch(() => who)
+  let name2 = await conn.getName(m.sender).catch(() => m.sender)
 
-  // Reacción segura
-  try {
-    await m.react('🫦')
-  } catch {}
+  // Reacción (segura)
+  if (m.react) {
+    try {
+      await m.react('🫦')
+    } catch {}
+  }
 
   // Mensaje
   let str
   if (mentioned.length > 0) {
     str = `💋 @${m.sender.split('@')[0]} le dio besos a @${who.split('@')[0]} ( ˘ ³˘)♥`
-  } else if (m.quoted) {
+  } else if (m.quoted && m.quoted.sender) {
     str = `💋 @${m.sender.split('@')[0]} besó a @${who.split('@')[0]} 💕`
   } else {
     str = `💋 @${m.sender.split('@')[0]} se besó a sí mismo 😳`
   }
 
+  // Videos
   const videos = [
     'https://telegra.ph/file/d6ece99b5011aedd359e8.mp4',
     'https://telegra.ph/file/ba841c699e9e039deadb3.mp4',
@@ -50,17 +56,22 @@ let handler = async (m, { conn }) => {
 
   const video = videos[Math.floor(Math.random() * videos.length)]
 
-  await conn.sendMessage(m.chat, {
-    video: { url: video },
-    gifPlayback: true,
-    caption: str,
-    mentions: [m.sender, who]
-  }, { quoted: m })
+  // Enviar mensaje
+  await conn.sendMessage(
+    m.chat,
+    {
+      video: { url: video },
+      gifPlayback: true,
+      caption: str,
+      mentions: [m.sender, who]
+    },
+    { quoted: m }
+  )
 }
 
 handler.help = ['kiss @tag', 'besar @tag']
 handler.tags = ['emox']
-handler.command = ['kiss', 'besar']
+handler.command = /^(kiss|besar)$/i
 handler.group = true
 
 export default handler
