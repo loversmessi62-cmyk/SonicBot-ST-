@@ -2,52 +2,50 @@
 
 let handler = async (m, { conn, text }) => {
 
-    if (!m.isGroup) return
-
     // ===============================
-    // DETECTAR USUARIO (SIN ERROR)
+    // OBTENER USUARIO (BIEN HECHO)
     // ===============================
-    let user
-
+    let who
     if (m.mentionedJid && m.mentionedJid.length > 0) {
-        user = m.mentionedJid[0]
+        who = m.mentionedJid[0]
     } else if (m.quoted && m.quoted.sender) {
-        user = m.quoted.sender
+        who = m.quoted.sender
     } else {
-        user = m.sender
+        who = m.sender
     }
 
-    const tag = '@' + user.split('@')[0]
+    const tagUser = "@" + who.split("@")[0]
 
     // ===============================
-    // MENSAJE
+    // TEXTO FINAL
     // ===============================
     const responseMessage = `
 *TE HAN LLENADO LA CARA DE SEMEN POR PUTA Y ZORRA!*
 
-*Le ha metido el pene a ${tag}* con todo y condón hasta quedar seco, has dicho "por favor más duroooooo!, ahhhhhhh, ahhhhhh, hazme un hijo que sea igual de pitudo que tú!" mientras te penetraba y luego te ha dejado en silla de ruedas!
+*Le ha metido el pene a ${text ? text : tagUser}* con todo y condón hasta quedar seco, has dicho "por favor más duroooooo!, ahhhhhhh, ahhhhhh, hazme un hijo que sea igual de pitudo que tú!" mientras te penetraba y luego te ha dejado en silla de ruedas!
 
-*${tag}* 
-🔥 *YA TE HAN PENETRADO!*`
+*${text ? text : tagUser}*
+🔥 *YA TE HAN PENETRADO!*`.trim()
 
     // ===============================
-    // ENVÍO CORRECTO (CON MENTIONS)
+    // ENVIAR MENSAJE (FIX CLAVE)
     // ===============================
     await conn.sendMessage(
         m.chat,
         {
             text: responseMessage,
-            mentions: [user]
+            mentions: [who] // 🔥 ESTO HACE QUE ETIQUETE
         },
         { quoted: m }
     )
 }
 
+// ===============================
 // CONFIG
+// ===============================
 handler.help = ['penetrar @user']
 handler.tags = ['emox']
 handler.command = /^(penetrar|penetrado)$/i
 handler.group = true
-handler.fail = null
 
 export default handler
