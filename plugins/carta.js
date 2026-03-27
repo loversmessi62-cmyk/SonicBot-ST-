@@ -8,37 +8,39 @@ export default {
   async run(sock, msg, args, ctx) {
 
     // ===============================
-    // DETECTAR USUARIO
+    // EXTRAER CONTEXT INFO (CLAVE)
     // ===============================
-    const mentioned =
-      msg.message?.extendedTextMessage?.contextInfo?.mentionedJid
+    const context = msg.message?.extendedTextMessage?.contextInfo || {}
+
+    const mentioned = context.mentionedJid || []
 
     let who
-    if (mentioned?.length) {
+
+    if (mentioned.length) {
       who = mentioned[0]
-    } else if (msg.quoted?.sender) {
-      who = msg.quoted.sender
+    } else if (context.participant) {
+      // ESTE ES EL FIX IMPORTANTE
+      who = context.participant
     } else {
       who = ctx.sender
     }
 
-    const remitente = ctx.sender
-    const destinatario = who
+    const sender = ctx.sender
 
-    const nombreRem = remitente.split('@')[0]
-    const nombreDes = destinatario.split('@')[0]
+    const tagSender = "@" + sender.split("@")[0]
+    const tagWho = "@" + who.split("@")[0]
 
     // ===============================
-    // FRASES
+    // TEXTO
     // ===============================
     let texto
 
-    if (mentioned?.length) {
-      texto = `\`@${nombreRem}\` le partio el culo a la puta de \`@${nombreDes}\`.`
-    } else if (msg.quoted?.sender) {
-      texto = `\`@${nombreRem}\` se la metio en el ano a \`@${nombreDes}\`.`
+    if (mentioned.length) {
+      texto = `${tagSender} le partio el culo a la puta de ${tagWho}`
+    } else if (context.participant) {
+      texto = `${tagSender} se la metio en el ano a ${tagWho}`
     } else {
-      texto = `\`@${nombreRem}\` esta haciendo un anal`
+      texto = `${tagSender} esta haciendo un anal`
     }
 
     // ===============================
@@ -57,7 +59,7 @@ export default {
     const video = videos[Math.floor(Math.random() * videos.length)]
 
     // ===============================
-    // ENVIAR
+    // MENSAJE FINAL (CLAVE)
     // ===============================
     await sock.sendMessage(
       ctx.jid,
@@ -65,7 +67,7 @@ export default {
         video: { url: video },
         gifPlayback: true,
         caption: texto,
-        mentions: [remitente, destinatario]
+        mentions: [sender, who] // 🔥 ESTO HACE QUE ETIQUETE
       },
       { quoted: msg }
     )
