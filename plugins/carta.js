@@ -1,50 +1,14 @@
-const cartas = [
-  {
-    texto: `💌 *⌈ Carta de Amor 🌸 ⌋* 💌
-De: {remitente}
-Para: {destinatario}
+//Codígo creado por Destroy wa.me/584120346669
 
-✨ Solo quería recordarte lo especial que eres para mí y cuánto iluminas mis días. 💖`
-  },
-  {
-    texto: `💌 *⌈ Carta de Amor 🌷 ⌋* 💌
-De: {remitente}
-Para: {destinatario}
-
-🌼 Me he enamorado de tu dulzura, tu sonrisa y cada pequeño detalle que te hace único/a. 💕`
-  },
-  {
-    texto: `💌 *⌈ Carta de Amor 🌟 ⌋* 💌
-De: {remitente}
-Para: {destinatario}
-
-🌸 Te quiero más que ayer, y cada día descubro nuevas razones para quererte aún más. 🥰`
-  },
-  {
-    texto: `💌 *⌈ Carta de Amor 🐻 ⌋* 💌
-De: {remitente}
-Para: {destinatario}
-
-💖 Eres mi alegría diaria, mi abrazo en la distancia y mi razón para sonreír siempre. 🌷`
-  },
-  {
-    texto: `💌 *⌈ Carta de Amor 🌈 ⌋* 💌
-De: {remitente}
-Para: {destinatario}
-
-🌹 Gracias por existir y llenar mi mundo de colores y ternura. Siempre pienso en ti. 💕`
-  }
-]
-
-const handler = {
-  command: ['carta'],
-  tags: ['funny'],
-  help: ['carta @usuario', 'carta (responder mensaje)'],
-  group: false,
+export default {
+  commands: ["anal", "culiar"],
+  category: "emox",
+  group: true,
 
   async run(sock, msg, args, ctx) {
+
     // ===============================
-    // DETERMINAR DESTINATARIO
+    // DETECTAR USUARIO
     // ===============================
     const mentioned =
       msg.message?.extendedTextMessage?.contextInfo?.mentionedJid
@@ -65,13 +29,32 @@ const handler = {
     const nombreDes = destinatario.split('@')[0]
 
     // ===============================
-    // CARTA ALEATORIA
+    // FRASES
     // ===============================
-    const carta = cartas[Math.floor(Math.random() * cartas.length)]
+    let texto
 
-    const mensajeFinal = carta.texto
-      .replace('{remitente}', `@${nombreRem}`)
-      .replace('{destinatario}', `@${nombreDes}`)
+    if (mentioned?.length) {
+      texto = `\`@${nombreRem}\` le partio el culo a la puta de \`@${nombreDes}\`.`
+    } else if (msg.quoted?.sender) {
+      texto = `\`@${nombreRem}\` se la metio en el ano a \`@${nombreDes}\`.`
+    } else {
+      texto = `\`@${nombreRem}\` esta haciendo un anal`
+    }
+
+    // ===============================
+    // VIDEOS
+    // ===============================
+    const videos = [
+      'https://telegra.ph/file/7185b0be7a315706d086a.mp4',
+      'https://telegra.ph/file/a11625fef11d628d3c8df.mp4',
+      'https://telegra.ph/file/062b9506656e89b069618.mp4',
+      'https://telegra.ph/file/1325494a54adc9a87ec56.mp4',
+      'https://qu.ax/KKazS.mp4',
+      'https://qu.ax/ieJeB.mp4',
+      'https://qu.ax/MCdGn.mp4'
+    ]
+
+    const video = videos[Math.floor(Math.random() * videos.length)]
 
     // ===============================
     // ENVIAR
@@ -79,12 +62,12 @@ const handler = {
     await sock.sendMessage(
       ctx.jid,
       {
-        text: mensajeFinal,
+        video: { url: video },
+        gifPlayback: true,
+        caption: texto,
         mentions: [remitente, destinatario]
       },
       { quoted: msg }
     )
   }
 }
-
-export default handler
