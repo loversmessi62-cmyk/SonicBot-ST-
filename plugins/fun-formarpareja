@@ -1,62 +1,74 @@
-let parejasRecientes = {}
+let historial = {}
 
 export default {
-  commands: ["formarpareja"],
+  commands: ["pareja", "love"],
   category: "fun",
 
   async run(sock, msg, args, ctx) {
     const jid = ctx.jid
 
-    // obtener metadata correctamente
-    const groupMetadata = await sock.groupMetadata(jid)
-    const participants = groupMetadata.participants.map(v => v.id)
-
-    if (participants.length < 2) {
+    // obtener participantes
+    let metadata
+    try {
+      metadata = await sock.groupMetadata(jid)
+    } catch {
       return sock.sendMessage(jid, {
-        text: "❌ Necesito al menos 2 personas para formar pareja"
+        text: "❌ Este comando solo funciona en grupos"
       }, { quoted: msg })
     }
 
-    // init memoria por grupo
-    if (!parejasRecientes[jid]) parejasRecientes[jid] = []
+    const users = metadata.participants.map(u => u.id)
 
-    const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)]
-    const toM = (a) => '@' + a.split('@')[0]
-
-    let a, b, key, intento = 0
-
-    do {
-      a = getRandom(participants)
-      b = getRandom(participants)
-      key = [a, b].sort().join('-')
-      intento++
-    } while (
-      (a === b || parejasRecientes[jid].includes(key)) &&
-      intento < 10
-    )
-
-    // guardar pareja
-    parejasRecientes[jid].push(key)
-
-    // limitar historial
-    if (parejasRecientes[jid].length > 10) {
-      parejasRecientes[jid].shift()
+    if (users.length < 2) {
+      return sock.sendMessage(jid, {
+        text: "❌ Se necesitan mínimo 2 personas"
+      }, { quoted: msg })
     }
 
-    const frases = [
-      `💘 *${toM(a)} y ${toM(b)} hacen una pareja perfecta 😍*`,
-      `💞 *${toM(a)} debería invitar a ${toM(b)} a salir 😏*`,
-      `🔥 *Entre ${toM(a)} y ${toM(b)} hay química 🧪❤️*`,
-      `🥰 *${toM(a)} y ${toM(b)} se ven bien juntos 😳*`,
-      `💍 *${toM(a)} y ${toM(b)} ya deberían casarse 😍*`,
-      `😏 *${toM(a)} no puede negar que le gusta ${toM(b)}*`
-    ]
+    // memoria por grupo
+    if (!historial[jid]) historial[jid] = []
 
-    const resultado = getRandom(frases)
+    const random = (arr) => arr[Math.floor(Math.random() * arr.length)]
+    const tag = (u) => "@" + u.split("@")[0]
+
+    let u1, u2, key, tries = 0
+
+    do {
+      u1 = random(users)
+      u2 = random(users)
+      key = [u1, u2].sort().join("-")
+      tries++
+    } while ((u1 === u2 || historial[jid].includes(key)) && tries < 10)
+
+    // guardar pareja
+    historial[jid].push(key)
+    if (historial[jid].length > 15) historial[jid].shift()
+
+    // porcentaje amor
+    const love = Math.floor(Math.random() * 101)
+
+    // mensaje dinámico
+    let estado =
+      love > 90 ? "💍 Amor eterno" :
+      love > 70 ? "😍 Muy enamorados" :
+      love > 50 ? "😏 Hay química" :
+      love > 30 ? "🙂 Puede funcionar" :
+      "💔 Mejor como amigos"
+
+    const texto = `
+💘 *MATCH DETECTADO*
+
+${tag(u1)} ❤️ ${tag(u2)}
+
+💞 Compatibilidad: *${love}%*
+${estado}
+
+> ¿Se arma o qué 😏?
+`.trim()
 
     await sock.sendMessage(jid, {
-      text: `> ${resultado}\n> *¿Será el inicio de algo bonito? 😏*`,
-      mentions: [a, b]
+      text: texto,
+      mentions: [u1, u2]
     }, { quoted: msg })
   }
 }
