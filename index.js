@@ -1,7 +1,7 @@
 import baileys from "@whiskeysockets/baileys";
 import pino from "pino";
-import fs from "fs";
 import readline from "readline";
+import chokidar from "chokidar";
 
 import handler, { loadPlugins } from "./handler.js";
 import groupAdmins from "./events/groupAdmins.js";
@@ -9,9 +9,7 @@ import groupSettings from "./events/groupSettings.js";
 
 import {
   isWelcomeEnabled,
-  isByeEnabled,
-  getWelcomeText,
-  getByeText
+  isByeEnabled
 } from "./utils/welcomeState.js";
 
 const {
@@ -29,9 +27,6 @@ const rl = readline.createInterface({
 
 const question = text =>
   new Promise(resolve => rl.question(text, resolve));
-
-let pairingMethod = "qr";
-let pairingCodeRequested = false;
 
 const groupCache = {};
 const groupFetchLocks = {};
@@ -57,6 +52,11 @@ const getGroupMeta = async (sock, jid) => {
 };
 
 let pluginsLoaded = false;
+let pairingMethod = "qr";
+let pairingCodeRequested = false;
+let watcherStarted = false;
+let reloadTimer = null;
+const reloadQueue = new Set();
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("./sessions");
@@ -75,10 +75,29 @@ async function startBot() {
     browser: ["ADRIBOT", "Chrome", "6.0"]
   });
 
+  global.sock = sock;
+
   groupAdmins(sock);
   groupSettings(sock);
 
   sock.ev.on("creds.update", saveCreds);
+
+  global.hotReload = async () => {
+    try {
+      const handlerModule = await import(`./handler.js?update=${Date.now()}`);
+      const ok = await handlerModule.loadPlugins();
+
+      if (ok) {
+        console.log("♻️ Plugins recargados sin reiniciar");
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      console.error("❌ Error en hotReload:", e);
+      return false;
+    }
+  };
 
   sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
     try {
@@ -108,12 +127,42 @@ async function startBot() {
       if (connection === "open") {
         console.log("✅ ADRIBOT CONECTADO");
         pairingCodeRequested = false;
-        rl.close();
 
         if (!pluginsLoaded) {
           await loadPlugins();
           pluginsLoaded = true;
           console.log("🔥 Plugins cargados");
+        }
+
+        if (!watcherStarted) {
+          watcherStarted = true;
+
+          const watcher = chokidar.watch("./plugins", {
+            ignoreInitial: true,
+            ignored: ["**/node_modules/**", "**/.git/**"],
+            awaitWriteFinish: {
+              stabilityThreshold: 300,
+              pollInterval: 80
+            }
+          });
+
+          watcher.on("all", async (_, filePath) => {
+            try {
+              if (!filePath.endsWith(".js")) return;
+
+              reloadQueue.add(filePath);
+              clearTimeout(reloadTimer);
+
+              reloadTimer = setTimeout(async () => {
+                reloadQueue.clear();
+                await global.hotReload();
+              }, 300);
+            } catch (e) {
+              console.error("❌ Error en watcher:", e);
+            }
+          });
+
+          console.log("👀 Watcher de plugins activado");
         }
       }
 
