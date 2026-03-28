@@ -1,4 +1,7 @@
-import baileys from "@whiskeysockets/baileys";
+import makeWASocket, {
+  useMultiFileAuthState,
+  DisconnectReason
+} from "@whiskeysockets/baileys";
 import pino from "pino";
 import readline from "readline";
 import chokidar from "chokidar";
@@ -11,12 +14,6 @@ import {
   isWelcomeEnabled,
   isByeEnabled
 } from "./utils/welcomeState.js";
-
-const {
-  default: makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason
-} = baileys;
 
 console.log("🔥 INDEX INICIADO");
 
