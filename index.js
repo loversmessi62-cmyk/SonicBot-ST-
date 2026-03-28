@@ -1,7 +1,8 @@
 import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
-  Browsers
+  Browsers,
+  fetchLatestBaileysVersion
 } from "@whiskeysockets/baileys";
 import pino from "pino";
 import readline from "readline";
@@ -64,6 +65,16 @@ let reconnectTimer = null;
 let reconnecting = false;
 let starting = false;
 
+function normalizePhoneNumber(input) {
+  let number = String(input || "").trim().replace(/\D/g, "");
+
+  if (number.startsWith("52") && !number.startsWith("521")) {
+    number = "521" + number.slice(2);
+  }
+
+  return number;
+}
+
 async function askLinkMethodOnce(state) {
   if (state.creds.registered) return;
 
@@ -76,14 +87,16 @@ async function askLinkMethodOnce(state) {
 
   if (pairingMethod === "code" && !phoneNumber) {
     let input = "";
+
     do {
       input = await question(
-        "📞 Escribe tu número con código de país, sin + ni espacios. Ejemplo: 50588887777\nNúmero: "
+        "📞 Escribe tu número con código de país, sin + ni espacios. Ejemplo: 5215512345678\nNúmero: "
       );
-      input = input.trim().replace(/\D/g, "");
+      input = normalizePhoneNumber(input);
     } while (!input);
 
     phoneNumber = input;
+    console.log(`✅ Número detectado: ${phoneNumber}`);
   }
 }
 
@@ -123,13 +136,13 @@ function scheduleReconnect() {
   if (reconnecting || reconnectTimer) return;
 
   reconnecting = true;
-  console.log("⚠️ Conexión cerrada, reconectando en 5 segundos...");
+  console.log("⚠️ Conexión cerrada, reconectando en 8 segundos...");
 
   reconnectTimer = setTimeout(async () => {
     reconnectTimer = null;
     reconnecting = false;
     await startBot();
-  }, 5000);
+  }, 8000);
 }
 
 async function startBot() {
@@ -140,9 +153,15 @@ async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState("./sessions");
     await askLinkMethodOnce(state);
 
+    const { version } = await fetchLatestBaileysVersion();
+
     if (currentSock) {
       try {
         currentSock.ev.removeAllListeners();
+      } catch {}
+
+      try {
+        currentSock.end?.();
       } catch {}
 
       try {
@@ -153,7 +172,12 @@ async function startBot() {
     const sock = makeWASocket({
       logger: pino({ level: "silent" }),
       auth: state,
-      browser: Browsers.macOS("Desktop")
+      browser: Browsers.macOS("Desktop"),
+      version,
+      connectTimeoutMs: 60000,
+      qrTimeout: 60000,
+      markOnlineOnConnect: false,
+      syncFullHistory: false
     });
 
     currentSock = sock;
@@ -196,11 +220,11 @@ async function startBot() {
           !state.creds.registered &&
           phoneNumber &&
           !pairingCodeRequested &&
-          connection === "connecting"
+          (connection === "connecting" || !!qr)
         ) {
           pairingCodeRequested = true;
 
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          await new Promise(resolve => setTimeout(resolve, 2000));
 
           const code = await sock.requestPairingCode(phoneNumber);
           const cleanCode = String(code).replace(/[-\s]/g, "");
@@ -231,6 +255,8 @@ async function startBot() {
 
         if (connection === "close") {
           const code = lastDisconnect?.error?.output?.statusCode;
+          console.log("❌ Conexión cerrada. Código:", code);
+
           pairingCodeRequested = false;
 
           if (code === DisconnectReason.loggedOut) {
