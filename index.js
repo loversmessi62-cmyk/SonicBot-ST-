@@ -5,6 +5,7 @@ import makeWASocket, {
 import pino from "pino";
 import readline from "readline";
 import chokidar from "chokidar";
+import qrcode from "qrcode-terminal";
 
 import handler, { loadPlugins } from "./handler.js";
 import groupAdmins from "./events/groupAdmins.js";
@@ -49,25 +50,47 @@ const getGroupMeta = async (sock, jid) => {
 };
 
 let pluginsLoaded = false;
-let pairingMethod = "qr";
-let pairingCodeRequested = false;
 let watcherStarted = false;
 let reloadTimer = null;
 const reloadQueue = new Set();
 
-async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState("./sessions");
+let pairingMethod = null;
+let pairingCodeRequested = false;
+let phoneNumber = null;
+let botStarted = false;
 
-  if (!state.creds.registered) {
+async function askLinkMethodOnce(state) {
+  if (state.creds.registered) return;
+
+  if (!pairingMethod) {
     const answer = await question(
       "\n¿Cómo quieres vincular el bot?\n1) QR\n2) Código de 8 dígitos\nElige 1 o 2: "
     );
     pairingMethod = answer.trim() === "2" ? "code" : "qr";
   }
 
+  if (pairingMethod === "code" && !phoneNumber) {
+    let input = "";
+    do {
+      input = await question(
+        "📞 Escribe tu número con código de país, sin + ni espacios. Ejemplo: 50588887777\nNúmero: "
+      );
+      input = input.trim().replace(/\D/g, "");
+    } while (!input);
+
+    phoneNumber = input;
+  }
+}
+
+async function startBot() {
+  if (botStarted) return;
+  botStarted = true;
+
+  const { state, saveCreds } = await useMultiFileAuthState("./sessions");
+  await askLinkMethodOnce(state);
+
   const sock = makeWASocket({
     logger: pino({ level: "silent" }),
-    printQRInTerminal: pairingMethod === "qr",
     auth: state,
     browser: ["ADRIBOT", "Chrome", "6.0"]
   });
@@ -96,25 +119,25 @@ async function startBot() {
     }
   };
 
-  sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
+  sock.ev.on("connection.update", async update => {
+    const { connection, lastDisconnect, qr } = update;
+
     try {
-      if (pairingMethod === "qr" && qr) {
-        console.log("📱 Escanea el QR para vincular el bot");
+      if (qr && pairingMethod === "qr") {
+        console.log("📱 Escanea este QR para vincular el bot:\n");
+        qrcode.generate(qr, { small: true });
       }
 
       if (
         pairingMethod === "code" &&
         !state.creds.registered &&
+        phoneNumber &&
         !pairingCodeRequested &&
-        (connection === "connecting" || qr)
+        connection === "connecting"
       ) {
         pairingCodeRequested = true;
 
-        const phoneNumber = await question(
-          "📞 Escribe tu número con código de país, sin + ni espacios. Ejemplo: 50588887777\nNúmero: "
-        );
-
-        const code = await sock.requestPairingCode(phoneNumber.trim());
+        const code = await sock.requestPairingCode(phoneNumber);
         const cleanCode = String(code).replace(/[-\s]/g, "");
 
         console.log(`🔗 Código de vinculación: ${cleanCode}`);
@@ -166,10 +189,11 @@ async function startBot() {
       if (connection === "close") {
         const code = lastDisconnect?.error?.output?.statusCode;
         pairingCodeRequested = false;
+        botStarted = false;
 
         if (code !== DisconnectReason.loggedOut) {
           console.log("⚠️ Conexión cerrada, reconectando...");
-          startBot();
+          setTimeout(() => startBot(), 3000);
         } else {
           console.log("❌ Sesión cerrada. Debes volver a vincular.");
         }
