@@ -1,6 +1,24 @@
 import { exec } from "child_process";
-import fs from "fs";
 import config from "../config.js";
+
+function execAsync(command) {
+  return new Promise((resolve, reject) => {
+    exec(command, (err, stdout, stderr) => {
+      if (err) {
+        return reject({
+          err,
+          stdout: stdout || "",
+          stderr: stderr || ""
+        });
+      }
+
+      resolve({
+        stdout: stdout || "",
+        stderr: stderr || ""
+      });
+    });
+  });
+}
 
 export default {
   commands: ["update", "upd"],
@@ -9,9 +27,8 @@ export default {
 
   async run(sock, msg, args, ctx) {
     const jid = ctx.jid;
-
-    // 🔒 SOLO OWNER
     const senderNumber = ctx.sender.split("@")[0];
+
     if (!config.owners.includes(senderNumber)) {
       return sock.sendMessage(jid, {
         text: "❌ Este comando es exclusivo del OWNER."
@@ -22,44 +39,54 @@ export default {
       text: "⏳ *Buscando actualizaciones...*"
     });
 
-    exec("git pull", async (err, stdout, stderr) => {
-      if (err) {
+    try {
+      const before = await execAsync("git rev-parse HEAD");
+      const pull = await execAsync("git pull");
+      const after = await execAsync("git rev-parse HEAD");
+
+      if (before.stdout.trim() === after.stdout.trim()) {
         return sock.sendMessage(jid, {
-          text: "❌ Error en git pull:\n```" + err.message + "```"
+          text: "✅ El bot ya está actualizado.\nNo fue necesario recargar."
         });
       }
 
-      // 🧠 Si no hubo cambios
-      if (/Already up to date/i.test(stdout)) {
-        return sock.sendMessage(jid, {
-          text: "✅ El bot ya está actualizado.\nNo fue necesario reiniciar."
-        });
-      }
-
-      // Guardar info para aviso post-update
-      fs.writeFileSync(
-        "./restart.json",
-        JSON.stringify({
-          jid,
-          by: senderNumber,
-          at: Date.now()
-        })
-      );
-
-      let message =
-        "✅ *Actualización aplicada*\n\n```" +
-        stdout +
+      let text =
+        "✅ *Actualización descargada*\n\n```" +
+        pull.stdout.trim() +
         "```";
 
-      if (stderr) {
-        message += "\n⚠️ Advertencias:\n```" + stderr + "```";
+      if (pull.stderr.trim()) {
+        text += "\n\n⚠️ Advertencias:\n```" + pull.stderr.trim() + "```";
       }
 
-      message += "\n\n♻️ *Reiniciando bot...*";
+      await sock.sendMessage(jid, {
+        text: text + "\n\n♻️ *Aplicando recarga en caliente...*"
+      });
 
-      await sock.sendMessage(jid, { text: message });
+      const reloaded =
+        (await global.hotReload?.()) ||
+        (await ctx.reloadPlugins?.());
 
-      setTimeout(() => process.exit(0), 2000);
-    });
+      if (reloaded) {
+        return sock.sendMessage(jid, {
+          text: "✅ *Actualización aplicada sin reiniciar el bot.*"
+        });
+      }
+
+      return sock.sendMessage(jid, {
+        text: "⚠️ La actualización se descargó, pero no se pudo recargar.\nReinicia manualmente si notas cambios que no se aplicaron."
+      });
+    } catch (e) {
+      const errText =
+        e?.err?.message ||
+        e?.stderr ||
+        e?.stdout ||
+        e?.message ||
+        "Error desconocido";
+
+      return sock.sendMessage(jid, {
+        text: "❌ Error al actualizar:\n```" + String(errText).trim() + "```"
+      });
+    }
   }
 };
