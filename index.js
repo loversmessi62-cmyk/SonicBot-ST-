@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
@@ -19,6 +21,8 @@ import {
 } from "./utils/welcomeState.js";
 
 console.log("🔥 INDEX INICIADO");
+
+const SESSIONS_DIR = "./sessions";
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -64,6 +68,7 @@ let currentSock = null;
 let reconnectTimer = null;
 let reconnecting = false;
 let starting = false;
+let clearingSession = false;
 
 function normalizePhoneNumber(input) {
   let number = String(input || "").trim().replace(/\D/g, "");
@@ -73,6 +78,27 @@ function normalizePhoneNumber(input) {
   }
 
   return number;
+}
+
+function resetPairingState() {
+  pairingMethod = null;
+  pairingCodeRequested = false;
+  phoneNumber = null;
+}
+
+function ensureSessionsDir() {
+  if (!fs.existsSync(SESSIONS_DIR)) {
+    fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+  }
+}
+
+function clearSessions() {
+  try {
+    if (fs.existsSync(SESSIONS_DIR)) {
+      fs.rmSync(SESSIONS_DIR, { recursive: true, force: true });
+    }
+  } catch {}
+  ensureSessionsDir();
 }
 
 async function askLinkMethodOnce(state) {
@@ -132,25 +158,68 @@ function startWatcher() {
   console.log("👀 Watcher de plugins activado");
 }
 
-function scheduleReconnect() {
-  if (reconnecting || reconnectTimer) return;
+function scheduleReconnect(ms = 8000) {
+  if (reconnecting || reconnectTimer || clearingSession) return;
 
   reconnecting = true;
-  console.log("⚠️ Conexión cerrada, reconectando en 8 segundos...");
+  console.log(`⚠️ Conexión cerrada, reconectando en ${Math.floor(ms / 1000)} segundos...`);
 
   reconnectTimer = setTimeout(async () => {
     reconnectTimer = null;
     reconnecting = false;
     await startBot();
-  }, 8000);
+  }, ms);
+}
+
+async function handleLoggedOut() {
+  if (clearingSession) return;
+  clearingSession = true;
+
+  try {
+    console.log("❌ Sesión cerrada (401). Limpiando sesión y reiniciando vínculo...");
+    resetPairingState();
+
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+
+    reconnecting = false;
+
+    if (currentSock) {
+      try {
+        currentSock.ev.removeAllListeners();
+      } catch {}
+
+      try {
+        currentSock.end?.();
+      } catch {}
+
+      try {
+        currentSock.ws?.close();
+      } catch {}
+    }
+
+    clearSessions();
+
+    setTimeout(async () => {
+      clearingSession = false;
+      await startBot();
+    }, 3000);
+  } catch (e) {
+    clearingSession = false;
+    console.error("❌ Error limpiando sesión:", e);
+  }
 }
 
 async function startBot() {
-  if (starting) return;
+  if (starting || clearingSession) return;
   starting = true;
 
   try {
-    const { state, saveCreds } = await useMultiFileAuthState("./sessions");
+    ensureSessionsDir();
+
+    const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_DIR);
     await askLinkMethodOnce(state);
 
     const { version } = await fetchLatestBaileysVersion();
@@ -259,8 +328,8 @@ async function startBot() {
 
           pairingCodeRequested = false;
 
-          if (code === DisconnectReason.loggedOut) {
-            console.log("❌ Sesión cerrada. Debes volver a vincular.");
+          if (code === DisconnectReason.loggedOut || code === 401) {
+            await handleLoggedOut();
             return;
           }
 
