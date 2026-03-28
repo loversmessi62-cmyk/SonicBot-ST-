@@ -17,7 +17,7 @@
     "formdata-node": "latest",
     "node-fetch": "latest",
     "moment-timezone": "^0.5.43",
-    "jimp": "^0.16.13",
+    "jimp": "^1.6.0",
     "chokidar": "^5.0.0",
     "wa-sticker-formatter": "latest"
   }
