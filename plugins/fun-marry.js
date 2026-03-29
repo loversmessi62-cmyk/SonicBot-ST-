@@ -9,7 +9,6 @@ const marriagesFile = path.resolve('media/database/marry.json')
 let marriages = loadMarriages()
 const confirmation = {}
 
-// 📂 Crear carpeta si no existe
 const dir = path.dirname(marriagesFile)
 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
@@ -27,140 +26,111 @@ function saveMarriages() {
   fs.writeFileSync(marriagesFile, JSON.stringify(marriages, null, 2))
 }
 
-export default {
-  commands: ["marry", "divorce"],
-  category: "rg",
-  group: true,
+let handler = async (m, { conn, command }) => {
 
-  async run(sock, msg, args, ctx) {
+  const userIsMarried = (user) => marriages[user] !== undefined
 
-    const command = ctx.command
-    const sender = ctx.sender
+  const proposee = m.mentionedJid?.[0] || m.quoted?.sender
+  const proposer = m.sender
 
-    const context = msg.message?.extendedTextMessage?.contextInfo || {}
-    const mentioned = context.mentionedJid || []
+  try {
 
-    const userIsMarried = (user) => marriages[user] !== undefined
+    // 💍 CASARSE
+    if (/^marry$/i.test(command)) {
 
-    try {
-
-      // 💍 CASARSE
-      if (/^marry$/i.test(command)) {
-
-        let proposee
-
-        if (mentioned.length) {
-          proposee = mentioned[0]
-        } else if (context.participant) {
-          proposee = context.participant
+      if (!proposee) {
+        if (userIsMarried(proposer)) {
+          return conn.reply(m.chat, "💍 Ya estás casado", m)
         }
-
-        if (!proposee) {
-          if (userIsMarried(sender)) {
-            return sock.sendMessage(ctx.jid, {
-              text: `💍 Ya estás casado`,
-            }, { quoted: msg })
-          }
-
-          return sock.sendMessage(ctx.jid, {
-            text: "❌ Debes mencionar a alguien\nEjemplo: .marry @usuario"
-          }, { quoted: msg })
-        }
-
-        if (sender === proposee)
-          return sock.sendMessage(ctx.jid, { text: "❌ No puedes casarte contigo mismo 😹" }, { quoted: msg })
-
-        if (userIsMarried(sender))
-          return sock.sendMessage(ctx.jid, { text: "❌ Ya estás casado" }, { quoted: msg })
-
-        if (userIsMarried(proposee))
-          return sock.sendMessage(ctx.jid, { text: "❌ Esa persona ya está casada" }, { quoted: msg })
-
-        const name1 = "@" + sender.split("@")[0]
-        const name2 = "@" + proposee.split("@")[0]
-
-        await sock.sendMessage(ctx.jid, {
-          text: `💍 ${name2}, ${name1} te propone matrimonio\n\nResponde:\n✔ Si\n❌ No`,
-          mentions: [sender, proposee]
-        }, { quoted: msg })
-
-        confirmation[proposee] = {
-          proposer: sender,
-          chat: ctx.jid,
-          timeout: setTimeout(() => {
-            sock.sendMessage(ctx.jid, {
-              text: "⏰ Tiempo agotado. Propuesta cancelada."
-            })
-            delete confirmation[proposee]
-          }, 60000)
-        }
+        return conn.reply(m.chat, "❌ Menciona a alguien\nEjemplo: .marry @usuario", m)
       }
 
-      // 💔 DIVORCIO
-      if (/^divorce$/i.test(command)) {
+      if (proposer === proposee)
+        return conn.reply(m.chat, "❌ No puedes casarte contigo mismo 😹", m)
 
-        if (!userIsMarried(sender)) {
-          return sock.sendMessage(ctx.jid, {
-            text: "❌ No estás casado"
-          }, { quoted: msg })
-        }
+      if (userIsMarried(proposer))
+        return conn.reply(m.chat, "❌ Ya estás casado", m)
 
-        const partner = marriages[sender]
+      if (userIsMarried(proposee))
+        return conn.reply(m.chat, "❌ Esa persona ya está casada", m)
 
-        delete marriages[sender]
-        delete marriages[partner]
-        saveMarriages()
+      await conn.reply(
+        m.chat,
+        `💍 @${proposee.split("@")[0]}, @${proposer.split("@")[0]} te propone matrimonio\n\nResponde:\n✔ Si\n❌ No`,
+        m,
+        { mentions: [proposee, proposer] }
+      )
 
-        await sock.sendMessage(ctx.jid, {
-          text: `💔 @${sender.split("@")[0]} y @${partner.split("@")[0]} se divorciaron`,
-          mentions: [sender, partner]
-        }, { quoted: msg })
+      confirmation[proposee] = {
+        proposer,
+        chat: m.chat,
+        timeout: setTimeout(() => {
+          conn.reply(m.chat, "⏰ Tiempo agotado", m)
+          delete confirmation[proposee]
+        }, 60000)
       }
-
-    } catch (e) {
-      sock.sendMessage(ctx.jid, {
-        text: `❌ ${e.message}`
-      }, { quoted: msg })
-    }
-  },
-
-  async before(sock, msg, ctx) {
-
-    if (!msg.message) return
-
-    const sender = ctx.sender
-
-    if (!(sender in confirmation)) return
-
-    const text = msg.message?.conversation ||
-                 msg.message?.extendedTextMessage?.text || ""
-
-    const data = confirmation[sender]
-
-    // ❌ RECHAZAR
-    if (/^no$/i.test(text)) {
-      clearTimeout(data.timeout)
-      delete confirmation[sender]
-
-      return sock.sendMessage(ctx.jid, {
-        text: "❌ Propuesta rechazada"
-      }, { quoted: msg })
     }
 
-    // ✔ ACEPTAR
-    if (/^s[ií]$/i.test(text)) {
+    // 💔 DIVORCIO
+    if (/^divorce$/i.test(command)) {
 
-      marriages[data.proposer] = sender
-      marriages[sender] = data.proposer
+      if (!userIsMarried(proposer))
+        return conn.reply(m.chat, "❌ No estás casado", m)
+
+      const partner = marriages[proposer]
+
+      delete marriages[proposer]
+      delete marriages[partner]
       saveMarriages()
 
-      clearTimeout(data.timeout)
-      delete confirmation[sender]
-
-      return sock.sendMessage(ctx.jid, {
-        text: `💖 ¡Se han casado!\n\n@${data.proposer.split("@")[0]} ❤️ @${sender.split("@")[0]}`,
-        mentions: [data.proposer, sender]
-      }, { quoted: msg })
+      await conn.reply(
+        m.chat,
+        `💔 @${proposer.split("@")[0]} y @${partner.split("@")[0]} se divorciaron`,
+        m,
+        { mentions: [proposer, partner] }
+      )
     }
+
+  } catch (e) {
+    conn.reply(m.chat, `❌ ${e.message}`, m)
   }
 }
+
+// RESPUESTAS
+handler.before = async (m, { conn }) => {
+
+  if (!(m.sender in confirmation)) return
+  if (!m.text) return
+
+  const { proposer, timeout } = confirmation[m.sender]
+
+  if (/^no$/i.test(m.text)) {
+    clearTimeout(timeout)
+    delete confirmation[m.sender]
+    return conn.reply(m.chat, "❌ Propuesta rechazada", m)
+  }
+
+  if (/^s[ií]$/i.test(m.text)) {
+
+    marriages[proposer] = m.sender
+    marriages[m.sender] = proposer
+    saveMarriages()
+
+    clearTimeout(timeout)
+    delete confirmation[m.sender]
+
+    return conn.reply(
+      m.chat,
+      `💖 @${proposer.split("@")[0]} ❤️ @${m.sender.split("@")[0]} ya están casados`,
+      m,
+      { mentions: [proposer, m.sender] }
+    )
+  }
+}
+
+handler.help = ['marry @user', 'divorce']
+handler.tags = ['rg']
+handler.command = /^(marry|divorce)$/i
+handler.group = true
+
+export default handler
