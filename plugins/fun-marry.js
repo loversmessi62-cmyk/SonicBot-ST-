@@ -1,6 +1,4 @@
-/* Código creado por Destroy
- - https://github.com/The-King-Destroy
-*/
+//Codígo creado por Destroy wa.me/584120346669
 
 import fs from 'fs'
 import path from 'path'
@@ -9,6 +7,7 @@ const marriagesFile = path.resolve('media/database/marry.json')
 let marriages = loadMarriages()
 const confirmation = {}
 
+// 📂 Crear carpeta si no existe
 const dir = path.dirname(marriagesFile)
 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
@@ -26,56 +25,66 @@ function saveMarriages() {
   fs.writeFileSync(marriagesFile, JSON.stringify(marriages, null, 2))
 }
 
-let handler = async (m, { conn, command }) => {
+let handler = async (m, { conn }) => {
+
+  const context = m.message?.extendedTextMessage?.contextInfo || {}
+  const mentioned = context.mentionedJid || []
+
+  const proposer = m.sender
+  const proposee = mentioned[0] || context.participant
+
+  const isMarry = /^\.?marry$/i.test(m.text)
+  const isDivorce = /^\.?divorce$/i.test(m.text)
 
   const userIsMarried = (user) => marriages[user] !== undefined
-
-  const proposee = m.mentionedJid?.[0] || m.quoted?.sender
-  const proposer = m.sender
 
   try {
 
     // 💍 CASARSE
-    if (/^marry$/i.test(command)) {
+    if (isMarry) {
 
       if (!proposee) {
         if (userIsMarried(proposer)) {
-          return conn.reply(m.chat, "💍 Ya estás casado", m)
+          return conn.reply(
+            m.chat,
+            `💍 Ya estás casado con @${marriages[proposer].split("@")[0]}`,
+            m,
+            { mentions: [marriages[proposer]] }
+          )
         }
-        return conn.reply(m.chat, "❌ Menciona a alguien\nEjemplo: .marry @usuario", m)
+        throw 'Debes mencionar o responder a alguien.\nEjemplo: .marry @usuario'
       }
 
       if (proposer === proposee)
-        return conn.reply(m.chat, "❌ No puedes casarte contigo mismo 😹", m)
+        throw 'No puedes casarte contigo mismo 😹'
 
       if (userIsMarried(proposer))
-        return conn.reply(m.chat, "❌ Ya estás casado", m)
+        throw 'Ya estás casado.'
 
       if (userIsMarried(proposee))
-        return conn.reply(m.chat, "❌ Esa persona ya está casada", m)
+        throw 'Esa persona ya está casada.'
 
-      await conn.reply(
+      conn.reply(
         m.chat,
-        `💍 @${proposee.split("@")[0]}, @${proposer.split("@")[0]} te propone matrimonio\n\nResponde:\n✔ Si\n❌ No`,
+        `💍 @${proposee.split("@")[0]}, @${proposer.split("@")[0]} te propone matrimonio 💖\n\nResponde:\n✔ Si\n❌ No`,
         m,
-        { mentions: [proposee, proposer] }
+        { mentions: [proposer, proposee] }
       )
 
       confirmation[proposee] = {
         proposer,
-        chat: m.chat,
         timeout: setTimeout(() => {
-          conn.reply(m.chat, "⏰ Tiempo agotado", m)
+          conn.reply(m.chat, '⏰ Tiempo agotado.', m)
           delete confirmation[proposee]
         }, 60000)
       }
     }
 
     // 💔 DIVORCIO
-    if (/^divorce$/i.test(command)) {
+    if (isDivorce) {
 
       if (!userIsMarried(proposer))
-        return conn.reply(m.chat, "❌ No estás casado", m)
+        throw 'No estás casado.'
 
       const partner = marriages[proposer]
 
@@ -83,31 +92,32 @@ let handler = async (m, { conn, command }) => {
       delete marriages[partner]
       saveMarriages()
 
-      await conn.reply(
+      conn.reply(
         m.chat,
-        `💔 @${proposer.split("@")[0]} y @${partner.split("@")[0]} se divorciaron`,
+        `💔 @${proposer.split("@")[0]} y @${partner.split("@")[0]} se divorciaron.`,
         m,
         { mentions: [proposer, partner] }
       )
     }
 
   } catch (e) {
-    conn.reply(m.chat, `❌ ${e.message}`, m)
+    conn.reply(m.chat, `❌ ${e}`, m)
   }
 }
 
-// RESPUESTAS
+// 📩 RESPUESTAS (SI / NO)
 handler.before = async (m, { conn }) => {
 
-  if (!(m.sender in confirmation)) return
   if (!m.text) return
+  if (!(m.sender in confirmation)) return
 
   const { proposer, timeout } = confirmation[m.sender]
 
   if (/^no$/i.test(m.text)) {
     clearTimeout(timeout)
     delete confirmation[m.sender]
-    return conn.reply(m.chat, "❌ Propuesta rechazada", m)
+
+    return conn.reply(m.chat, '❌ Propuesta rechazada.', m)
   }
 
   if (/^s[ií]$/i.test(m.text)) {
@@ -121,16 +131,16 @@ handler.before = async (m, { conn }) => {
 
     return conn.reply(
       m.chat,
-      `💖 @${proposer.split("@")[0]} ❤️ @${m.sender.split("@")[0]} ya están casados`,
+      `💖 ¡Se han casado!\n\n@${proposer.split("@")[0]} ❤️ @${m.sender.split("@")[0]}`,
       m,
       { mentions: [proposer, m.sender] }
     )
   }
 }
 
-handler.help = ['marry @user', 'divorce']
+handler.help = ['marry @tag', 'divorce']
 handler.tags = ['rg']
-handler.command = /^(marry|divorce)$/i
+handler.command = ['marry', 'divorce']
 handler.group = true
 
 export default handler
