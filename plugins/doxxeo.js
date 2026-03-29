@@ -1,7 +1,11 @@
 import { performance } from "perf_hooks";
 
-const handler = {
-  command: ["doxear", "doxxeo", "doxeo"],
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+export default {
+  commands: ["doxear", "doxxeo", "doxeo"],
+  category: "fun",
+  admin: false,
   group: true,
 
   async run(sock, msg, args, ctx) {
@@ -10,47 +14,37 @@ const handler = {
       let who;
 
       const mentioned =
-        msg.message?.extendedTextMessage?.contextInfo?.mentionedJid;
+        msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
       if (isGroup) {
-        if (mentioned?.length) {
+        if (mentioned.length) {
           who = mentioned[0];
         } else if (msg.quoted?.sender) {
           who = msg.quoted.sender;
         } else {
-          who = jid;
+          return sock.sendMessage(
+            jid,
+            { text: "⚠️ Menciona a un usuario o responde a un mensaje." },
+            { quoted: msg }
+          );
         }
       } else {
         who = jid;
-      }
-
-      if (!who) {
-        return sock.sendMessage(
-          jid,
-          { text: "⚠️ Menciona a un usuario o responde a un mensaje." },
-          { quoted: msg }
-        );
       }
 
       let userName;
       try {
         userName = await sock.getName(who);
       } catch {
-        userName = args.join(" ") || "Usuario desconocido";
+        userName = args.join(" ") || who.split("@")[0] || "Usuario desconocido";
       }
 
-      // ===============================
-      // MENSAJE INICIAL (GUARDAR KEY)
-      // ===============================
       const loadingMsg = await sock.sendMessage(
         jid,
         { text: "🧑‍💻 *Iniciando doxeo*...\n\n*0%*" },
         { quoted: msg }
       );
 
-      // ===============================
-      // CARGA SIMULADA (EDITANDO)
-      // ===============================
       let percent = 0;
       while (percent < 100) {
         percent += Math.floor(Math.random() * 20) + 1;
@@ -64,9 +58,6 @@ const handler = {
         });
       }
 
-      // ===============================
-      // VELOCIDAD SIMULADA
-      // ===============================
       const start = performance.now();
       await delay(100);
       const end = performance.now();
@@ -91,17 +82,13 @@ const handler = {
 *Gateway:* 192.168.0.1
 *Puertos abiertos:* UDP 8080, 80 | TCP 443
 *Router:* ERICSSON | TP-LINK
-`.trim();
+      `.trim();
 
-      // ===============================
-      // EDITAR AL MENSAJE FINAL
-      // ===============================
       await sock.sendMessage(jid, {
         text: doxeo,
         mentions: [who],
         edit: loadingMsg.key
       });
-
     } catch (e) {
       console.error("❌ Error en doxear:", e);
       await sock.sendMessage(
@@ -112,7 +99,3 @@ const handler = {
     }
   }
 };
-
-export default handler;
-
-const delay = ms => new Promise(res => setTimeout(res, ms));
