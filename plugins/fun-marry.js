@@ -47,59 +47,67 @@ function getMentioned(msg) {
   };
 }
 
-export default {
+const plugin = {
   commands: ["marry", "divorce"],
   category: "fun",
   admin: false,
 
+  // 🔥 IMPORTANTE: compatible con tu handler
   async onMessage(sock, msg) {
-    const text = getText(msg);
-    if (!text) return;
+    try {
+      const text = getText(msg);
+      if (!text) return;
 
-    const sender = msg.key.participant || msg.key.remoteJid;
-    const jid = msg.key.remoteJid;
+      const sender = msg.key.participant || msg.key.remoteJid;
+      const jid = msg.key.remoteJid;
 
-    if (!(sender in confirmation)) return;
+      if (!confirmation[sender]) return;
 
-    if (/^no$/i.test(text)) {
-      clearTimeout(confirmation[sender].timeout);
-      delete confirmation[sender];
+      // ❌ rechazar
+      if (/^no$/i.test(text)) {
+        clearTimeout(confirmation[sender].timeout);
+        delete confirmation[sender];
 
-      await sock.sendMessage(jid, {
-        text: "❌ Propuesta rechazada."
-      });
-      return;
-    }
+        return sock.sendMessage(jid, {
+          text: "❌ Propuesta rechazada."
+        });
+      }
 
-    if (/^s[ií]$/i.test(text)) {
-      const proposer = confirmation[sender].proposer;
+      // ✅ aceptar
+      if (/^s[ií]$/i.test(text)) {
+        const proposer = confirmation[sender].proposer;
 
-      marriages[proposer] = sender;
-      marriages[sender] = proposer;
-      saveMarriages();
+        marriages[proposer] = sender;
+        marriages[sender] = proposer;
+        saveMarriages();
 
-      clearTimeout(confirmation[sender].timeout);
-      delete confirmation[sender];
+        clearTimeout(confirmation[sender].timeout);
+        delete confirmation[sender];
 
-      await sock.sendMessage(jid, {
-        text: `💖 ¡Se han casado!\n\n@${proposer.split("@")[0]} ❤️ @${sender.split("@")[0]}`,
-        mentions: [proposer, sender]
-      });
+        return sock.sendMessage(jid, {
+          text: `💖 ¡Se han casado!\n\n@${proposer.split("@")[0]} ❤️ @${sender.split("@")[0]}`,
+          mentions: [proposer, sender]
+        });
+      }
+    } catch (e) {
+      console.error("❌ Error en onMessage marry:", e);
     }
   },
 
   async run(sock, msg, args, ctx) {
-    const sender = ctx.sender;
-    const jid = ctx.jid;
-
-    const { mentioned, participant } = getMentioned(msg);
-    const proposee = mentioned[0] || participant;
-    const command = ctx.command;
-
-    const userIsMarried = user => marriages[user] !== undefined;
-
     try {
+      const sender = ctx.sender;
+      const jid = ctx.jid;
+      const command = ctx.command;
+
+      const { mentioned, participant } = getMentioned(msg);
+      const proposee = mentioned[0] || participant;
+
+      const userIsMarried = user => marriages[user] !== undefined;
+
+      // ================== MARRY ==================
       if (command === "marry") {
+
         if (!proposee) {
           if (userIsMarried(sender)) {
             return sock.sendMessage(jid, {
@@ -131,6 +139,13 @@ export default {
           });
         }
 
+        // 🔥 evitar bug de múltiples propuestas
+        if (confirmation[proposee]) {
+          return sock.sendMessage(jid, {
+            text: "⏳ Esa persona ya tiene una propuesta pendiente."
+          });
+        }
+
         await sock.sendMessage(jid, {
           text: `💍 @${proposee.split("@")[0]}, @${sender.split("@")[0]} te propone matrimonio 💖\n\nResponde:\n✔ Si\n❌ No`,
           mentions: [sender, proposee]
@@ -151,7 +166,9 @@ export default {
         return;
       }
 
+      // ================== DIVORCE ==================
       if (command === "divorce") {
+
         if (!userIsMarried(sender)) {
           return sock.sendMessage(jid, {
             text: "❌ No estás casado."
@@ -164,15 +181,20 @@ export default {
         delete marriages[partner];
         saveMarriages();
 
-        await sock.sendMessage(jid, {
+        return sock.sendMessage(jid, {
           text: `💔 @${sender.split("@")[0]} y @${partner.split("@")[0]} se divorciaron.`,
           mentions: [sender, partner]
         });
       }
+
     } catch (e) {
-      await sock.sendMessage(jid, {
-        text: `❌ ${e?.message || e}`
+      console.error("❌ Error en marry run:", e);
+
+      return sock.sendMessage(ctx.jid, {
+        text: `❌ Error: ${e?.message || e}`
       });
     }
   }
 };
+
+export default plugin;
