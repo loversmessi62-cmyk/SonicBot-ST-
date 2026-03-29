@@ -1,17 +1,16 @@
-const handler = {
-  command: ["sintetas"],
+export default {
+  commands: ["sintetas"],
+  category: "funny",
+  admin: false,
 
   async run(sock, msg, args, ctx) {
     try {
       const { jid } = ctx;
 
-      // ===============================
-      // VERIFICAR MENCIÓN
-      // ===============================
       const mentioned =
-        msg.message?.extendedTextMessage?.contextInfo?.mentionedJid;
+        msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
-      if (!mentioned || mentioned.length === 0) {
+      if (!mentioned.length) {
         return sock.sendMessage(
           jid,
           {
@@ -43,7 +42,6 @@ const handler = {
         },
         { quoted: msg }
       );
-
     } catch (e) {
       console.error("❌ Error en sintetas:", e);
       await sock.sendMessage(
@@ -54,5 +52,3 @@ const handler = {
     }
   }
 };
-
-export default handler;
