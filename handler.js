@@ -45,7 +45,7 @@ const saveStore = () => {
 };
 
 if (fs.existsSync("./store.json")) {
-  const old = JSON.parse(fs.readFileSync("./store.json"));
+  const old = JSON.parse(fs.readFileSync("./store.json", "utf8"));
   Object.assign(store, old);
 }
 
@@ -54,6 +54,11 @@ export const plugins = {};
 export const loadPlugins = async () => {
   try {
     const dir = "./plugins";
+    if (!fs.existsSync(dir)) {
+      console.warn("⚠️ La carpeta ./plugins no existe");
+      return false;
+    }
+
     const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"));
 
     for (const key of Object.keys(plugins)) {
@@ -76,10 +81,15 @@ export const loadPlugins = async () => {
           continue;
         }
 
+        if (typeof plugin?.run !== "function" && typeof plugin?.onMessage !== "function") {
+          console.warn(`⚠️ ${file} no tiene "run()" ni "onMessage()"`);
+          continue;
+        }
+
         const commandList = Array.isArray(cmds) ? cmds : [cmds];
 
         for (const cmd of commandList) {
-          plugins[cmd] = plugin;
+          plugins[String(cmd).toLowerCase()] = plugin;
         }
 
         console.log(`🔥 Plugin cargado: ${file}`);
@@ -119,9 +129,9 @@ const handler = async (sock, msg) => {
       m.key?.remoteJid
     );
 
-    const normalizeAll = jid => {
-      if (!jid) return null;
-      return jid
+    const normalizeAll = value => {
+      if (!value) return null;
+      return value
         .toString()
         .replace(/@s\.whatsapp\.net/g, "")
         .replace(/@lid/g, "")
@@ -146,10 +156,9 @@ const handler = async (sock, msg) => {
           p => p.admin === "admin" || p.admin === "superadmin"
         );
 
-        const adminIds = admins.flatMap(p => [
-          normalizeAll(p.id),
-          normalizeAll(p.jid)
-        ]).filter(Boolean);
+        const adminIds = admins
+          .flatMap(p => [normalizeAll(p.id), normalizeAll(p.jid)])
+          .filter(Boolean);
 
         isAdmin = adminIds.includes(senderNum);
 
@@ -381,15 +390,14 @@ ${format([...partida.suplentes], 2)}
     if (ctxInfo?.quotedMessage) {
       const qMsg = ctxInfo.quotedMessage;
       const qType = Object.keys(qMsg)[0];
+      const qParticipant = ctxInfo?.participant || null;
 
       msg.quoted = {
         type: qType,
         message: qMsg,
+        sender: qParticipant,
         mimetype: qMsg[qType]?.mimetype || "",
-        text:
-          qMsg[qType]?.text ||
-          qMsg[qType]?.caption ||
-          "",
+        text: qMsg[qType]?.text || qMsg[qType]?.caption || "",
         isSticker: qType === "stickerMessage"
       };
     } else {
@@ -432,7 +440,7 @@ ${format([...partida.suplentes], 2)}
         if (executed.has(plug)) continue;
         executed.add(plug);
 
-        if (plug.onMessage) {
+        if (typeof plug.onMessage === "function") {
           await plug.onMessage(sock, msg);
         }
       }
@@ -516,6 +524,13 @@ ${format([...partida.suplentes], 2)}
     if (plugin.admin && !isAdmin) {
       return sock.sendMessage(jid, {
         text: "❌ Solo administradores pueden usar este comando."
+      });
+    }
+
+    if (typeof plugin.run !== "function") {
+      console.error(`❌ El plugin del comando "${command}" no tiene run()`);
+      return sock.sendMessage(jid, {
+        text: `❌ El comando *.${command}* está mal configurado.`
       });
     }
 
