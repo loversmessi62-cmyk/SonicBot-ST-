@@ -1,146 +1,178 @@
-//Codígo creado por Destroy wa.me/584120346669
+// Adaptado y ReEscrito By WillZek
+import fs from "fs";
+import path from "path";
 
-import fs from 'fs'
-import path from 'path'
+const marriagesFile = path.resolve("media/database/marry.json");
+const confirmation = {};
 
-const marriagesFile = path.resolve('media/database/marry.json')
-let marriages = loadMarriages()
-const confirmation = {}
-
-// 📂 Crear carpeta si no existe
-const dir = path.dirname(marriagesFile)
-if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+const dir = path.dirname(marriagesFile);
+if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
 function loadMarriages() {
   try {
     return fs.existsSync(marriagesFile)
-      ? JSON.parse(fs.readFileSync(marriagesFile, 'utf8'))
-      : {}
+      ? JSON.parse(fs.readFileSync(marriagesFile, "utf8"))
+      : {};
   } catch {
-    return {}
+    return {};
   }
 }
+
+let marriages = loadMarriages();
 
 function saveMarriages() {
-  fs.writeFileSync(marriagesFile, JSON.stringify(marriages, null, 2))
+  fs.writeFileSync(marriagesFile, JSON.stringify(marriages, null, 2));
 }
 
-let handler = async (m, { conn }) => {
+function getText(msg) {
+  return (
+    msg.message?.conversation ||
+    msg.message?.extendedTextMessage?.text ||
+    msg.message?.imageMessage?.caption ||
+    msg.message?.videoMessage?.caption ||
+    ""
+  ).trim();
+}
 
-  const context = m.message?.extendedTextMessage?.contextInfo || {}
-  const mentioned = context.mentionedJid || []
+function getMentioned(msg) {
+  const ctx =
+    msg.message?.extendedTextMessage?.contextInfo ||
+    msg.message?.imageMessage?.contextInfo ||
+    msg.message?.videoMessage?.contextInfo ||
+    null;
 
-  const proposer = m.sender
-  const proposee = mentioned[0] || context.participant
+  return {
+    mentioned: ctx?.mentionedJid || [],
+    participant: ctx?.participant || null
+  };
+}
 
-  const isMarry = /^\.?marry$/i.test(m.text)
-  const isDivorce = /^\.?divorce$/i.test(m.text)
+export default {
+  commands: ["marry", "divorce"],
+  category: "fun",
+  admin: false,
 
-  const userIsMarried = (user) => marriages[user] !== undefined
+  async onMessage(sock, msg) {
+    const text = getText(msg);
+    if (!text) return;
 
-  try {
+    const sender = msg.key.participant || msg.key.remoteJid;
+    const jid = msg.key.remoteJid;
 
-    // 💍 CASARSE
-    if (isMarry) {
+    if (!(sender in confirmation)) return;
 
-      if (!proposee) {
-        if (userIsMarried(proposer)) {
-          return conn.reply(
-            m.chat,
-            `💍 Ya estás casado con @${marriages[proposer].split("@")[0]}`,
-            m,
-            { mentions: [marriages[proposer]] }
-          )
+    if (/^no$/i.test(text)) {
+      clearTimeout(confirmation[sender].timeout);
+      delete confirmation[sender];
+
+      await sock.sendMessage(jid, {
+        text: "❌ Propuesta rechazada."
+      });
+      return;
+    }
+
+    if (/^s[ií]$/i.test(text)) {
+      const proposer = confirmation[sender].proposer;
+
+      marriages[proposer] = sender;
+      marriages[sender] = proposer;
+      saveMarriages();
+
+      clearTimeout(confirmation[sender].timeout);
+      delete confirmation[sender];
+
+      await sock.sendMessage(jid, {
+        text: `💖 ¡Se han casado!\n\n@${proposer.split("@")[0]} ❤️ @${sender.split("@")[0]}`,
+        mentions: [proposer, sender]
+      });
+    }
+  },
+
+  async run(sock, msg, args, ctx) {
+    const sender = ctx.sender;
+    const jid = ctx.jid;
+
+    const { mentioned, participant } = getMentioned(msg);
+    const proposee = mentioned[0] || participant;
+    const command = ctx.command;
+
+    const userIsMarried = user => marriages[user] !== undefined;
+
+    try {
+      if (command === "marry") {
+        if (!proposee) {
+          if (userIsMarried(sender)) {
+            return sock.sendMessage(jid, {
+              text: `💍 Ya estás casado con @${marriages[sender].split("@")[0]}`,
+              mentions: [marriages[sender]]
+            });
+          }
+
+          return sock.sendMessage(jid, {
+            text: "❌ Debes mencionar o responder a alguien.\nEjemplo: .marry @usuario"
+          });
         }
-        throw 'Debes mencionar o responder a alguien.\nEjemplo: .marry @usuario'
+
+        if (sender === proposee) {
+          return sock.sendMessage(jid, {
+            text: "❌ No puedes casarte contigo mismo 😹"
+          });
+        }
+
+        if (userIsMarried(sender)) {
+          return sock.sendMessage(jid, {
+            text: "❌ Ya estás casado."
+          });
+        }
+
+        if (userIsMarried(proposee)) {
+          return sock.sendMessage(jid, {
+            text: "❌ Esa persona ya está casada."
+          });
+        }
+
+        await sock.sendMessage(jid, {
+          text: `💍 @${proposee.split("@")[0]}, @${sender.split("@")[0]} te propone matrimonio 💖\n\nResponde:\n✔ Si\n❌ No`,
+          mentions: [sender, proposee]
+        });
+
+        confirmation[proposee] = {
+          proposer: sender,
+          timeout: setTimeout(async () => {
+            try {
+              await sock.sendMessage(jid, {
+                text: "⏰ Tiempo agotado."
+              });
+            } catch {}
+            delete confirmation[proposee];
+          }, 60000)
+        };
+
+        return;
       }
 
-      if (proposer === proposee)
-        throw 'No puedes casarte contigo mismo 😹'
+      if (command === "divorce") {
+        if (!userIsMarried(sender)) {
+          return sock.sendMessage(jid, {
+            text: "❌ No estás casado."
+          });
+        }
 
-      if (userIsMarried(proposer))
-        throw 'Ya estás casado.'
+        const partner = marriages[sender];
 
-      if (userIsMarried(proposee))
-        throw 'Esa persona ya está casada.'
+        delete marriages[sender];
+        delete marriages[partner];
+        saveMarriages();
 
-      conn.reply(
-        m.chat,
-        `💍 @${proposee.split("@")[0]}, @${proposer.split("@")[0]} te propone matrimonio 💖\n\nResponde:\n✔ Si\n❌ No`,
-        m,
-        { mentions: [proposer, proposee] }
-      )
-
-      confirmation[proposee] = {
-        proposer,
-        timeout: setTimeout(() => {
-          conn.reply(m.chat, '⏰ Tiempo agotado.', m)
-          delete confirmation[proposee]
-        }, 60000)
+        await sock.sendMessage(jid, {
+          text: `💔 @${sender.split("@")[0]} y @${partner.split("@")[0]} se divorciaron.`,
+          mentions: [sender, partner]
+        });
       }
+    } catch (e) {
+      await sock.sendMessage(jid, {
+        text: `❌ ${e?.message || e}`
+      });
     }
-
-    // 💔 DIVORCIO
-    if (isDivorce) {
-
-      if (!userIsMarried(proposer))
-        throw 'No estás casado.'
-
-      const partner = marriages[proposer]
-
-      delete marriages[proposer]
-      delete marriages[partner]
-      saveMarriages()
-
-      conn.reply(
-        m.chat,
-        `💔 @${proposer.split("@")[0]} y @${partner.split("@")[0]} se divorciaron.`,
-        m,
-        { mentions: [proposer, partner] }
-      )
-    }
-
-  } catch (e) {
-    conn.reply(m.chat, `❌ ${e}`, m)
   }
-}
-
-// 📩 RESPUESTAS (SI / NO)
-handler.before = async (m, { conn }) => {
-
-  if (!m.text) return
-  if (!(m.sender in confirmation)) return
-
-  const { proposer, timeout } = confirmation[m.sender]
-
-  if (/^no$/i.test(m.text)) {
-    clearTimeout(timeout)
-    delete confirmation[m.sender]
-
-    return conn.reply(m.chat, '❌ Propuesta rechazada.', m)
-  }
-
-  if (/^s[ií]$/i.test(m.text)) {
-
-    marriages[proposer] = m.sender
-    marriages[m.sender] = proposer
-    saveMarriages()
-
-    clearTimeout(timeout)
-    delete confirmation[m.sender]
-
-    return conn.reply(
-      m.chat,
-      `💖 ¡Se han casado!\n\n@${proposer.split("@")[0]} ❤️ @${m.sender.split("@")[0]}`,
-      m,
-      { mentions: [proposer, m.sender] }
-    )
-  }
-}
-
-handler.help = ['marry @tag', 'divorce']
-handler.tags = ['rg']
-handler.command = ['marry', 'divorce']
-handler.group = true
-
-export default handler
+};
