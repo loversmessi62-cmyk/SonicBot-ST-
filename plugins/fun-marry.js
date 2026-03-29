@@ -1,152 +1,166 @@
-/* Código mejorado por ChatGPT + créditos a Destroy
+/* Código creado por Destroy
  - https://github.com/The-King-Destroy
 */
 
-import fs from 'fs';
-import path from 'path';
+import fs from 'fs'
+import path from 'path'
 
-const marriagesFile = path.resolve('media/database/marry.json');
-let marriages = loadMarriages();
-const confirmation = {};
+const marriagesFile = path.resolve('media/database/marry.json')
+let marriages = loadMarriages()
+const confirmation = {}
 
 // 📂 Crear carpeta si no existe
-const dir = path.dirname(marriagesFile);
-if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+const dir = path.dirname(marriagesFile)
+if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
-// 📥 Cargar datos
 function loadMarriages() {
   try {
     return fs.existsSync(marriagesFile)
       ? JSON.parse(fs.readFileSync(marriagesFile, 'utf8'))
-      : {};
+      : {}
   } catch {
-    return {};
+    return {}
   }
 }
 
-// 💾 Guardar datos
 function saveMarriages() {
-  fs.writeFileSync(marriagesFile, JSON.stringify(marriages, null, 2));
+  fs.writeFileSync(marriagesFile, JSON.stringify(marriages, null, 2))
 }
 
-const handler = async (m, { conn, command }) => {
-  const isPropose = /^marry$/i.test(command);
-  const isDivorce = /^divorce$/i.test(command);
+export default {
+  commands: ["marry", "divorce"],
+  category: "rg",
+  group: true,
 
-  const userIsMarried = (user) => marriages[user] !== undefined;
+  async run(sock, msg, args, ctx) {
 
-  try {
-    if (isPropose) {
-      const proposee = m.quoted?.sender || m.mentionedJid?.[0];
-      const proposer = m.sender;
+    const command = ctx.command
+    const sender = ctx.sender
 
-      if (!proposee) {
-        if (userIsMarried(proposer)) {
-          return conn.reply(
-            m.chat,
-            `《✧》 Ya estás casado con *${await conn.getName(marriages[proposer])}*\n> Usa *#divorce* para separarte.`,
-            m
-          );
+    const context = msg.message?.extendedTextMessage?.contextInfo || {}
+    const mentioned = context.mentionedJid || []
+
+    const userIsMarried = (user) => marriages[user] !== undefined
+
+    try {
+
+      // 💍 CASARSE
+      if (/^marry$/i.test(command)) {
+
+        let proposee
+
+        if (mentioned.length) {
+          proposee = mentioned[0]
+        } else if (context.participant) {
+          proposee = context.participant
         }
-        throw new Error('Debes mencionar a alguien.\nEjemplo: *#marry @usuario*');
+
+        if (!proposee) {
+          if (userIsMarried(sender)) {
+            return sock.sendMessage(ctx.jid, {
+              text: `💍 Ya estás casado`,
+            }, { quoted: msg })
+          }
+
+          return sock.sendMessage(ctx.jid, {
+            text: "❌ Debes mencionar a alguien\nEjemplo: .marry @usuario"
+          }, { quoted: msg })
+        }
+
+        if (sender === proposee)
+          return sock.sendMessage(ctx.jid, { text: "❌ No puedes casarte contigo mismo 😹" }, { quoted: msg })
+
+        if (userIsMarried(sender))
+          return sock.sendMessage(ctx.jid, { text: "❌ Ya estás casado" }, { quoted: msg })
+
+        if (userIsMarried(proposee))
+          return sock.sendMessage(ctx.jid, { text: "❌ Esa persona ya está casada" }, { quoted: msg })
+
+        const name1 = "@" + sender.split("@")[0]
+        const name2 = "@" + proposee.split("@")[0]
+
+        await sock.sendMessage(ctx.jid, {
+          text: `💍 ${name2}, ${name1} te propone matrimonio\n\nResponde:\n✔ Si\n❌ No`,
+          mentions: [sender, proposee]
+        }, { quoted: msg })
+
+        confirmation[proposee] = {
+          proposer: sender,
+          chat: ctx.jid,
+          timeout: setTimeout(() => {
+            sock.sendMessage(ctx.jid, {
+              text: "⏰ Tiempo agotado. Propuesta cancelada."
+            })
+            delete confirmation[proposee]
+          }, 60000)
+        }
       }
 
-      if (proposer === proposee)
-        throw new Error('No puedes casarte contigo mismo 😹');
+      // 💔 DIVORCIO
+      if (/^divorce$/i.test(command)) {
 
-      if (userIsMarried(proposer))
-        throw new Error(`Ya estás casado.`);
+        if (!userIsMarried(sender)) {
+          return sock.sendMessage(ctx.jid, {
+            text: "❌ No estás casado"
+          }, { quoted: msg })
+        }
 
-      if (userIsMarried(proposee))
-        throw new Error(`${await conn.getName(proposee)} ya está casado.`);
+        const partner = marriages[sender]
 
-      const proposerName = await conn.getName(proposer);
-      const proposeeName = await conn.getName(proposee);
+        delete marriages[sender]
+        delete marriages[partner]
+        saveMarriages()
 
-      await conn.reply(
-        m.chat,
-        `💍 ${proposeeName}, ${proposerName} te propone matrimonio\n\nResponde:\n✔ *Si*\n❌ *No*`,
-        m,
-        { mentions: [proposee, proposer] }
-      );
+        await sock.sendMessage(ctx.jid, {
+          text: `💔 @${sender.split("@")[0]} y @${partner.split("@")[0]} se divorciaron`,
+          mentions: [sender, partner]
+        }, { quoted: msg })
+      }
 
-      confirmation[proposee] = {
-        proposer,
-        timeout: setTimeout(() => {
-          conn.sendMessage(
-            m.chat,
-            { text: '⏰ Tiempo agotado. Propuesta cancelada.' },
-            { quoted: m }
-          );
-          delete confirmation[proposee];
-        }, 60000)
-      };
+    } catch (e) {
+      sock.sendMessage(ctx.jid, {
+        text: `❌ ${e.message}`
+      }, { quoted: msg })
+    }
+  },
+
+  async before(sock, msg, ctx) {
+
+    if (!msg.message) return
+
+    const sender = ctx.sender
+
+    if (!(sender in confirmation)) return
+
+    const text = msg.message?.conversation ||
+                 msg.message?.extendedTextMessage?.text || ""
+
+    const data = confirmation[sender]
+
+    // ❌ RECHAZAR
+    if (/^no$/i.test(text)) {
+      clearTimeout(data.timeout)
+      delete confirmation[sender]
+
+      return sock.sendMessage(ctx.jid, {
+        text: "❌ Propuesta rechazada"
+      }, { quoted: msg })
     }
 
-    if (isDivorce) {
-      if (!userIsMarried(m.sender))
-        throw new Error('No estás casado.');
+    // ✔ ACEPTAR
+    if (/^s[ií]$/i.test(text)) {
 
-      const partner = marriages[m.sender];
+      marriages[data.proposer] = sender
+      marriages[sender] = data.proposer
+      saveMarriages()
 
-      delete marriages[m.sender];
-      delete marriages[partner];
-      saveMarriages();
+      clearTimeout(data.timeout)
+      delete confirmation[sender]
 
-      await conn.reply(
-        m.chat,
-        `💔 ${await conn.getName(m.sender)} y ${await conn.getName(partner)} se divorciaron.`,
-        m
-      );
+      return sock.sendMessage(ctx.jid, {
+        text: `💖 ¡Se han casado!\n\n@${data.proposer.split("@")[0]} ❤️ @${sender.split("@")[0]}`,
+        mentions: [data.proposer, sender]
+      }, { quoted: msg })
     }
-  } catch (e) {
-    conn.reply(m.chat, `❌ ${e.message}`, m);
   }
-};
-
-// 📩 Respuestas (Si / No)
-handler.before = async (m, { conn }) => {
-  if (m.isBaileys) return;
-  if (!(m.sender in confirmation)) return;
-  if (!m.text) return;
-
-  const { proposer, timeout } = confirmation[m.sender];
-
-  // ❌ Rechazo
-  if (/^no$/i.test(m.text)) {
-    clearTimeout(timeout);
-    delete confirmation[m.sender];
-
-    return conn.sendMessage(
-      m.chat,
-      { text: '❌ Propuesta rechazada.' },
-      { quoted: m }
-    );
-  }
-
-  // ✔ Aceptación (soporta Si y Sí)
-  if (/^s[ií]$/i.test(m.text)) {
-    marriages[proposer] = m.sender;
-    marriages[m.sender] = proposer;
-    saveMarriages();
-
-    clearTimeout(timeout);
-    delete confirmation[m.sender];
-
-    return conn.sendMessage(
-      m.chat,
-      {
-        text: `💖 ¡Se han casado!\n\n👤 ${await conn.getName(proposer)}\n👤 ${await conn.getName(m.sender)}\n\n✨ Que dure para siempre`,
-        mentions: [proposer, m.sender]
-      },
-      { quoted: m }
-    );
-  }
-};
-
-handler.tags = ['rg'];
-handler.help = ['marry @usuario', 'divorce'];
-handler.command = ['marry', 'divorce'];
-handler.group = true;
-
-export default handler;
+}
