@@ -1,5 +1,4 @@
 import fs from "fs";
-import path from "path";
 import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
@@ -11,7 +10,6 @@ import readline from "readline";
 import chokidar from "chokidar";
 import qrcode from "qrcode-terminal";
 
-import handler, { loadPlugins } from "./handler.js";
 import groupAdmins from "./events/groupAdmins.js";
 import groupSettings from "./events/groupSettings.js";
 
@@ -54,6 +52,9 @@ const getGroupMeta = async (sock, jid) => {
 
   return groupFetchLocks[jid];
 };
+
+let currentHandler = null;
+let currentLoadPlugins = null;
 
 let pluginsLoaded = false;
 let watcherStarted = false;
@@ -99,6 +100,12 @@ function clearSessions() {
     }
   } catch {}
   ensureSessionsDir();
+}
+
+async function loadHandlerModule() {
+  const handlerModule = await import(`./handler.js?update=${Date.now()}`);
+  currentHandler = handlerModule.default;
+  currentLoadPlugins = handlerModule.loadPlugins;
 }
 
 async function askLinkMethodOnce(state) {
@@ -222,6 +229,8 @@ async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_DIR);
     await askLinkMethodOnce(state);
 
+    await loadHandlerModule();
+
     const { version } = await fetchLatestBaileysVersion();
 
     if (currentSock) {
@@ -259,12 +268,15 @@ async function startBot() {
 
     global.hotReload = async () => {
       try {
-        const handlerModule = await import(`./handler.js?update=${Date.now()}`);
-        const ok = await handlerModule.loadPlugins();
+        await loadHandlerModule();
 
-        if (ok) {
-          console.log("♻️ Plugins recargados sin reiniciar");
-          return true;
+        if (typeof currentLoadPlugins === "function") {
+          const ok = await currentLoadPlugins();
+
+          if (ok) {
+            console.log("♻️ Handler y plugins recargados sin reiniciar");
+            return true;
+          }
         }
 
         return false;
@@ -314,7 +326,7 @@ async function startBot() {
           reconnecting = false;
 
           if (!pluginsLoaded) {
-            await loadPlugins();
+            await currentLoadPlugins();
             pluginsLoaded = true;
             console.log("🔥 Plugins cargados");
           }
@@ -354,7 +366,9 @@ async function startBot() {
         if (!msg.message) continue;
 
         try {
-          await handler(sock, msg);
+          if (typeof currentHandler === "function") {
+            await currentHandler(sock, msg);
+          }
         } catch (e) {
           console.error("❌ Error en handler:", e);
         }
