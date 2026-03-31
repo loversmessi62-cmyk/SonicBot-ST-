@@ -228,7 +228,6 @@ async function startBot() {
 
     const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_DIR);
     await askLinkMethodOnce(state);
-
     await loadHandlerModule();
 
     const { version } = await fetchLatestBaileysVersion();
@@ -257,6 +256,28 @@ async function startBot() {
       markOnlineOnConnect: false,
       syncFullHistory: false
     });
+
+    sock.reply = async (jid, text, quoted, options = {}) => {
+      return sock.sendMessage(
+        jid,
+        { text, ...options },
+        { quoted }
+      );
+    };
+
+    sock.getName = async jid => {
+      try {
+        const contact = sock.contacts?.[jid] || {};
+        return (
+          contact.name ||
+          contact.notify ||
+          contact.verifiedName ||
+          jid.split("@")[0]
+        );
+      } catch {
+        return jid.split("@")[0];
+      }
+    };
 
     currentSock = sock;
     global.sock = sock;
