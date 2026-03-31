@@ -74,19 +74,30 @@ export const loadPlugins = async () => {
         );
 
         const plugin = module.default;
-        const cmds = plugin?.commands || plugin?.command;
 
-        if (!cmds) {
+        const cmds =
+          plugin?.commands ||
+          plugin?.command ||
+          plugin?.cmd ||
+          [];
+
+        const commandList = Array.isArray(cmds) ? cmds : [cmds];
+
+        if (!commandList.length || !commandList[0]) {
           console.warn(`⚠️ ${file} no tiene "command" ni "commands"`);
           continue;
         }
 
-        if (typeof plugin?.run !== "function" && typeof plugin?.onMessage !== "function") {
-          console.warn(`⚠️ ${file} no tiene "run()" ni "onMessage()"`);
+        const isNewFormat =
+          typeof plugin?.run === "function" ||
+          typeof plugin?.onMessage === "function";
+
+        const isOldFormat = typeof plugin === "function";
+
+        if (!isNewFormat && !isOldFormat) {
+          console.warn(`⚠️ ${file} no tiene formato válido`);
           continue;
         }
-
-        const commandList = Array.isArray(cmds) ? cmds : [cmds];
 
         for (const cmd of commandList) {
           plugins[String(cmd).toLowerCase()] = plugin;
@@ -404,6 +415,14 @@ ${format([...partida.suplentes], 2)}
       msg.quoted = null;
     }
 
+    msg.chat = jid;
+    msg.sender = realSender;
+    msg.text = fixedText;
+    msg.isGroup = isGroup;
+    msg.mentionedJid =
+      msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    msg.conn = sock;
+
     if (isGroup && fixedText && !fixedText.startsWith(".")) {
       const linkRegex = /(https?:\/\/|www\.|chat\.whatsapp\.com)/i;
 
@@ -428,6 +447,34 @@ ${format([...partida.suplentes], 2)}
           } catch {}
         }
         return;
+      }
+    }
+
+    const executedBefore = new Set();
+
+    for (const name in plugins) {
+      const plug = plugins[name];
+
+      if (executedBefore.has(plug)) continue;
+      executedBefore.add(plug);
+
+      if (typeof plug.before === "function") {
+        try {
+          await plug.before(msg, {
+            conn: sock,
+            sock,
+            chat: jid,
+            sender: realSender,
+            isGroup,
+            isAdmin,
+            isBotAdmin,
+            command: null,
+            args: [],
+            text: fixedText
+          });
+        } catch (e) {
+          console.error(`❌ Error en before() del plugin "${name}":`, e);
+        }
       }
     }
 
@@ -527,14 +574,35 @@ ${format([...partida.suplentes], 2)}
       });
     }
 
-    if (typeof plugin.run !== "function") {
-      console.error(`❌ El plugin del comando "${command}" no tiene run()`);
-      return sock.sendMessage(jid, {
-        text: `❌ El comando *.${command}* está mal configurado.`
-      });
+    if (typeof plugin.run === "function") {
+      await plugin.run(sock, msg, args, ctx);
+      return;
     }
 
-    await plugin.run(sock, msg, args, ctx);
+    if (typeof plugin === "function") {
+      await plugin(msg, {
+        conn: sock,
+        sock,
+        command,
+        args,
+        text: fixedText,
+        usedPrefix: ".",
+        isAdmin,
+        isBotAdmin,
+        isGroup,
+        participants: metadata?.participants || [],
+        groupMetadata: metadata,
+        groupAdmins: admins,
+        sender: realSender,
+        chat: jid
+      });
+      return;
+    }
+
+    console.error(`❌ El plugin del comando "${command}" no tiene formato válido`);
+    return sock.sendMessage(jid, {
+      text: `❌ El comando *.${command}* está mal configurado.`
+    });
   } catch (e) {
     console.error("❌ ERROR EN HANDLER:", e);
   }
