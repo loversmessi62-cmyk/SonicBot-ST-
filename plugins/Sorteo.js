@@ -1,30 +1,24 @@
 const toM = (a) => '@' + a.split('@')[0];
 
-let handler = async (m, { groupMetadata }) => {
-  // Verificar que sea grupo
+let handler = async (m, { conn, groupMetadata }) => {
   if (!m.isGroup) {
-    return m.reply("❌ Este comando solo funciona en grupos.");
+    return conn.reply(m.chat, "❌ Este comando solo es para grupos.", m);
   }
 
-  // Obtener participantes
   const participantes = groupMetadata.participants
-    .filter(p => !p.id.includes('bot')) // evitar bots
-    .map(p => p.id);
+    .map(p => p.id)
+    .filter(id => id !== conn.user.jid); // evita el bot
 
-  // Validar participantes
   if (participantes.length < 2) {
-    return m.reply("❌ No hay suficientes participantes para el sorteo.");
+    return conn.reply(m.chat, "❌ No hay suficientes participantes.", m);
   }
 
-  // Elegir ganador al azar
   const ganador = participantes[Math.floor(Math.random() * participantes.length)];
 
-  // Enviar resultado
-  m.reply(
-    `🎉 *SORTEO*\n\n` +
-    `👑 Ganador: ${toM(ganador)}\n\n` +
-    `¡Felicidades! 🎊`,
-    null,
+  conn.reply(
+    m.chat,
+    `🎉 *SORTEO*\n\n👑 Ganador: ${toM(ganador)}\n\nFelicidades 🎊`,
+    m,
     { mentions: [ganador] }
   );
 };
