@@ -9,12 +9,28 @@ export default {
     const jid = msg.key.remoteJid;
     const packname = args.join(" ").trim();
 
-    if (!packname) return;
+    // ❌ Sin nombre
+    if (!packname) {
+      return sock.sendMessage(jid, {
+        text: "❌ Escribe el nombre del pack.\n\nEjemplo: .robar Mi Pack"
+      }, { quoted: msg });
+    }
 
+    // 📩 Obtener mensaje citado
     const quoted =
       msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-    if (!quoted?.stickerMessage) return;
+    if (!quoted) {
+      return sock.sendMessage(jid, {
+        text: "❌ Responde a un sticker."
+      }, { quoted: msg });
+    }
+
+    if (!quoted.stickerMessage) {
+      return sock.sendMessage(jid, {
+        text: "❌ Solo puedes robar stickers."
+      }, { quoted: msg });
+    }
 
     try {
       // 📥 Descargar sticker
@@ -28,16 +44,23 @@ export default {
         buffer = Buffer.concat([buffer, chunk]);
       }
 
-      // 🧬 Reescribir EXIF (RENOMBRAR)
+      // 🧬 Reescribir EXIF
       const renamed = await writeExif(buffer, {
         packname,
-        author: ""
+        author: "SonicBot-MD" // puedes cambiar esto
       });
 
-      await sock.sendMessage(jid, { sticker: renamed });
+      // 📤 Enviar sticker
+      await sock.sendMessage(jid, {
+        sticker: renamed
+      }, { quoted: msg });
 
     } catch (e) {
       console.error("❌ ERROR .robar:", e);
+
+      sock.sendMessage(jid, {
+        text: "❌ Ocurrió un error al robar el sticker."
+      }, { quoted: msg });
     }
   }
 };
