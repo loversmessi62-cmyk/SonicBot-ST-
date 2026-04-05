@@ -1,6 +1,6 @@
 const toM = (a) => '@' + a.split('@')[0];
 
-let handler = async (m, { conn, groupMetadata }) => {
+let handler = async (m, { conn, groupMetadata, text }) => {
   if (!m.isGroup) {
     return conn.reply(m.chat, "❌ Este comando solo es para grupos.", m);
   }
@@ -13,6 +13,9 @@ let handler = async (m, { conn, groupMetadata }) => {
     return conn.reply(m.chat, "❌ No hay suficientes participantes.", m);
   }
 
+  // 🎁 Premio (lo que escriban después del comando)
+  const premio = text?.trim() || "un premio sorpresa 🎁";
+
   // 🔄 Barra de carga
   let carga = [
     "▒▒▒▒▒▒▒▒▒▒ 0%",
@@ -23,18 +26,16 @@ let handler = async (m, { conn, groupMetadata }) => {
     "██████████ 100%"
   ];
 
-  // 📩 Enviar primer mensaje
   let msg = await conn.sendMessage(m.chat, {
-    text: "🎰 Iniciando sorteo...\n\n" + carga[0]
+    text: `🎰 Iniciando sorteo...\n🎁 Premio: ${premio}\n\n${carga[0]}`
   }, { quoted: m });
 
-  // 🔁 Editar el mismo mensaje
   for (let i = 1; i < carga.length; i++) {
     await new Promise(r => setTimeout(r, 800));
 
     await conn.sendMessage(m.chat, {
-      text: "🎰 Iniciando sorteo...\n\n" + carga[i],
-      edit: msg.key // 🔥 aquí se edita el mismo mensaje
+      text: `🎰 Iniciando sorteo...\n🎁 Premio: ${premio}\n\n${carga[i]}`,
+      edit: msg.key
     });
   }
 
@@ -43,9 +44,9 @@ let handler = async (m, { conn, groupMetadata }) => {
 
   await new Promise(r => setTimeout(r, 500));
 
-  // 🎉 Resultado final (edita el mismo mensaje)
+  // 🎉 Resultado final
   await conn.sendMessage(m.chat, {
-    text: `🎉 *SORTEO FINALIZADO*\n\n👑 Ganador: ${toM(ganador)}\n\nFelicidades 🎊`,
+    text: `🎉 *SORTEO FINALIZADO*\n\n👑 Ganador: ${toM(ganador)}\n🎁 Premio: ${premio}\n\nFelicidades 🎊`,
     mentions: [ganador],
     edit: msg.key
   });
