@@ -13,10 +13,10 @@ let handler = async (m, { conn, groupMetadata, text }) => {
     return conn.reply(m.chat, "❌ No hay suficientes participantes.", m);
   }
 
-  // 🎁 Premio (lo que escriban después del comando)
+  // 🎁 Premio
   const premio = text?.trim() || "un premio sorpresa 🎁";
 
-  // 🔄 Barra de carga
+  // 🔄 Barra de carga (SIN premio)
   let carga = [
     "▒▒▒▒▒▒▒▒▒▒ 0%",
     "██▒▒▒▒▒▒▒▒ 20%",
@@ -27,14 +27,14 @@ let handler = async (m, { conn, groupMetadata, text }) => {
   ];
 
   let msg = await conn.sendMessage(m.chat, {
-    text: `🎰 Iniciando sorteo...\n🎁 Premio: ${premio}\n\n${carga[0]}`
+    text: "🎰 Iniciando sorteo...\n\n" + carga[0]
   }, { quoted: m });
 
   for (let i = 1; i < carga.length; i++) {
     await new Promise(r => setTimeout(r, 800));
 
     await conn.sendMessage(m.chat, {
-      text: `🎰 Iniciando sorteo...\n🎁 Premio: ${premio}\n\n${carga[i]}`,
+      text: "🎰 Iniciando sorteo...\n\n" + carga[i],
       edit: msg.key
     });
   }
@@ -44,9 +44,9 @@ let handler = async (m, { conn, groupMetadata, text }) => {
 
   await new Promise(r => setTimeout(r, 500));
 
-  // 🎉 Resultado final
+  // 🎉 Resultado final (AQUÍ aparece el premio)
   await conn.sendMessage(m.chat, {
-    text: `🎉 *SORTEO FINALIZADO*\n\n👑 Ganador: ${toM(ganador)}\n🎁 Premio: ${premio}\n\nFelicidades 🎊`,
+    text: `🎉 *SORTEO FINALIZADO*\n\n👑 Ganador: ${toM(ganador)}\n\n🎁 Premio: ${premio}\n\nFelicidades 🎊`,
     mentions: [ganador],
     edit: msg.key
   });
