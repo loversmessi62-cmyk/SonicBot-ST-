@@ -13,8 +13,12 @@ let handler = async (m, { conn, groupMetadata, text }) => {
     return conn.reply(m.chat, "❌ No hay suficientes participantes.", m);
   }
 
-  // 🎁 Premio limpio
-  let premio = text ? text.trim() : "un premio sorpresa 🎁";
+  // 🔥 LIMPIAR EL COMANDO DEL TEXTO
+  let premio = (m.text || "")
+    .replace(/^\.sorteo\s*/i, "") // quita ".sorteo"
+    .trim();
+
+  if (!premio) premio = "un premio sorpresa 🎁";
 
   // 🔄 Barra de carga
   let carga = [
@@ -39,12 +43,12 @@ let handler = async (m, { conn, groupMetadata, text }) => {
     });
   }
 
-  // 🎯 Elegir ganador
+  // 🎯 Ganador
   const ganador = participantes[Math.floor(Math.random() * participantes.length)];
 
   await new Promise(r => setTimeout(r, 500));
 
-  // 🎉 Resultado final limpio
+  // 🎉 Resultado limpio
   await conn.sendMessage(m.chat, {
     text:
 `🎉 *SORTEO FINALIZADO*
