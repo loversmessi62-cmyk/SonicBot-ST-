@@ -9,35 +9,37 @@ export default {
     const jid = msg.key.remoteJid;
     const packname = args.join(" ").trim();
 
-    // ❌ Sin nombre
     if (!packname) {
       return sock.sendMessage(jid, {
-        text: "❌ Escribe el nombre del pack.\n\nEjemplo: .robar Mi Pack"
+        text: "❌ Usa: .robar NombreDelPack\n\nResponde a un sticker."
       }, { quoted: msg });
     }
 
-    // 📩 Obtener mensaje citado
-    const quoted =
-      msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    // 📩 Obtener mensaje citado (soporta ephemeral)
+    let quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
     if (!quoted) {
       return sock.sendMessage(jid, {
-        text: "❌ Responde a un sticker."
+        text: "❌ Debes responder a un sticker."
       }, { quoted: msg });
     }
 
-    if (!quoted.stickerMessage) {
+    // 🔥 Soporte para mensajes temporales
+    if (quoted.ephemeralMessage) {
+      quoted = quoted.ephemeralMessage.message;
+    }
+
+    const sticker = quoted.stickerMessage;
+
+    if (!sticker) {
       return sock.sendMessage(jid, {
-        text: "❌ Solo puedes robar stickers."
+        text: "❌ Eso no es un sticker."
       }, { quoted: msg });
     }
 
     try {
-      // 📥 Descargar sticker
-      const stream = await downloadContentFromMessage(
-        quoted.stickerMessage,
-        "sticker"
-      );
+      // 📥 Descargar sticker correctamente
+      const stream = await downloadContentFromMessage(sticker, "sticker");
 
       let buffer = Buffer.from([]);
       for await (const chunk of stream) {
@@ -47,19 +49,19 @@ export default {
       // 🧬 Reescribir EXIF
       const renamed = await writeExif(buffer, {
         packname,
-        author: "SonicBot-MD" // puedes cambiar esto
+        author: "SonicBot-MD"
       });
 
-      // 📤 Enviar sticker
+      // 📤 Enviar sticker robado
       await sock.sendMessage(jid, {
         sticker: renamed
       }, { quoted: msg });
 
-    } catch (e) {
-      console.error("❌ ERROR .robar:", e);
+    } catch (err) {
+      console.error("❌ ERROR .robar:", err);
 
       sock.sendMessage(jid, {
-        text: "❌ Ocurrió un error al robar el sticker."
+        text: "❌ Error al procesar el sticker."
       }, { quoted: msg });
     }
   }
