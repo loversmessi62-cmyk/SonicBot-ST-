@@ -16,7 +16,8 @@ export default {
       }, { quoted: msg });
     }
 
-    const mx = parseInt(horaMX.replace("mx", ""));
+    // 🔥 Asegurar que solo quite "mx" al final
+    const mx = parseInt(horaMX.toLowerCase().replace(/mx$/, ""));
     if (isNaN(mx)) return;
 
     const col = (mx + 1) % 24;
@@ -58,6 +59,9 @@ Selecciona una opción:
       ],
       headerType: 1
     }, { quoted: msg });
+
+    // 🔥 Validar que sent.key exista
+    if (!sent?.key?.id) return;
 
     const uid = sent.key.id + jid;
 
