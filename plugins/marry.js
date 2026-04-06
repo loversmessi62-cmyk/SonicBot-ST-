@@ -44,23 +44,22 @@ export default {
       text: texto,
       mentions: [p1, p2],
       footer: "Selecciona una opción",
-      title: "💍 Matrimonio",
-      buttonText: "Elegir",
-      sections: [
+      buttons: [
         {
-          title: "Opciones",
-          rows: [
-            {
-              title: "💖 Aceptar",
-              rowId: `marry_aceptar_${p1}_${p2}`
-            },
-            {
-              title: "💔 Rechazar",
-              rowId: `marry_rechazar_${p1}_${p2}`
-            }
-          ]
+          buttonId: `marry_aceptar_${p1}_${p2}`,
+          buttonText: { displayText: "💖 Aceptar" },
+          type: 1
+        },
+        {
+          buttonId: `marry_rechazar_${p1}_${p2}`,
+          buttonText: { displayText: "💔 Rechazar" },
+          type: 1
         }
-      ]
+      ],
+      headerType: 1,
+      contextInfo: {
+        mentionedJid: [p1, p2] // 🔥 CLAVE para que aparezcan
+      }
     }, { quoted: msg });
   }
 };
