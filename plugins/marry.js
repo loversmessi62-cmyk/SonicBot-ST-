@@ -1,64 +1,59 @@
-export const bodas = {};
+import { bodas } from "./marry.js"; // ajusta ruta
 
-export default {
-  commands: ["marry"],
-  category: "funny",
+export async function detectarRespuesta(sock, msg) {
+  const jid = msg.key.remoteJid;
 
-  async run(sock, msg, args, ctx) {
-    const jid = ctx.jid;
+  // 🔥 Detectar texto correctamente
+  const text =
+    msg.message?.conversation ||
+    msg.message?.extendedTextMessage?.text ||
+    msg.message?.imageMessage?.caption ||
+    msg.message?.videoMessage?.caption ||
+    "";
 
-    if (!jid.endsWith("@g.us")) {
-      return sock.sendMessage(jid, {
-        text: "❌ Este comando solo es para grupos."
-      }, { quoted: msg });
-    }
+  if (!text) return;
 
-    const metadata = await sock.groupMetadata(jid);
-    const participantes = metadata.participants
-      .map(p => p.id)
-      .filter(id => id !== sock.user.id);
+  const body = text.trim();
 
-    if (participantes.length < 2) {
-      return sock.sendMessage(jid, {
-        text: "❌ No hay suficientes personas."
-      }, { quoted: msg });
-    }
+  for (let id in bodas) {
+    const boda = bodas[id];
+
+    if (!boda.activo || boda.jid !== jid) continue;
+
+    const { p1, p2 } = boda;
+
+    // 🔥 Obtener quien envía correctamente
+    const sender = msg.key.participant || msg.key.remoteJid;
+
+    // ✅ Solo ellos pueden responder
+    if (![p1, p2].includes(sender)) continue;
 
     const toM = (a) => '@' + a.split('@')[0];
 
-    let p1 = participantes[Math.floor(Math.random() * participantes.length)];
-    let p2;
+    // ❌ Rechazar
+    if (body === "1") {
+      boda.activo = false;
 
-    do {
-      p2 = participantes[Math.floor(Math.random() * participantes.length)];
-    } while (p2 === p1);
+      await sock.sendMessage(jid, {
+        text: `💔 *BODA CANCELADA*\n\n😢 ${toM(p1)} y ${toM(p2)} no se casaron.`,
+        mentions: [p1, p2]
+      });
 
-    const texto = `
-💍 *PROPUESTA DE MATRIMONIO*
+      delete bodas[id];
+      return;
+    }
 
-👰 ${toM(p1)}
-🤵 ${toM(p2)}
+    // 💍 Aceptar
+    if (body === "2") {
+      boda.activo = false;
 
-💖 ¿Aceptan casarse?
+      await sock.sendMessage(jid, {
+        text: `💍 *BODA CONFIRMADA*\n\n👰 ${toM(p1)}\n🤵 ${toM(p2)}\n\n💖 ¡Felicidades! 🎉`,
+        mentions: [p1, p2]
+      });
 
-━━━━━━━━━━━━━━━
-1️⃣ Rechazar
-2️⃣ Aceptar
-`.trim();
-
-    const sent = await sock.sendMessage(jid, {
-      text: texto,
-      mentions: [p1, p2]
-    }, { quoted: msg });
-
-    // 🔥 Guardar estado
-    const id = sent.key.id + jid;
-
-    bodas[id] = {
-      jid,
-      p1,
-      p2,
-      activo: true
-    };
+      delete bodas[id];
+      return;
+    }
   }
-};
+}
