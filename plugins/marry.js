@@ -5,7 +5,7 @@ export default {
   async run(sock, msg, args, ctx) {
     const jid = ctx.jid;
 
-    if (!msg.key.remoteJid.includes("@g.us")) {
+    if (!jid.endsWith("@g.us")) {
       return sock.sendMessage(jid, {
         text: "❌ Este comando solo es para grupos."
       }, { quoted: msg });
@@ -39,19 +39,28 @@ export default {
 🤵 ${toM(p2)}
 
 💖 ¿Aceptan casarse?
-
-━━━━━━━━━━━━━━━
-Selecciona una opción:
 `.trim();
 
     await sock.sendMessage(jid, {
       text: texto,
       mentions: [p1, p2],
-      buttons: [
-        { buttonId: `aceptar_${p1}_${p2}`, buttonText: { displayText: "💖 Aceptar" }, type: 1 },
-        { buttonId: `rechazar_${p1}_${p2}`, buttonText: { displayText: "💔 Rechazar" }, type: 1 }
-      ],
-      headerType: 1
+      footer: "Selecciona una opción",
+      templateButtons: [
+        {
+          index: 1,
+          quickReplyButton: {
+            displayText: "💖 Aceptar",
+            id: `aceptar_${p1}_${p2}`
+          }
+        },
+        {
+          index: 2,
+          quickReplyButton: {
+            displayText: "💔 Rechazar",
+            id: `rechazar_${p1}_${p2}`
+          }
+        }
+      ]
     }, { quoted: msg });
   }
 };
