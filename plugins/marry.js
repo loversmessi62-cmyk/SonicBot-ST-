@@ -22,6 +22,8 @@ export default {
       }, { quoted: msg });
     }
 
+    const toM = (a) => '@' + a.split('@')[0];
+
     // 💑 Elegir pareja
     let p1 = participantes[Math.floor(Math.random() * participantes.length)];
     let p2;
@@ -30,8 +32,6 @@ export default {
       p2 = participantes[Math.floor(Math.random() * participantes.length)];
     } while (p2 === p1);
 
-    const toM = (a) => '@' + a.split('@')[0];
-
     const texto = `
 💍 *PROPUESTA DE MATRIMONIO*
 
@@ -39,28 +39,28 @@ export default {
 🤵 ${toM(p2)}
 
 💖 ¿Aceptan casarse?
+
+━━━━━━━━━━━━━━━
+Selecciona una opción:
 `.trim();
 
-    await sock.sendMessage(jid, {
+    const sent = await sock.sendMessage(jid, {
       text: texto,
       mentions: [p1, p2],
-      footer: "Selecciona una opción",
-      templateButtons: [
+      buttons: [
         {
-          index: 1,
-          quickReplyButton: {
-            displayText: "💖 Aceptar",
-            id: `aceptar_${p1}_${p2}`
-          }
+          buttonId: `marry_aceptar_${p1}_${p2}`,
+          buttonText: { displayText: "💖 Aceptar" },
+          type: 1
         },
         {
-          index: 2,
-          quickReplyButton: {
-            displayText: "💔 Rechazar",
-            id: `rechazar_${p1}_${p2}`
-          }
+          buttonId: `marry_rechazar_${p1}_${p2}`,
+          buttonText: { displayText: "💔 Rechazar" },
+          type: 1
         }
-      ]
+      ],
+      headerType: 1
     }, { quoted: msg });
+
   }
 };
