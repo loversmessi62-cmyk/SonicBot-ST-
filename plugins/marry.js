@@ -18,13 +18,12 @@ export default {
 
     if (participantes.length < 2) {
       return sock.sendMessage(jid, {
-        text: "❌ No hay suficientes personas para casar."
+        text: "❌ No hay suficientes personas."
       }, { quoted: msg });
     }
 
     const toM = (a) => '@' + a.split('@')[0];
 
-    // 💑 Elegir pareja
     let p1 = participantes[Math.floor(Math.random() * participantes.length)];
     let p2;
 
@@ -39,28 +38,29 @@ export default {
 🤵 ${toM(p2)}
 
 💖 ¿Aceptan casarse?
-
-━━━━━━━━━━━━━━━
-Selecciona una opción:
 `.trim();
 
-    const sent = await sock.sendMessage(jid, {
+    await sock.sendMessage(jid, {
       text: texto,
       mentions: [p1, p2],
-      buttons: [
+      footer: "Selecciona una opción",
+      title: "💍 Matrimonio",
+      buttonText: "Elegir",
+      sections: [
         {
-          buttonId: `marry_aceptar_${p1}_${p2}`,
-          buttonText: { displayText: "💖 Aceptar" },
-          type: 1
-        },
-        {
-          buttonId: `marry_rechazar_${p1}_${p2}`,
-          buttonText: { displayText: "💔 Rechazar" },
-          type: 1
+          title: "Opciones",
+          rows: [
+            {
+              title: "💖 Aceptar",
+              rowId: `marry_aceptar_${p1}_${p2}`
+            },
+            {
+              title: "💔 Rechazar",
+              rowId: `marry_rechazar_${p1}_${p2}`
+            }
+          ]
         }
-      ],
-      headerType: 1
+      ]
     }, { quoted: msg });
-
   }
 };
