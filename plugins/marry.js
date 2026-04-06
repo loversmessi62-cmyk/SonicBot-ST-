@@ -1,3 +1,5 @@
+export const bodas = {};
+
 export default {
   commands: ["marry"],
   category: "funny",
@@ -38,28 +40,25 @@ export default {
 🤵 ${toM(p2)}
 
 💖 ¿Aceptan casarse?
+
+━━━━━━━━━━━━━━━
+1️⃣ Rechazar
+2️⃣ Aceptar
 `.trim();
 
-    await sock.sendMessage(jid, {
+    const sent = await sock.sendMessage(jid, {
       text: texto,
-      mentions: [p1, p2],
-      footer: "Selecciona una opción",
-      buttons: [
-        {
-          buttonId: `marry_aceptar_${p1}_${p2}`,
-          buttonText: { displayText: "💖 Aceptar" },
-          type: 1
-        },
-        {
-          buttonId: `marry_rechazar_${p1}_${p2}`,
-          buttonText: { displayText: "💔 Rechazar" },
-          type: 1
-        }
-      ],
-      headerType: 1,
-      contextInfo: {
-        mentionedJid: [p1, p2] // 🔥 CLAVE para que aparezcan
-      }
+      mentions: [p1, p2]
     }, { quoted: msg });
+
+    // 🔥 Guardar estado
+    const id = sent.key.id + jid;
+
+    bodas[id] = {
+      jid,
+      p1,
+      p2,
+      activo: true
+    };
   }
 };
