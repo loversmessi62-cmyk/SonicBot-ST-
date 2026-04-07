@@ -25,6 +25,10 @@ export default {
 
     const sender = ctx.sender
 
+    // 🔥 Validar que existan (evita crash)
+    if (!sender) return
+    if (!who) who = sender
+
     const tagSender = "@" + sender.split("@")[0]
     const tagWho = "@" + who.split("@")[0]
 
@@ -56,6 +60,8 @@ export default {
       'https://telegra.ph/file/68643ac3e0d591b0ede4f.mp4',
       'https://telegra.ph/file/af0fe6eb00bd0a8a9e3a0.mp4'
     ]
+
+    if (!videos.length) return
 
     const video = videos[Math.floor(Math.random() * videos.length)]
 
