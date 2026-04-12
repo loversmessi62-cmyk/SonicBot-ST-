@@ -1,66 +1,19 @@
-export default {
-    commands: ["del", "delete"],
-    category: "admin",
-    admin: true, // 🔥 solo admins
+let handler = async (m, { conn, usedPrefix, command }) => {
 
-    async run(sock, msg, args, ctx) {
-        const jid = ctx.jid;
+if (!m.quoted) return conn.reply(m.chat, `🚩 Responde al mensaje que deseas eliminar.`, m, rcanal)
+try {
+let delet = m.message.extendedTextMessage.contextInfo.participant
+let bang = m.message.extendedTextMessage.contextInfo.stanzaId
+return conn.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: bang, participant: delet }})
+ } catch {
+return conn.sendMessage(m.chat, { delete: m.quoted.vM.key })
+}
+}
+handler.help = ['delete']
+handler.tags = ['grupo']
+handler.command = /^del(ete)?$/i
+handler.group = false
+handler.admin = true
+handler.botAdmin = true
 
-        // ✅ SOLO GRUPOS
-        if (!ctx.isGroup) {
-            return sock.sendMessage(jid, {
-                text: "❌ Este comando solo funciona en grupos."
-            }, { quoted: msg });
-        }
-
-        // ✅ SOLO ADMINS
-        if (!ctx.isAdmin) {
-            return sock.sendMessage(jid, {
-                text: "❌ Solo administradores pueden usar .del"
-            }, { quoted: msg });
-        }
-
-        // 🔥 OBTENER MENSAJE RESPONDIDO (FULL FIX)
-        const context =
-            msg.message?.extendedTextMessage?.contextInfo ||
-            msg.message?.imageMessage?.contextInfo ||
-            msg.message?.videoMessage?.contextInfo ||
-            msg.message?.documentMessage?.contextInfo ||
-            msg.message?.stickerMessage?.contextInfo ||
-            msg.message?.audioMessage?.contextInfo ||
-            {};
-
-        if (!context?.stanzaId) {
-            return sock.sendMessage(jid, {
-                text: "⚠️ Responde al mensaje que quieres borrar."
-            }, { quoted: msg });
-        }
-
-        try {
-            // 🔥 BORRAR MENSAJE
-            await sock.sendMessage(jid, {
-                delete: {
-                    remoteJid: jid,
-                    fromMe: false,
-                    id: context.stanzaId,
-                    participant: context.participant || undefined
-                }
-            });
-
-            // 🔥 REACCIÓN PRO
-            await sock.sendMessage(jid, {
-                react: {
-                    text: "🗑️",
-                    key: msg.key
-                }
-            });
-
-        } catch (e) {
-            console.error(e);
-
-            return sock.sendMessage(jid, {
-                text: "❌ No pude borrar el mensaje. Verifica que soy admin."
-            }, { quoted: msg });
-        }
-    }
-};
+export default handler
