@@ -18,10 +18,16 @@ export default {
             }, { quoted: msg });
         }
 
-        // 📩 obtener mensaje citado correctamente
-        const quoted = msg.message?.extendedTextMessage?.contextInfo;
+        // 🔥 OBTENER CONTEXT INFO BIEN (CLAVE)
+        const context =
+            msg.message?.extendedTextMessage?.contextInfo ||
+            msg.message?.imageMessage?.contextInfo ||
+            msg.message?.videoMessage?.contextInfo ||
+            msg.message?.documentMessage?.contextInfo ||
+            msg.message?.conversation?.contextInfo ||
+            {};
 
-        if (!quoted?.stanzaId) {
+        if (!context?.stanzaId) {
             return sock.sendMessage(jid, {
                 text: "⚠️ Responde al mensaje que quieres borrar."
             }, { quoted: msg });
@@ -31,9 +37,9 @@ export default {
             await sock.sendMessage(jid, {
                 delete: {
                     remoteJid: jid,
-                    fromMe: false, // 🔥 CLAVE
-                    id: quoted.stanzaId,
-                    participant: quoted.participant
+                    fromMe: false,
+                    id: context.stanzaId,
+                    participant: context.participant
                 }
             });
 
