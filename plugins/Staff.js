@@ -8,7 +8,7 @@ let staff = `🚩 *EQUIPO OFICIAL DEL BOT*
 ━━━━━━━━━━━━━━━
 
 🎩 *Propietario*
-💛 *Contacto:* wa.me/2731590195
+💛 *Contacto:* wa.me/2731307252
 
 ━━━━━━━━━━━━━━━
 
