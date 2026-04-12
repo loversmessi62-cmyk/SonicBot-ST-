@@ -2,8 +2,8 @@ let handler = async (m, { conn }) => {
 
 let staff = `🚩 *EQUIPO OFICIAL DEL BOT*
 
-🤖 *Bot:* ${global.botname}
-🪐 *Versión:* ${global.vs}
+🤖 *Bot:* SonicBot-MF
+🪐 *Versión:* 1.1.0
 
 ━━━━━━━━━━━━━━━
 
@@ -27,8 +27,8 @@ let staff = `🚩 *EQUIPO OFICIAL DEL BOT*
 
 ━━━━━━━━━━━━━━━
 
-✨ Gracias por formar parte de este proyecto
-🚀 Seguimos trabajando para mejorar cada día
+✨ Gracias por usar *SonicBot-MF*
+🚀 Seguimos mejorando para ustedes
 `;
 
 await conn.sendMessage(m.chat, {
