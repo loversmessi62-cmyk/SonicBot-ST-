@@ -1,30 +1,32 @@
 export default {
     commands: ["del", "delete"],
     category: "admin",
-    admin: true, // solo admins
+    admin: true,
 
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // SOLO FUNCIONA EN GRUPOS
         if (!ctx.isGroup) {
-            return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." });
+            return sock.sendMessage(jid, { text: "❌ Este comando solo funciona en grupos." }, { quoted: msg });
         }
 
-        // USUARIO DEBE SER ADMIN
         if (!ctx.isAdmin) {
-            return sock.sendMessage(jid, { text: "❌ Solo administradores pueden usar .del" });
+            return sock.sendMessage(jid, { text: "❌ Solo administradores pueden usar .del" }, { quoted: msg });
         }
 
-        // BOT DEBE SER ADMIN
-        if (!ctx.isBotAdmin) {
-            return sock.sendMessage(jid, { text: "❌ Necesito ser admin para borrar mensajes." });
+        // 🔥 FIX: verificar admin REAL del bot
+        const metadata = await sock.groupMetadata(jid);
+        const bot = metadata.participants.find(p => p.id === sock.user.id);
+
+        if (!bot?.admin) {
+            return sock.sendMessage(jid, { text: "❌ Necesito ser admin para borrar mensajes." }, { quoted: msg });
         }
 
-        // VERIFICAR SI RESPONDISTE UN MENSAJE
+        // 📩 mensaje citado
         const quoted = msg.message?.extendedTextMessage?.contextInfo;
+
         if (!quoted?.stanzaId) {
-            return sock.sendMessage(jid, { text: "⚠️ Debes responder al mensaje que quieres borrar." });
+            return sock.sendMessage(jid, { text: "⚠️ Debes responder al mensaje que quieres borrar." }, { quoted: msg });
         }
 
         try {
@@ -32,12 +34,12 @@ export default {
                 delete: {
                     id: quoted.stanzaId,
                     remoteJid: jid,
-                    participant: quoted.participant || quoted.participant || undefined
+                    participant: quoted.participant || undefined
                 }
             });
         } catch (e) {
             console.error(e);
-            return sock.sendMessage(jid, { text: "❌ No pude borrar ese mensaje." });
+            return sock.sendMessage(jid, { text: "❌ No pude borrar ese mensaje." }, { quoted: msg });
         }
     }
 };
