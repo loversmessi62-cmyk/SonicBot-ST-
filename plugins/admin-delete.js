@@ -1,26 +1,26 @@
 export default {
     commands: ["del", "delete"],
     category: "admin",
-    admin: true,
+    admin: true, // 🔥 solo admins
 
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
-        // SOLO GRUPOS
+        // ✅ SOLO GRUPOS
         if (!ctx.isGroup) {
             return sock.sendMessage(jid, {
                 text: "❌ Este comando solo funciona en grupos."
             }, { quoted: msg });
         }
 
-        // SOLO ADMINS
+        // ✅ SOLO ADMINS
         if (!ctx.isAdmin) {
             return sock.sendMessage(jid, {
                 text: "❌ Solo administradores pueden usar .del"
             }, { quoted: msg });
         }
 
-        // 🔥 DETECTAR MENSAJE RESPONDIDO (FIX REAL)
+        // 🔥 OBTENER MENSAJE RESPONDIDO (FULL FIX)
         const context =
             msg.message?.extendedTextMessage?.contextInfo ||
             msg.message?.imageMessage?.contextInfo ||
@@ -43,11 +43,11 @@ export default {
                     remoteJid: jid,
                     fromMe: false,
                     id: context.stanzaId,
-                    participant: context.participant
+                    participant: context.participant || undefined
                 }
             });
 
-            // 🔥 OPCIONAL: REACCIÓN
+            // 🔥 REACCIÓN PRO
             await sock.sendMessage(jid, {
                 react: {
                     text: "🗑️",
