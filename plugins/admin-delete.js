@@ -14,17 +14,6 @@ export default {
             return sock.sendMessage(jid, { text: "❌ Solo administradores pueden usar .del" }, { quoted: msg });
         }
 
-        // 🔥 FIX REAL: normalizar ID del bot
-        const metadata = await sock.groupMetadata(jid);
-
-        const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-
-        const bot = metadata.participants.find(p => p.id === botId);
-
-        if (!bot || !bot.admin) {
-            return sock.sendMessage(jid, { text: "❌ Necesito ser admin para borrar mensajes." }, { quoted: msg });
-        }
-
         const quoted = msg.message?.extendedTextMessage?.contextInfo;
 
         if (!quoted?.stanzaId) {
@@ -41,7 +30,10 @@ export default {
             });
         } catch (e) {
             console.error(e);
-            return sock.sendMessage(jid, { text: "❌ No pude borrar ese mensaje." }, { quoted: msg });
+
+            return sock.sendMessage(jid, {
+                text: "❌ No pude borrar el mensaje. Asegúrate de que soy admin."
+            }, { quoted: msg });
         }
     }
 };
