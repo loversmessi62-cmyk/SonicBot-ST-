@@ -32,11 +32,11 @@ let staff = `🚩 *EQUIPO OFICIAL DEL BOT*
 `;
 
 await conn.sendMessage(m.chat, {
-    image: { url: 'https://raw.githubusercontent.com/WillZek/Storage-CB/main/images/21396e078a24.jpg' },
-    caption: staff
+    text: staff
 }, { quoted: m });
 
 }
+
 handler.help = ['staff']
 handler.command = ['colaboradores', 'staff']
 handler.tags = ['main']
