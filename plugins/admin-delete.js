@@ -6,6 +6,13 @@ export default {
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
 
+        // 🔥 MENSAJE DE MANTENIMIENTO
+        return sock.sendMessage(jid, {
+            text: "⚠️ El comando .del está en mantenimiento.\n\n🛠️ Estamos trabajando para mejorarlo y pronto estará disponible nuevamente. ¡Gracias por tu paciencia! 🙏"
+        }, { quoted: msg });
+
+        // 👇 TU CÓDIGO ORIGINAL (no se borra, solo queda desactivado)
+        /*
         if (!ctx.isGroup) {
             return sock.sendMessage(jid, {
                 text: "❌ Este comando solo funciona en grupos."
@@ -18,13 +25,11 @@ export default {
             }, { quoted: msg });
         }
 
-        // 🔥 OBTENER CONTEXT INFO BIEN (CLAVE)
         const context =
             msg.message?.extendedTextMessage?.contextInfo ||
             msg.message?.imageMessage?.contextInfo ||
             msg.message?.videoMessage?.contextInfo ||
             msg.message?.documentMessage?.contextInfo ||
-            msg.message?.conversation?.contextInfo ||
             {};
 
         if (!context?.stanzaId) {
@@ -42,13 +47,12 @@ export default {
                     participant: context.participant
                 }
             });
-
         } catch (e) {
             console.error(e);
-
             return sock.sendMessage(jid, {
                 text: "❌ No pude borrar el mensaje."
             }, { quoted: msg });
         }
+        */
     }
 };
