@@ -7,14 +7,14 @@ export default {
 
         const texto = `📢 *COMUNICADO OFICIAL*
 
-Hola usuarios 👋
+*Hola usuarios* 👋
 
-Actualmente el comando *.del* se encuentra temporalmente fuera de servicio ⚙️, nuestro equipo ya está trabajando para solucionarlo lo antes posible.
+*Actualmente el comando* *.del* *se encuentra temporalmente fuera de servicio ⚙️, nuestro equipo ya está trabajando para solucionarlo lo antes posible.*
 
-🚫 Así mismo, los comandos *+18* han sido deshabilitados temporalmente hasta nuevo aviso.
+🚫 *Así mismo, los comandos* *+18* *han sido deshabilitados temporalmente hasta nuevo aviso.*
 
-Agradecemos su paciencia y comprensión 🙏
-Estén atentos a próximas actualizaciones 🚀`;
+*Agradecemos su paciencia y comprensión* 🙏
+*Estén atentos a próximas actualizaciones* 🚀`;
 
         await sock.sendMessage(jid, {
             text: texto
