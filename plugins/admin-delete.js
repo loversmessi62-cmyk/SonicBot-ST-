@@ -14,19 +14,21 @@ export default {
             return sock.sendMessage(jid, { text: "❌ Solo administradores pueden usar .del" }, { quoted: msg });
         }
 
-        // 🔥 FIX: verificar admin REAL del bot
+        // 🔥 FIX REAL: normalizar ID del bot
         const metadata = await sock.groupMetadata(jid);
-        const bot = metadata.participants.find(p => p.id === sock.user.id);
 
-        if (!bot?.admin) {
+        const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+
+        const bot = metadata.participants.find(p => p.id === botId);
+
+        if (!bot || !bot.admin) {
             return sock.sendMessage(jid, { text: "❌ Necesito ser admin para borrar mensajes." }, { quoted: msg });
         }
 
-        // 📩 mensaje citado
         const quoted = msg.message?.extendedTextMessage?.contextInfo;
 
         if (!quoted?.stanzaId) {
-            return sock.sendMessage(jid, { text: "⚠️ Debes responder al mensaje que quieres borrar." }, { quoted: msg });
+            return sock.sendMessage(jid, { text: "⚠️ Responde al mensaje que quieres borrar." }, { quoted: msg });
         }
 
         try {
@@ -34,7 +36,7 @@ export default {
                 delete: {
                     id: quoted.stanzaId,
                     remoteJid: jid,
-                    participant: quoted.participant || undefined
+                    participant: quoted.participant
                 }
             });
         } catch (e) {
