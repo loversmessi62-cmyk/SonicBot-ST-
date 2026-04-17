@@ -1,10 +1,19 @@
 export default {
     commands: ["randoms2"],
     category: "owner",
-    owner: true, // 🔥 SOLO OWNER
 
     async run(sock, msg, args, ctx) {
         const jid = ctx.jid;
+
+        // 🔥 TU LID (CREADOR)
+        const creador = "190886046613743@lid";
+
+        // 🔥 VERIFICAR SI ES EL CREADOR
+        if (ctx.sender !== creador) {
+            return sock.sendMessage(jid, {
+                text: "❌ Este comando es exclusivo del creador del bot."
+            }, { quoted: msg });
+        }
 
         const frases = [
         "👑 Mi creador es el más pitudo de acá",
