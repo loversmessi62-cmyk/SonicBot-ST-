@@ -11,6 +11,7 @@ export default {
     const menu = `╭┈┈⊰  🌷 𝗩𝗘𝗡𝗧𝗔𝗦 🌷
 ┊ 🌷 ${usedPrefix}disney
 ┊ 🌷 ${usedPrefix}actas
+┊ 🌷 ${usedPrefix}hackeos
 ┊ 🌷 ${usedPrefix}adicionales
 ┊ 🌷 ${usedPrefix}alimentos
 ┊ 🌷 ${usedPrefix}autobus
