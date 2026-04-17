@@ -1,10 +1,14 @@
 export default {
-command: ['menustore', 'store', 'ventasmenu'],
-category: 'ventas',
+  commands: ["menustore", "store", "ventasmenu"],
+  category: "ventas",
+  admin: false,
+  group: false,
 
-run: async (client, m, args, usedPrefix) => {
+  async run(sock, msg, args, ctx) {
 
-const menu = `╭┈┈⊰  🌷 𝗩𝗘𝗡𝗧𝗔𝗦 🌷
+    const usedPrefix = ctx.prefix || "."
+
+    const menu = `╭┈┈⊰  🌷 𝗩𝗘𝗡𝗧𝗔𝗦 🌷
 ┊ 🌷 ${usedPrefix}disney
 ┊ 🌷 ${usedPrefix}actas
 ┊ 🌷 ${usedPrefix}adicionales
@@ -87,7 +91,10 @@ const menu = `╭┈┈⊰  🌷 𝗩𝗘𝗡𝗧𝗔𝗦 🌷
 ┊ 🌷 ${usedPrefix}youtube
 ╰┈┈⊰ 🌷`
 
-await m.reply(menu)
-
-},
-}
+    await sock.sendMessage(
+      ctx.jid,
+      { text: menu },
+      { quoted: msg }
+    );
+  }
+};
