@@ -40,13 +40,27 @@ export const store = {
   chats: {}
 };
 
+const storePath = "./store.json";
+let saveStoreTimer = null;
+
 const saveStore = () => {
-  fs.writeFileSync("./store.json", JSON.stringify(store, null, 2));
+  clearTimeout(saveStoreTimer);
+  saveStoreTimer = setTimeout(() => {
+    try {
+      fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
+    } catch (e) {
+      console.error("❌ Error guardando store:", e);
+    }
+  }, 1500);
 };
 
-if (fs.existsSync("./store.json")) {
-  const old = JSON.parse(fs.readFileSync("./store.json", "utf8"));
-  Object.assign(store, old);
+if (fs.existsSync(storePath)) {
+  try {
+    const old = JSON.parse(fs.readFileSync(storePath, "utf8"));
+    Object.assign(store, old);
+  } catch (e) {
+    console.error("❌ store.json inválido:", e);
+  }
 }
 
 export const plugins = {};
@@ -70,7 +84,7 @@ export const loadPlugins = async () => {
         console.log(`🔎 Cargando plugin: ${file}`);
 
         const module = await import(
-          "file://" + path.resolve(`./plugins/${file}`) + `?update=${Date.now()}`
+          `file://${path.resolve(`./plugins/${file}`)}?update=${Date.now()}`
         );
 
         const plugin = module.default;
@@ -134,11 +148,10 @@ const handler = async (sock, msg) => {
     let isAdmin = false;
     let isBotAdmin = false;
 
-    const getRealSender = m => (
+    const getRealSender = m =>
       m.key?.participant ||
       m.message?.extendedTextMessage?.contextInfo?.participant ||
-      m.key?.remoteJid
-    );
+      m.key?.remoteJid;
 
     const normalizeAll = value => {
       if (!value) return null;
@@ -186,7 +199,7 @@ const handler = async (sock, msg) => {
         console.log("🤖 BOT ADMIN CHECK");
         console.log("Bot:", botNum, "| Admin:", isBotAdmin);
         console.log("User:", senderNum, "| Admin:", isAdmin);
-      } catch (err) {
+      } catch {
         console.log("⚠️ Metadata no disponible (rate-limit o error), usando modo seguro");
         metadata = null;
         admins = [];
@@ -362,6 +375,12 @@ ${format([...partida.suplentes], 2)}
 
         global.messageLog[jid].numbers.add(num);
 
+        if (global.messageLog[jid].numbers.size > 500) {
+          global.messageLog[jid].numbers = new Set(
+            Array.from(global.messageLog[jid].numbers).slice(-300)
+          );
+        }
+
         const record = {
           rawSender,
           jid,
@@ -372,6 +391,13 @@ ${format([...partida.suplentes], 2)}
         };
 
         global.messageLog[jid].full.push(record);
+
+        if (global.messageLog[jid].full.length > 250) {
+          global.messageLog[jid].full.splice(
+            0,
+            global.messageLog[jid].full.length - 250
+          );
+        }
 
         console.log("════════════════════════════════════");
         console.log("📩 MENSAJE DETECTADO");
@@ -547,10 +573,8 @@ ${format([...partida.suplentes], 2)}
 
         if (!media) throw new Error("NO_MEDIA");
 
-        const stream = await downloadContentFromMessage(
-          media,
-          media.mimetype?.split("/")[0] || "file"
-        );
+        const mediaType = Object.keys(m).find(k => k.endsWith("Message"))?.replace("Message", "").toLowerCase() || "document";
+        const stream = await downloadContentFromMessage(media, mediaType);
 
         let buffer = Buffer.from([]);
         for await (const chunk of stream) {
