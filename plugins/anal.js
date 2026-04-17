@@ -1,24 +1,26 @@
 // Código creado por Destroy wa.me/584120346669
-// Fix por ChatGPT
+// update x Orlando157
 
 let handler = async (m, { conn }) => {
     let who;
 
-    if (m.mentionedJid?.length > 0) {
+    // 🔥 Detectar correctamente a quién va dirigido
+    if (m.mentionedJid?.length) {
         who = m.mentionedJid[0];
-    } else if (m.quoted) {
+    } else if (m.quoted?.sender) {
         who = m.quoted.sender;
     } else {
         who = m.sender;
     }
 
-    let name = await conn.getName(who);
-    let name2 = await conn.getName(m.sender);
+    const name = await conn.getName(who);
+    const name2 = await conn.getName(m.sender);
 
     m.react('🥵');
 
+    // 🔥 TEXTO ORIGINAL (sin cambios)
     let str;
-    if (m.mentionedJid?.length > 0) {
+    if (m.mentionedJid?.length) {
         str = `\`${name2}\` le partio el culo a la puta de \`${name || who}\`.`;
     } else if (m.quoted) {
         str = `\`${name2}\` se la metio en el ano a \`${name || who}\`.`;
@@ -43,7 +45,7 @@ let handler = async (m, { conn }) => {
             video: { url: video },
             gifPlayback: true,
             caption: str,
-            mentions: [who]
+            mentions: [who] // 🔥 menciona correctamente SIEMPRE
         }, { quoted: m });
     }
 };
