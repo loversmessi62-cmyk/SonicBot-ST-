@@ -1,117 +1,47 @@
-/*import fs from "fs";
+import fs from "fs";
 
 const FILE = "./utils/welcomeState.json";
+
+// =====================
+// 👋 BIENVENIDAS
+// =====================
+const WELCOMES = [
+"Bienvenido pendejo espero que te pongas a las pilas antes de que te saquen",
+"Llegó otro pendejo al grupo, a ver si no estorbas",
+"Bienvenido idiota, no la cagues desde el inicio",
+"Otro inútil más, bienvenido",
+"Bienvenido pendejo, no hagas pura mamada",
+"Llegaste, a ver si sirves para algo",
+"Otro más que viene a valer madre",
+"Bienvenido, no estorbes mucho",
+"Ya llegó el pendejo nuevo",
+"Esperemos no seas otro estorbo"
+];
+
+// =====================
+// 🚪 DESPEDIDAS
+// =====================
+const BYES = [
+"Se fue el pendejo, por fin",
+"Adiós inútil, no hacías nada",
+"Un estorbo menos en el grupo",
+"Se fue y nadie lo va a extrañar",
+"Por fin se largó ese pendejo",
+"Ni falta vas a hacer",
+"Adiós, no servías",
+"Se fue el inútil, todo mejora",
+"Qué descanso que ya se fue",
+"Uno menos estorbando"
+];
 
 // =====================
 // LOAD / SAVE
 // =====================
 function load() {
-  if (!fs.existsSync(FILE)) {
-    fs.writeFileSync(
-      FILE,
-      JSON.stringify(
-        {
-          global: {
-            welcome: true,
-            bye: true,
-            welcomeText:
-              "👋 Bienvenido @user a *@group*\n👥 Miembros: @count",
-            byeText:
-              "👋 @user salió de *@group*\n👥 Quedan: @count"
-          },
-          groups: {}
-        },
-        null,
-        2
-      )
-    );
-  }
-
-  return JSON.parse(fs.readFileSync(FILE, "utf-8"));
-}
-
-function save(data) {
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
-}
-
-// =====================
-// WELCOME
-// =====================
-export function isWelcomeEnabled(jid) {
-  const db = load();
-  if (db.groups?.[jid]?.welcome !== undefined) {
-    return db.groups[jid].welcome === true;
-  }
-  return db.global.welcome === true;
-}
-
-export function getWelcomeText(jid) {
-  const db = load();
-  return (
-    db.groups?.[jid]?.welcomeText ||
-    db.global.welcomeText
-  );
-}
-
-export function setWelcome(jid, state) {
-  const db = load();
-  if (!db.groups[jid]) db.groups[jid] = {};
-  db.groups[jid].welcome = state;
-  save(db);
-}
-
-export function setWelcomeText(jid, text) {
-  const db = load();
-  if (!db.groups[jid]) db.groups[jid] = {};
-  db.groups[jid].welcomeText = text;
-  save(db);
-}
-
-// =====================
-// BYE
-// =====================
-export function isByeEnabled(jid) {
-  const db = load();
-  if (db.groups?.[jid]?.bye !== undefined) {
-    return db.groups[jid].bye === true;
-  }
-  return db.global.bye === true;
-}
-
-export function getByeText(jid) {
-  const db = load();
-  return (
-    db.groups?.[jid]?.byeText ||
-    db.global.byeText
-  );
-}
-
-export function setBye(jid, state) {
-  const db = load();
-  if (!db.groups[jid]) db.groups[jid] = {};
-  db.groups[jid].bye = state;
-  save(db);
-}
-
-export function setByeText(jid, text) {
-  const db = load();
-  if (!db.groups[jid]) db.groups[jid] = {};
-  db.groups[jid].byeText = text;
-  save(db);
-}
-*/
-
-import fs from "fs";
-
-const FILE = "./utils/welcomeState.json";
-
-function load() {
   const defaults = {
     global: {
-      welcome: false,
-      bye: false,
-      welcomeText: "Bienvenido @user a *@group*\n🍷 Miembros: @count",
-      byeText: "☕ @user salió de *@group*\n🪐 Quedan: @count"
+      welcome: true,
+      bye: true
     },
     groups: {}
   };
@@ -121,7 +51,7 @@ function load() {
   if (fs.existsSync(FILE)) {
     try {
       data = JSON.parse(fs.readFileSync(FILE, "utf-8"));
-    } catch (e) {
+    } catch {
       data = {};
     }
   }
@@ -130,69 +60,86 @@ function load() {
   data.groups = data.groups || {};
 
   fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
-
   return data;
 }
 
-function save(data) {
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
+// =====================
+// FUNCIONES
+// =====================
+function isWelcomeEnabled(jid) {
+  const db = load();
+  return db.groups?.[jid]?.welcome ?? db.global.welcome;
 }
 
-export function isWelcomeEnabled(jid) {
+function isByeEnabled(jid) {
   const db = load();
-  if (db.groups?.[jid]?.welcome !== undefined) {
-    return db.groups[jid].welcome === true;
-  }
-  return db.global.welcome === true;
+  return db.groups?.[jid]?.bye ?? db.global.bye;
 }
 
-export function getWelcomeText(jid) {
-  const db = load();
-  return db.groups?.[jid]?.welcomeText ?? db.global.welcomeText;
+function getWelcome() {
+  return WELCOMES[Math.floor(Math.random() * WELCOMES.length)];
 }
 
-export function setWelcome(jid, state) {
-  const db = load();
-  if (!db.groups[jid]) db.groups[jid] = {};
-  db.groups[jid].welcome = state;
-  save(db);
+function getBye() {
+  return BYES[Math.floor(Math.random() * BYES.length)];
 }
-
-export function setWelcomeText(jid, text) {
-  const db = load();
-  if (!db.groups[jid]) db.groups[jid] = {};
-  db.groups[jid].welcomeText = text;
-  save(db);
-}
-
-export function isByeEnabled(jid) {
-  const db = load();
-  if (db.groups?.[jid]?.bye !== undefined) {
-    return db.groups[jid].bye === true;
-  }
-  return db.global.bye === true;
-}
-
-export function getByeText(jid) {
-  const db = load();
-  return db.groups?.[jid]?.byeText ?? db.global.byeText;
-}
-
-export function setBye(jid, state) {
-  const db = load();
-  if (!db.groups[jid]) db.groups[jid] = {};
-  db.groups[jid].bye = state;
-  save(db);
-}
-
-export function setByeText(jid, text) {
-  const db = load();
-  if (!db.groups[jid]) db.groups[jid] = {};
-  db.groups[jid].byeText = text;
-  save(db);
-} 
 
 // =====================
-// INIT FILE ON LOAD
+// HANDLER
+// =====================
+export default async function (sock, update) {
+  try {
+    const { id, participants, action } = update;
+
+    if (!["add", "remove"].includes(action)) return;
+
+    const metadata = await sock.groupMetadata(id);
+
+    // 🖼️ FOTO GRUPO
+    let groupPP;
+    try {
+      groupPP = await sock.profilePictureUrl(id, "image");
+    } catch {
+      groupPP = "https://telegra.ph/file/6e0c6d1b6d5c2e9c1b2f.jpg";
+    }
+
+    for (let user of participants) {
+
+      // 🖼️ FOTO USUARIO O GRUPO
+      let pp;
+      try {
+        pp = await sock.profilePictureUrl(user, "image");
+      } catch {
+        pp = groupPP;
+      }
+
+      // 👋 BIENVENIDA
+      if (action === "add" && isWelcomeEnabled(id)) {
+        const frase = getWelcome();
+
+        await sock.sendMessage(id, {
+          image: { url: pp },
+          caption: `${frase}`,
+          mentions: [user]
+        });
+      }
+
+      // 🚪 DESPEDIDA
+      if (action === "remove" && isByeEnabled(id)) {
+        const frase = getBye();
+
+        await sock.sendMessage(id, {
+          image: { url: pp },
+          caption: `${frase}`,
+          mentions: [user]
+        });
+      }
+    }
+
+  } catch (e) {
+    console.error("❌ ERROR WELCOME/BYE:", e);
+  }
+}
+
 // =====================
 load();
