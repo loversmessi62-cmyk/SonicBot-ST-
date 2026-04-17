@@ -12,11 +12,7 @@ import qrcode from "qrcode-terminal";
 
 import groupAdmins from "./events/groupAdmins.js";
 import groupSettings from "./events/groupSettings.js";
-
-import {
-  isWelcomeEnabled,
-  isByeEnabled
-} from "./utils/welcomeState.js";
+import { isWelcomeEnabled, isByeEnabled } from "./utils/welcomeState.js";
 
 console.log("🔥 INDEX INICIADO");
 
@@ -139,7 +135,7 @@ function startWatcher() {
 
   const watcher = chokidar.watch("./plugins", {
     ignoreInitial: true,
-    ignored: ["**/node_modules/**", "**/.git/**"],
+    ignored: ["/node_modules/", "/.git/"],
     awaitWriteFinish: {
       stabilityThreshold: 300,
       pollInterval: 80
@@ -252,17 +248,20 @@ async function startBot() {
       browser: Browsers.macOS("Desktop"),
       version,
       connectTimeoutMs: 60000,
-      qrTimeout: 60000,
       markOnlineOnConnect: false,
-      syncFullHistory: false
+      syncFullHistory: false,
+      printQRInTerminal: pairingMethod !== "code",
+      cachedGroupMetadata: async jid => {
+        try {
+          return await getGroupMeta(sock, jid);
+        } catch {
+          return null;
+        }
+      }
     });
 
     sock.reply = async (jid, text, quoted, options = {}) => {
-      return sock.sendMessage(
-        jid,
-        { text, ...options },
-        { quoted }
-      );
+      return sock.sendMessage(jid, { text, ...options }, { quoted });
     };
 
     sock.getName = async jid => {
@@ -293,7 +292,6 @@ async function startBot() {
 
         if (typeof currentLoadPlugins === "function") {
           const ok = await currentLoadPlugins();
-
           if (ok) {
             console.log("♻️ Handler y plugins recargados sin reiniciar");
             return true;
@@ -322,17 +320,21 @@ async function startBot() {
           !state.creds.registered &&
           phoneNumber &&
           !pairingCodeRequested &&
-          (connection === "connecting" || !!qr)
+          connection === "connecting"
         ) {
           pairingCodeRequested = true;
 
-          await new Promise(resolve => setTimeout(resolve, 2000));
-
-          const code = await sock.requestPairingCode(phoneNumber);
-          const cleanCode = String(code).replace(/[-\s]/g, "");
-
-          console.log(`🔗 Código de vinculación: ${cleanCode}`);
-          console.log("📌 Ingresa ese código en WhatsApp para vincular el dispositivo");
+          setTimeout(async () => {
+            try {
+              const code = await sock.requestPairingCode(phoneNumber);
+              const cleanCode = String(code).replace(/[-\s]/g, "");
+              console.log(`🔗 Código de vinculación: ${cleanCode}`);
+              console.log("📌 Ingresa ese código en WhatsApp para vincular el dispositivo");
+            } catch (err) {
+              pairingCodeRequested = false;
+              console.error("❌ Error solicitando código de vinculación:", err);
+            }
+          }, 2000);
         }
 
         if (connection === "open") {
@@ -430,5 +432,13 @@ async function startBot() {
     starting = false;
   }
 }
+
+process.on("uncaughtException", err => {
+  console.error("❌ uncaughtException:", err);
+});
+
+process.on("unhandledRejection", err => {
+  console.error("❌ unhandledRejection:", err);
+});
 
 startBot();
