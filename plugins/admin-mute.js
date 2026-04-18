@@ -5,19 +5,23 @@ export default {
     admin: true,
 
     async run(sock, msg, args, ctx) {
-        const target =
-            msg.message?.extendedTextMessage?.contextInfo?.participant;
+        const context = msg.message?.extendedTextMessage?.contextInfo || {};
 
-        if (!target)
+        let target =
+            context.mentionedJid?.[0] ||
+            context.participant;
+
+        if (!target) {
             return sock.sendMessage(ctx.jid, {
-                text: "❌ Responde al usuario que quieres mutear."
+                text: "❌ Responde o menciona al usuario que quieres mutear."
             }, { quoted: msg });
+        }
 
         muteUser(ctx.jid, target);
 
         await sock.sendMessage(ctx.jid, {
             text: `🔇 Usuario muteado:\n@${target.split("@")[0]}`,
             mentions: [target]
-        });
+        }, { quoted: msg });
     }
 };
