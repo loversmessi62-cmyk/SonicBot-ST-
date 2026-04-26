@@ -5,7 +5,7 @@ import { isAntilinkEnabled } from "./utils/antilinkState.js";
 import { isModoAdminsEnabled } from "./lib/modoadminsState.js";
 import { downloadContentFromMessage } from "@whiskeysockets/baileys";
 import { isMuted } from "./utils/muteState.js";
-import { partidas } from "./plugins/ff-4vs4.js";
+// import { partidas } from "./plugins/ff-4vs4.js";
 
 const groupCache = {};
 const groupFetchLocks = {};
@@ -282,7 +282,7 @@ const handler = async (sock, msg) => {
       const quoted = ctxBtn.stanzaId;
       const uid = quoted + jid;
 
-      const partida = partidas[uid];
+     /* const partida = partidas[uid];
       if (!partida) return;
 
       const user = realSender;
@@ -358,7 +358,7 @@ ${format([...partida.suplentes], 2)}
 
       return;
     }
-
+*/
     try {
       global.messageLog ??= {};
       global.messageLog[jid] ??= {
