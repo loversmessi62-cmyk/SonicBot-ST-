@@ -6,7 +6,7 @@ export default {
         const jid = ctx.jid;
 
         const links = [
-            "https://yourlink1.jpg",
+            "https://ibb.co/XkjVyd9W",
             "https://yourlink2.jpg",
             "https://yourlink3.mp4"
         ];
