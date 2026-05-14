@@ -3,31 +3,23 @@ export default {
     category: "hot",
 
     async run(sock, msg, args, ctx) {
-
-        // 🔥 FIX IMPORTANTE: obtener chat correcto
-        const jid = msg.chat || msg.key?.remoteJid || ctx.jid
-
-        if (!jid) return
+        const jid = ctx.jid;
 
         const links = [
-            "https://i.ibb.co/XkjVyd9W.jpg",
-            "https://i.ibb.co/c71YVLX.jpg",
-            "https://i.ibb.co/6R8YQRTM.jpg"
-        ]
+            "https://ibb.co/XkjVyd9W",
+            "https://ibb.co/c71YVLX",
+            "https://ibb.co/6R8YQRTM"
+        ];
 
-        const random = links[Math.floor(Math.random() * links.length)]
+        if (!links.length)
+            return sock.sendMessage(jid, { text: "⚠ No hay links en .pack" });
 
-        try {
-            await sock.sendMessage(
-                jid,
-                {
-                    image: { url: random },
-                    caption: "📦 *PACK*"
-                },
-                { quoted: msg }
-            )
-        } catch (e) {
-            console.log("Error pack:", e)
-        }
+        const random = links[Math.floor(Math.random() * links.length)];
+        const isVideo = random.endsWith(".mp4") || random.endsWith(".mov");
+
+        await sock.sendMessage(jid, {
+            [isVideo ? "video" : "image"]: { url: random },
+            caption: "📦 *PACK*"
+        });
     }
-}
+};
