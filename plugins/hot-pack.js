@@ -4,25 +4,19 @@ export default {
 
     async run(sock, msg, args, ctx) {
 
-        const jid = ctx.jid;
+        const jid = ctx.jid || msg.chat || msg.key?.remoteJid
 
         const links = [
-            "https://i.ibb.co/XkjVyd9W.jpg",
-            "https://i.ibb.co/c71YVLX.jpg",
-            "https://i.ibb.co/6R8YQRTM.jpg"
-        ];
+            "https://i.ibb.co/JFb1z7kp.jpg",
+            "https://i.ibb.co/7JYQ1WsS.jpg",
+            "https://i.ibb.co/prfDkwwR.jpg"
+        ]
 
-        if (links.length === 0)
-            return sock.sendMessage(jid, {
-                text: "⚠ No hay links en el comando .pack"
-            }, { quoted: msg });
-
-        const random = links[Math.floor(Math.random() * links.length)];
-        const isVideo = random.endsWith(".mp4") || random.endsWith(".mov");
+        const random = links[Math.floor(Math.random() * links.length)]
 
         await sock.sendMessage(jid, {
-            [isVideo ? "video" : "image"]: { url: random },
-            caption: "📦 *pack*"
-        }, { quoted: msg });
+            image: { url: random },
+            caption: "📦 *PACK*"
+        }, { quoted: msg })
     }
-};
+}
