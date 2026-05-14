@@ -7,9 +7,9 @@ export default {
         const jid = ctx.jid || msg.chat || msg.key?.remoteJid
 
         const links = [
-            "https://files.catbox.moe/6f7ufo.jpeg",
-            "https://files.catbox.moe/vvnn3r.jpeg",
-            "https://files.catbox.moe/1t6rds.jpeg"
+            "https://i.ibb.co/XkjVyd9W.jpg",
+            "https://i.ibb.co/c71YVLX.jpg",
+            "https://i.ibb.co/6R8YQRTM.jpg"
         ]
 
         if (!links.length) {
