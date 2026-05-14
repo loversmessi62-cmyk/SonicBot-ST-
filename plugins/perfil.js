@@ -4,7 +4,9 @@ export default {
 
   async run(sock, msg, args, ctx) {
 
-    const context = msg.message?.extendedTextMessage?.contextInfo || {}
+    const context =
+      msg.message?.extendedTextMessage?.contextInfo || {}
+
     const mentioned = context.mentionedJid || []
 
     let user =
@@ -14,9 +16,6 @@ export default {
 
     const tag = "@" + user.split("@")[0]
 
-    // ===============================
-    // TEXTO
-    // ===============================
     const texto = `
 ╭━━━〔 👤 PERFIL 〕━━⬣
 ┃
@@ -25,39 +24,24 @@ export default {
 ╰━━━━━━━━━━━━⬣
 `.trim()
 
-    // ===============================
-    // FOTO PERFIL
-    // ===============================
-    let pp = null
+    // ⚡ MÁS RÁPIDO
+    let pp
 
     try {
       pp = await sock.profilePictureUrl(user, "image")
     } catch {
-      pp = null
+      pp = "https://i.imgur.com/JP5q8Gx.jpeg"
     }
 
-    // ===============================
-    // SI TIENE FOTO
-    // ===============================
-    if (pp) {
-      return await sock.sendMessage(
-        ctx.jid,
-        {
-          image: { url: pp },
-          caption: texto,
-          mentions: [user]
-        },
-        { quoted: msg }
-      )
-    }
-
-    // ===============================
-    // SI NO TIENE FOTO
-    // ===============================
+    // ✅ SOLO ENVÍA 1 MENSAJE
     await sock.sendMessage(
       ctx.jid,
       {
-        text: `⚠️ ${tag} no tiene ft de perfil\n\n${texto}`,
+        image: { url: pp },
+        caption:
+          pp.includes("imgur")
+            ? `⚠️ ${tag} no tiene ft de perfil\n\n${texto}`
+            : texto,
         mentions: [user]
       },
       { quoted: msg }
