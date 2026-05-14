@@ -28,21 +28,16 @@ export default {
     // ===============================
     // FOTO PERFIL
     // ===============================
-    let pp
+    let pp = null
 
     try {
-      pp = await Promise.race([
-        sock.profilePictureUrl(user, "image"),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout")), 3000)
-        )
-      ])
+      pp = await sock.profilePictureUrl(user, "image")
     } catch {
       pp = null
     }
 
     // ===============================
-    // ENVIAR
+    // SI TIENE FOTO
     // ===============================
     if (pp) {
       return await sock.sendMessage(
@@ -56,6 +51,9 @@ export default {
       )
     }
 
+    // ===============================
+    // SI NO TIENE FOTO
+    // ===============================
     await sock.sendMessage(
       ctx.jid,
       {
