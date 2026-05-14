@@ -1,11 +1,6 @@
 let handler = async (m, { conn, args }) => {
 
-  // ===============================
-  // SI NO PONE HORA
-  // ===============================
-  if (!args[0]) {
-    return conn.reply(
-      m.chat,
+  const textoBase =
 `𝟒 𝐕𝐄𝐑𝐒𝐔𝐒 𝟒
 
 ⏱ 𝐇𝐎𝐑𝐀𝐑𝐈𝐎
@@ -24,25 +19,21 @@ let handler = async (m, { conn, args }) => {
 
 ㅤʚ 𝐒𝐔𝐏𝐋𝐄𝐍𝐓𝐄𝐒:
 🥷🏻 ┇
-🥷🏻 ┇`,
-      m
-    )
+🥷🏻 ┇`
+
+  // SI NO HAY ARGUMENTOS
+  if (!args[0]) {
+    return conn.sendMessage(m.chat, { text: textoBase }, { quoted: m })
   }
 
-  // ===============================
-  // HORA
-  // ===============================
-  const horaMX = args[0]
+  const hora = args[0]
 
-  // ===============================
-  // MENSAJE
-  // ===============================
   const texto =
 `𝟒 𝐕𝐄𝐑𝐒𝐔𝐒 𝟒
 
 ⏱ 𝐇𝐎𝐑𝐀𝐑𝐈𝐎
-🇲🇽 𝐌𝐄𝐗𝐈𝐂𝐎 : ${horaMX}
-🇨🇴 𝐂𝐎𝐋𝐎𝐌𝐁𝐈𝐀 : ${horaMX}
+🇲🇽 𝐌𝐄𝐗𝐈𝐂𝐎 : ${hora}
+🇨🇴 𝐂𝐎𝐋𝐎𝐌𝐁𝐈𝐀 : ${hora}
 
 ➥ 𝐌𝐎𝐃𝐀𝐋𝐈𝐃𝐀𝐃:
 ➥ 𝐉𝐔𝐆𝐀𝐃𝐎𝐑𝐄𝐒:
@@ -58,10 +49,7 @@ let handler = async (m, { conn, args }) => {
 🥷🏻 ┇
 🥷🏻 ┇`
 
-  // ===============================
-  // ENVIAR
-  // ===============================
-  await conn.reply(m.chat, texto, m)
+  await conn.sendMessage(m.chat, { text: texto }, { quoted: m })
 }
 
 handler.help = ['4vs4']
