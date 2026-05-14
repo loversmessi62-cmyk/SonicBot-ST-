@@ -7,8 +7,8 @@ export default {
 
         const links = [
             "https://ibb.co/XkjVyd9W",
-            "https://yourlink2.jpg",
-            "https://yourlink3.mp4"
+            "https://ibb.co/c71YVLX",
+            "https://ibb.co/6R8YQRTM"
         ];
 
         if (!links.length)
