@@ -5,97 +5,180 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 export default {
   commands: ["doxear", "doxxeo", "doxeo"],
   category: "fun",
-  admin: false,
   group: true,
 
   async run(sock, msg, args, ctx) {
+
     try {
-      const { jid, isGroup } = ctx;
-      let who;
 
-      const mentioned =
-        msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+      // ===============================
+      // DETECTAR USUARIO
+      // ===============================
+      const context =
+        msg.message?.extendedTextMessage?.contextInfo || {}
 
-      if (isGroup) {
-        if (mentioned.length) {
-          who = mentioned[0];
-        } else if (msg.quoted?.sender) {
-          who = msg.quoted.sender;
-        } else {
-          return sock.sendMessage(
-            jid,
-            { text: "⚠️ Menciona a un usuario o responde a un mensaje." },
-            { quoted: msg }
-          );
-        }
+      const mentioned = context.mentionedJid || []
+
+      let who
+
+      if (mentioned.length) {
+        who = mentioned[0]
+      } else if (context.participant) {
+        who = context.participant
       } else {
-        who = jid;
+        return await sock.sendMessage(
+          ctx.jid,
+          {
+            text: "⚠️ Menciona o responde a alguien"
+          },
+          { quoted: msg }
+        )
       }
 
-      let userName;
-      try {
-        userName = await sock.getName(who);
-      } catch {
-        userName = args.join(" ") || who.split("@")[0] || "Usuario desconocido";
-      }
+      const numero = who.split("@")[0]
 
-      const loadingMsg = await sock.sendMessage(
-        jid,
-        { text: "🧑‍💻 *Iniciando doxeo*...\n\n*0%*" },
+      // ===============================
+      // MENSAJE INICIAL
+      // ===============================
+      const sent = await sock.sendMessage(
+        ctx.jid,
+        {
+          text: "🧑‍💻 Iniciando doxeo...\n\n▒▒▒▒▒▒▒▒▒▒ 0%"
+        },
         { quoted: msg }
-      );
+      )
 
-      let percent = 0;
-      while (percent < 100) {
-        percent += Math.floor(Math.random() * 20) + 1;
-        if (percent > 100) percent = 100;
+      // ===============================
+      // BARRA
+      // ===============================
+      const barras = [
+        "█▒▒▒▒▒▒▒▒▒ 10%",
+        "██▒▒▒▒▒▒▒▒ 20%",
+        "███▒▒▒▒▒▒▒ 30%",
+        "████▒▒▒▒▒▒ 40%",
+        "█████▒▒▒▒▒ 50%",
+        "██████▒▒▒▒ 60%",
+        "███████▒▒▒ 70%",
+        "████████▒▒ 80%",
+        "█████████▒ 90%",
+        "██████████ 100%"
+      ]
 
-        await delay(800);
+      for (const barra of barras) {
 
-        await sock.sendMessage(jid, {
-          text: `🧑‍💻 *Iniciando doxeo*...\n\n*${percent}%*`,
-          edit: loadingMsg.key
-        });
+        await delay(400)
+
+        await sock.sendMessage(
+          ctx.jid,
+          {
+            text: `🧑‍💻 Iniciando doxeo...\n\n${barra}`,
+            edit: sent.key
+          }
+        ).catch(() => {})
       }
 
-      const start = performance.now();
-      await delay(100);
-      const end = performance.now();
-      const speed = `${(end - start).toFixed(2)} ms`;
+      // ===============================
+      // VELOCIDAD
+      // ===============================
+      const start = performance.now()
 
-      const numero = who.split("@")[0];
+      await delay(100)
 
-      const doxeo = `
-👤 *Persona doxeada*
+      const end = performance.now()
+
+      const speed =
+        `${(end - start).toFixed(2)} ms`
+
+      // ===============================
+      // DATOS RANDOM
+      // ===============================
+      const ips = [
+        "92.28.211.234",
+        "181.177.92.11",
+        "201.109.33.87",
+        "45.83.211.99"
+      ]
+
+      const routers = [
+        "TP-LINK",
+        "Huawei",
+        "Mikrotik",
+        "ERICSSON"
+      ]
+
+      const dns = [
+        "8.8.8.8",
+        "1.1.1.1",
+        "208.67.222.222"
+      ]
+
+      const ip =
+        ips[Math.floor(Math.random() * ips.length)]
+
+      const router =
+        routers[Math.floor(Math.random() * routers.length)]
+
+      const dnsRandom =
+        dns[Math.floor(Math.random() * dns.length)]
+
+      // ===============================
+      // RESULTADO
+      // ===============================
+      const resultado = `
+🧑‍💻 *DOXEO COMPLETADO*
 
 📅 ${new Date().toLocaleDateString("es-MX")}
 ⏰ ${new Date().toLocaleTimeString("es-MX")}
-⚡ Velocidad: ${speed}
 
-📢 Resultados:
-*Nombre:* ${userName}
-*Usuario:* @${numero}
-*IP:* 92.28.211.234
-*MAC:* 5A:78:3E:7E:00
-*ISP:* Ucom Universal
-*DNS:* 8.8.8.8 | 1.1.1.1
-*Gateway:* 192.168.0.1
-*Puertos abiertos:* UDP 8080, 80 | TCP 443
-*Router:* ERICSSON | TP-LINK
-      `.trim();
+👤 Usuario: @${numero}
 
-      await sock.sendMessage(jid, {
-        text: doxeo,
-        mentions: [who],
-        edit: loadingMsg.key
-      });
-    } catch (e) {
-      console.error("❌ Error en doxear:", e);
+🌐 IP: ${ip}
+📡 DNS: ${dnsRandom}
+⚡ Ping: ${speed}
+🔓 Puerto: 443
+📶 ISP: Telmex
+🛜 Router: ${router}
+💻 Sistema: Android 14
+📍 Ubicación: México
+
+⚠️ Datos filtrados correctamente
+`.trim()
+
+      // ===============================
+      // MENSAJE FINAL
+      // ===============================
       await sock.sendMessage(
         ctx.jid,
-        { text: "⚠️ Ocurrió un error durante el doxeo." },
+        {
+          text: resultado,
+          mentions: [who],
+          edit: sent.key
+        }
+      ).catch(async () => {
+
+        await sock.sendMessage(
+          ctx.jid,
+          {
+            text: resultado,
+            mentions: [who]
+          },
+          { quoted: msg }
+        )
+
+      })
+
+    } catch (e) {
+
+      console.error("❌ Error en doxear:", e)
+
+      await sock.sendMessage(
+        ctx.jid,
+        {
+          text: "⚠️ Ocurrió un error durante el doxeo"
+        },
         { quoted: msg }
-      );
+      )
+
     }
   }
-};
+}
