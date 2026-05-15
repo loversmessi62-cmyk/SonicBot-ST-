@@ -3,7 +3,7 @@ import { performance } from "perf_hooks";
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export default {
-  commands: ["doxear", "doxxeo", "doxeo"],
+  commands: ["dox", "doxxeo", "doxeo"],
   category: "fun",
   group: true,
 
